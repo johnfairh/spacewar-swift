@@ -1,0 +1,32 @@
+{
+  "pins" : [
+    {
+      "identity" : "steamworks-swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/johnfairh/steamworks-swift",
+      "state" : {
+        "branch" : "214af96",
+        "revision" : "214af969d3c3f1b0999d274e5f3e2bc15244391c"
+      }
+    },
+    {
+      "identity" : "swift-log",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-log.git",
+      "state" : {
+        "revision" : "6fe203dc33195667ce1759bf0182975e4653ba1c",
+        "version" : "1.4.4"
+      }
+    },
+    {
+      "identity" : "tmlengines",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/johnfairh/TMLEngines",
+      "state" : {
+        "revision" : "01fea7d77e478f8a94bbf5e3c5f62a72e8ee6420",
+        "version" : "1.0.0"
+      }
+    }
+  ],
+  "version" : 2
+}
