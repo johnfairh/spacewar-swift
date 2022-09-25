@@ -3,10 +3,12 @@ import Steamworks
 import SteamworksHelpers
 
 @main
-public struct spacewar_swift {
-    public private(set) var text = "Hello, World!"
-
+public struct SpaceWarMain {
     public static func main() {
-        print(spacewar_swift().text)
+        guard let steam = SteamAPI() else {
+            print("SteamInit failed")
+            return
+        }
+        print("Hello world with steam persona \(steam.friends.getPersonaName())")
     }
 }

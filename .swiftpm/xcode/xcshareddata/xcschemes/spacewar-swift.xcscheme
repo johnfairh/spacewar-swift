@@ -10,7 +10,7 @@
             ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
             <ActionContent
                title = "Run Script"
-               scriptText = "mkdir -p $TARGET_BUILD_DIR&#10;cp $STEAMAPI_REDIST_DIR/redist/lib/osx/* $TARGET_BUILD_DIR&#10;">
+               scriptText = "mkdir -p $TARGET_BUILD_DIR&#10;cp $STEAMAPI_REDIST_DIR/redist/lib/osx/* $TARGET_BUILD_DIR&#10;echo 480 &gt; $TARGET_BUILD_DIR/steam_appid.txt&#10;">
                <EnvironmentBuildable>
                   <BuildableReference
                      BuildableIdentifier = "primary"
