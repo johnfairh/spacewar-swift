@@ -1,5 +1,4 @@
 // swift-tools-version: 5.7
-// The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
 
@@ -10,7 +9,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/johnfairh/steamworks-swift",
-                 revision: "214af96"),
+                 branch: "install-sdk"),
         .package(url: "https://github.com/johnfairh/TMLEngines",
                  from: "1.0.0")
     ],

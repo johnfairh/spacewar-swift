@@ -5,7 +5,7 @@ import SteamworksHelpers
 @main
 public struct SpaceWarMain {
     public static func main() {
-        guard let steam = SteamAPI() else {
+        guard let steam = SteamAPI(appID: .spaceWar, fakeAppIdTxtFile: true) else {
             print("SteamInit failed")
             return
         }
