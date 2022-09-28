@@ -1,3 +1,3 @@
 # spacewar-swift
 
-A description of this package.
+Educational port of Steamworks demo to Swift.

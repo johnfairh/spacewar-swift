@@ -5,8 +5,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/johnfairh/steamworks-swift",
       "state" : {
-        "branch" : "install-sdk",
-        "revision" : "b53d032fe5df0266ddca17ababb05f69c3ab9004"
+        "branch" : "main",
+        "revision" : "7ec063b618fcaea61c710c304af64b122f8d73ff"
       }
     },
     {
