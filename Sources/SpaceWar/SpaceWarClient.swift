@@ -32,5 +32,9 @@ final class SpaceWarClient {
     func runFrame() {
         steam.runCallbacks()
         starField.render()
+
+        if engine.isKeyDown(.down) {
+            Alert(caption: "Alert!", text: "Don't panic")
+        }
     }
 }

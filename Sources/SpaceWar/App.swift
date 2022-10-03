@@ -8,7 +8,7 @@ import MetalEngine
 
 /// SwiftUI / OS startup layer, bits of gorpy singleton management and CLI parsing
 ///
-/// Don't actually create the client & set up stream until the engine starts up and gives
+/// Don't actually create the client or set up Steam until the engine starts up and gives
 /// us a context to create objects and hang stuff on.
 @main
 struct SpaceWarApp: App {
@@ -40,9 +40,7 @@ struct SpaceWarApp: App {
 
     /// Quit the entire thing
     static func quit() {
-        theClient = nil // shuts down steam
-        DispatchQueue.main.async {
-            NSApp.terminate(self)
-        }
+        theClient = nil // shuts down Steam
+        NSApp.terminate(self)
     }
 }
