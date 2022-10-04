@@ -122,24 +122,26 @@ import Darwin
 import Dispatch
 import AppKit
 
-func OutputDebugString(_ msg: String) {
-    fputs(msg, stderr)
-}
+extension Misc {
+    static func OutputDebugString(_ msg: String) {
+        fputs(msg, stderr)
+    }
 
-/// Helper to display critical errors
-@discardableResult
-func Alert(caption: String, text: String) -> Int {
-    OutputDebugString("ALERT: \(caption): \(text)\n")
-    let alert = NSAlert.init()
-    alert.messageText = caption
-    alert.informativeText = text
-    alert.addButton(withTitle: "OK")
-    alert.runModal()
-    return 0 // apparently
-}
+    /// Helper to display critical errors
+    @discardableResult
+    static func Alert(_ caption: String, _ text: String) -> Int {
+        OutputDebugString("ALERT: \(caption): \(text)\n")
+        let alert = NSAlert.init()
+        alert.messageText = caption
+        alert.informativeText = text
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+        return 0 // apparently
+    }
 
-func GetUserSaveDataPath() -> String {
-    preconditionFailure("This is supposed to be PS3-only")
+    func GetUserSaveDataPath() -> String {
+        preconditionFailure("This is supposed to be PS3-only")
+    }
 }
 
 /// CEG -- don't think this exists on macOS, we don't have it at any rate
