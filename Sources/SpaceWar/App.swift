@@ -7,7 +7,6 @@ import SwiftUI
 import Steamworks
 import MetalEngine
 
-// * Figure out how to do the faster network timer
 // * Tart up and move _i color inits to engine
 
 /// SwiftUI / OS startup layer, bits of gorpy steam init, singleton management, CLI parsing
@@ -97,10 +96,12 @@ struct SpaceWarApp: App {
             preconditionFailure("SteamInput()->Init failed.");
         }
 
-        if let steamInputManifestURL = Bundle.module.url(forResource: "steam_input_manifest", withExtension: "vdf") {
-            let rc = steam.input.setInputActionManifestFilePath(inputActionManifestAbsolutePath: steamInputManifestURL.path)
-            OutputDebugString("SteamInput VDF load: \(rc)")
+        guard let steamInputManifestURL = Bundle.module.url(forResource: "steam_input_manifest", withExtension: "vdf") else {
+            alert("Fatal Error", "SteamInput() VDF missing.")
+            preconditionFailure("Can't find steam_input_manifest.vdf in module bundle")
         }
+        let rc = steam.input.setInputActionManifestFilePath(inputActionManifestAbsolutePath: steamInputManifestURL.path)
+        OutputDebugString("SteamInput VDF load: \(rc)")
 
         return steam
     }

@@ -5,6 +5,7 @@
 
 import Steamworks
 import MetalEngine
+import Foundation
 
 /// Top-level game control type containing steam client and everything else, corresponds
 /// to SpaceWarClient and bits of Main.
@@ -21,6 +22,10 @@ final class SpaceWarClient {
         self.steam = steam
 
         starField = StarField(engine: engine)
+
+        Timer.scheduledTimer(withTimeInterval: 0.005, repeats: true) { [weak self] _ in
+            self?.receiveNetworkData()
+        }
     }
 
     func execCommandLineConnect(params: CmdLineParams) {
@@ -30,11 +35,16 @@ final class SpaceWarClient {
     }
 
     func runFrame() {
+        receiveNetworkData()
         steam.runCallbacks()
         starField.render()
 
         if engine.isKeyDown(.printable("Q")) {
             SpaceWarApp.quit()
         }
+    }
+
+    /// Called at the start of each frame and also between frames
+    func receiveNetworkData() {
     }
 }
