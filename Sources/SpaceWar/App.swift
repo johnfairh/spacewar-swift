@@ -8,7 +8,6 @@ import Steamworks
 import MetalEngine
 
 // * Figure out how to do the faster network timer
-// * Use logger for debug message?  Test it.
 // * Tart up and move _i color inits to engine
 
 /// SwiftUI / OS startup layer, bits of gorpy steam init, singleton management, CLI parsing
@@ -98,25 +97,10 @@ struct SpaceWarApp: App {
             preconditionFailure("SteamInput()->Init failed.");
         }
 
-        /* XXX - sort out resources */
-//        char rgchCWD[1024];
-//        if ( !_getcwd( rgchCWD, sizeof( rgchCWD ) ) )
-//        {
-//          strcpy( rgchCWD, "." );
-//        }
-//
-//        char rgchFullPath[1024];
-//      #if defined(_WIN32)
-//        _snprintf( rgchFullPath, sizeof( rgchFullPath ), "%s\\%s", rgchCWD, "steam_input_manifest.vdf" );
-//      #elif defined(OSX)
-//        // hack for now, because we do not have utility functions available for finding the resource path
-//        // alternatively we could disable the SteamController init on OS X
-//        _snprintf( rgchFullPath, sizeof( rgchFullPath ), "%s/steamworksexample.app/Contents/Resources/%s", rgchCWD, "steam_input_manifest.vdf" );
-//      #else
-//        _snprintf( rgchFullPath, sizeof( rgchFullPath ), "%s/%s", rgchCWD, "steam_input_manifest.vdf" );
-//      #endif
-//
-//        SteamInput()->SetInputActionManifestFilePath( rgchFullPath );
+        if let steamInputManifestURL = Bundle.module.url(forResource: "steam_input_manifest", withExtension: "vdf") {
+            let rc = steam.input.setInputActionManifestFilePath(inputActionManifestAbsolutePath: steamInputManifestURL.path)
+            OutputDebugString("SteamInput VDF load: \(rc)")
+        }
 
         return steam
     }

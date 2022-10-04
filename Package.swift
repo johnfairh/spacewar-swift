@@ -20,6 +20,11 @@ let package = Package(
         .product(name: "MetalEngine", package: "TMLEngines"),
         .product(name: "Steamworks", package: "steamworks-swift"),
         .product(name: "SteamworksHelpers", package: "steamworks-swift"),
+      ],
+      resources: [
+        .process("Resources/steam_controller.vdf"),
+        .process("Resources/steam_input_manifest.vdf"),
+        .process("Resources/xbox_controller.vdf")
       ]
     )
   ]
