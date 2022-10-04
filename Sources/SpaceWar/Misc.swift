@@ -117,21 +117,3 @@ enum ServerGameState {
   case winner
   case exiting
 }
-
-import Darwin
-
-extension Misc {
-    static func OutputDebugString(_ msg: String) {
-        fputs(msg, stderr)
-    }
-
-    func GetUserSaveDataPath() -> String {
-        preconditionFailure("This is supposed to be PS3-only")
-    }
-}
-
-/// CEG -- don't think this exists on macOS, we don't have it at any rate
-func Steamworks_InitCEGLibrary() -> Bool { true }
-func Steamworks_TermCEGLibrary() {}
-func Steamworks_TestSecret() {}
-func Steamworks_SelfCheck() {}

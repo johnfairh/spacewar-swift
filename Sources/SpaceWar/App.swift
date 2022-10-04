@@ -122,7 +122,7 @@ struct SpaceWarApp: App {
     }
 
     private func alert(_ caption: String, _ text: String) {
-        Misc.OutputDebugString("ALERT: \(caption): \(text)\n")
+        OutputDebugString("ALERT: \(caption): \(text)\n")
         let alert = NSAlert.init()
         alert.messageText = caption
         alert.informativeText = text
@@ -173,3 +173,14 @@ private extension Array where Element: Equatable {
         }
     }
 }
+
+/// Top-level debug logging
+func OutputDebugString(_ msg: String) {
+    SteamAPI.logger.debug(.init(stringLiteral: msg))
+}
+
+/// CEG -- don't think this exists on macOS, we don't have it at any rate
+func Steamworks_InitCEGLibrary() -> Bool { true }
+func Steamworks_TermCEGLibrary() {}
+func Steamworks_TestSecret() {}
+func Steamworks_SelfCheck() {}
