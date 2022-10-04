@@ -4,12 +4,12 @@
 //
 
 import SwiftUI
+import Steamworks
 import MetalEngine
 
-// * Move startup gorp back out to App, pass in SteamAPI, Engine, CommandLineParams
 // * Figure out how to do the faster network timer
-// * Alert is only during init, move it over
 // * Use logger for debug message?  Test it.
+// * Tart up and move _i color inits to engine
 
 /// SwiftUI / OS startup layer, bits of gorpy steam init, singleton management, CLI parsing
 ///
@@ -30,8 +30,29 @@ struct SpaceWarApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MetalEngineView() {
-                Self.theClient = SpaceWarClient(engine: $0)
+            MetalEngineView() { engine in
+                // Steam init
+                let steam = initSteam()
+
+                let client = SpaceWarClient(engine: engine, steam: steam)
+
+                // Black background
+                engine.setBackgroundColor(.rgb(0, 0, 0))
+
+                // If there are no params on the process command line then check in the Steam URL.
+                if let cmdLineParams = CmdLineParams() ??
+                    CmdLineParams(launchString: steam.apps.getLaunchCommandLine(commandLineSize: 1024).commandLine) /* XXX should default this */ {
+                    client.execCommandLineConnect(params: cmdLineParams)
+                }
+
+                // test a user specific secret before entering main loop
+                Steamworks_TestSecret()
+
+                // XXX think this is just a demo, move it somewhere else?
+                client.retrieveEncryptedAppTicket()
+
+                // Save the ref
+                Self.theClient = client
             } frame: { _ in
                 Self.theClient?.runFrame()
             }.frame(minWidth: 200, minHeight: 100)
@@ -41,9 +62,78 @@ struct SpaceWarApp: App {
     /// Might need to reach around here from random places, not sure
     static private(set) var theClient: SpaceWarClient?
 
+    /// Steam API initialization dance
+    private func initSteam() -> SteamAPI {
+        // Init Steam CEG
+        /* XXX this needs integrating into `SteamApi` for proper sequencing; tricky because doesn't exist... */
+        if !Steamworks_InitCEGLibrary() {
+            alert("Fatal Error", "Steam must be running to play this game (InitDrmLibrary() failed).");
+            preconditionFailure("Steamworks_InitCEGLibrary() failed");
+        }
+
+        guard let steam = SteamAPI(appID: .spaceWar, fakeAppIdTxtFile: true) else {
+            alert("Fatal Error", "Steam must be running to play this game (SteamAPI_Init() failed).");
+            preconditionFailure("SteamInit failed")
+        }
+
+        // Debug handlers
+        steam.useLoggerForSteamworksWarnings()
+        steam.networkingUtils.useLoggerForDebug(detailLevel: .everything)
+        SteamAPI.logger.logLevel = .debug
+
+        // Ensure that the user has logged into Steam. This will always return true if the game is launched
+        // from Steam, but if Steam is at the login prompt when you run your game from the debugger, it
+        // will return false.
+        if !steam.user.loggedOn() {
+            alert("Fatal Error", "Steam user must be logged in to play this game (SteamUser()->BLoggedOn() returned false).");
+            preconditionFailure("Steam user is not logged in")
+        }
+
+        // do a DRM self check
+        Steamworks_SelfCheck();
+
+        // Steam Input
+        if !steam.input.initialize(explicitlyCallRunFrame: false) /* XXX setting? */ {
+            alert("Fatal Error", "SteamInput()->Init failed.");
+            preconditionFailure("SteamInput()->Init failed.");
+        }
+
+        /* XXX - sort out resources */
+//        char rgchCWD[1024];
+//        if ( !_getcwd( rgchCWD, sizeof( rgchCWD ) ) )
+//        {
+//          strcpy( rgchCWD, "." );
+//        }
+//
+//        char rgchFullPath[1024];
+//      #if defined(_WIN32)
+//        _snprintf( rgchFullPath, sizeof( rgchFullPath ), "%s\\%s", rgchCWD, "steam_input_manifest.vdf" );
+//      #elif defined(OSX)
+//        // hack for now, because we do not have utility functions available for finding the resource path
+//        // alternatively we could disable the SteamController init on OS X
+//        _snprintf( rgchFullPath, sizeof( rgchFullPath ), "%s/steamworksexample.app/Contents/Resources/%s", rgchCWD, "steam_input_manifest.vdf" );
+//      #else
+//        _snprintf( rgchFullPath, sizeof( rgchFullPath ), "%s/%s", rgchCWD, "steam_input_manifest.vdf" );
+//      #endif
+//
+//        SteamInput()->SetInputActionManifestFilePath( rgchFullPath );
+
+        return steam
+    }
+
+    private func alert(_ caption: String, _ text: String) {
+        Misc.OutputDebugString("ALERT: \(caption): \(text)\n")
+        let alert = NSAlert.init()
+        alert.messageText = caption
+        alert.informativeText = text
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
     /// Quit the entire thing
     static func quit() {
         theClient = nil // shuts down Steam
+
         // Shutdown Steam CEG (apparently after SteamAPI_Shutdown()) XXX integrate properly
         Steamworks_TermCEGLibrary();
 
@@ -76,7 +166,7 @@ struct CmdLineParams {
     }
 }
 
-extension Array where Element: Equatable {
+private extension Array where Element: Equatable {
     func following(_ match: Element) -> Element? {
         firstIndex(of: match).flatMap { idx in
             idx + 1 < count ? self[idx + 1] : nil

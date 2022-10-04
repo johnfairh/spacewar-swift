@@ -119,24 +119,10 @@ enum ServerGameState {
 }
 
 import Darwin
-import Dispatch
-import AppKit
 
 extension Misc {
     static func OutputDebugString(_ msg: String) {
         fputs(msg, stderr)
-    }
-
-    /// Helper to display critical errors
-    @discardableResult
-    static func Alert(_ caption: String, _ text: String) -> Int {
-        OutputDebugString("ALERT: \(caption): \(text)\n")
-        let alert = NSAlert.init()
-        alert.messageText = caption
-        alert.informativeText = text
-        alert.addButton(withTitle: "OK")
-        alert.runModal()
-        return 0 // apparently
     }
 
     func GetUserSaveDataPath() -> String {
