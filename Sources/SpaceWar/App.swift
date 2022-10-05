@@ -7,8 +7,6 @@ import SwiftUI
 import Steamworks
 import MetalEngine
 
-// * Tart up and move _i color inits to engine
-
 /// SwiftUI / OS startup layer, bits of gorpy steam init, singleton management, CLI parsing
 ///
 /// Don't actually create the client or set up Steam until the engine starts up and gives
@@ -39,7 +37,7 @@ struct SpaceWarApp: App {
 
                 // If there are no params on the process command line then check in the Steam URL.
                 if let cmdLineParams = CmdLineParams() ??
-                    CmdLineParams(launchString: steam.apps.getLaunchCommandLine(commandLineSize: 1024).commandLine) /* XXX should default this */ {
+                    CmdLineParams(launchString: steam.apps.getLaunchCommandLine().commandLine) {
                     client.execCommandLineConnect(params: cmdLineParams)
                 }
 
@@ -96,7 +94,13 @@ struct SpaceWarApp: App {
             preconditionFailure("SteamInput()->Init failed.");
         }
 
-        guard let steamInputManifestURL = Bundle.module.url(forResource: "steam_input_manifest", withExtension: "vdf") else {
+#if SWIFT_PACKAGE
+        let bundle = Bundle.module
+#else
+        let bundle = Bundle.main
+#endif
+
+        guard let steamInputManifestURL = bundle.url(forResource: "steam_input_manifest", withExtension: "vdf") else {
             alert("Fatal Error", "SteamInput() VDF missing.")
             preconditionFailure("Can't find steam_input_manifest.vdf in module bundle")
         }

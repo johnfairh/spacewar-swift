@@ -57,18 +57,11 @@ enum Misc {
 
     /// Player colors
     static let PlayerColors: [Color2D] = [
-        .rgbai(255, 150, 150), // red
-        .rgbai(200, 200, 255), // blue
-        .rgbai(255, 204, 102), // orange
-        .rgbai(153, 255, 153), // green
+        .rgb_i(255, 150, 150), // red
+        .rgb_i(200, 200, 255), // blue
+        .rgb_i(255, 204, 102), // orange
+        .rgb_i(153, 255, 153), // green
     ]
-}
-
-extension Color2D {
-    /// Helper to allow color spec using integer 0-255
-    static func rgbai(_ r: Int, _ g: Int, _ b: Int, _ a: Int = 255) -> Color2D {
-        .rgba(Float(r)/255.0, Float(g)/255.0, Float(b)/255.0, Float(a)/255.0)
-    }
 }
 
 /// Enum for possible game states on the client
