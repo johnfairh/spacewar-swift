@@ -30,7 +30,7 @@ struct SpaceWarApp: App {
                 // Steam init
                 let steam = initSteam()
 
-                let client = SpaceWarClient(engine: engine, steam: steam)
+                let main = SpaceWarMain(engine: engine, steam: steam)
 
                 // Black background
                 engine.setBackgroundColor(.rgb(0, 0, 0))
@@ -38,25 +38,25 @@ struct SpaceWarApp: App {
                 // If there are no params on the process command line then check in the Steam URL.
                 if let cmdLineParams = CmdLineParams() ??
                     CmdLineParams(launchString: steam.apps.getLaunchCommandLine().commandLine) {
-                    client.execCommandLineConnect(params: cmdLineParams)
+                    main.execCommandLineConnect(params: cmdLineParams)
                 }
 
                 // test a user specific secret before entering main loop
                 Steamworks_TestSecret()
 
                 // XXX think this is just a demo, move it somewhere else?
-                client.retrieveEncryptedAppTicket()
+                main.retrieveEncryptedAppTicket()
 
                 // Save the ref
-                Self.theClient = client
+                Self.instance = main
             } frame: { _ in
-                Self.theClient?.runFrame()
+                Self.instance?.runFrame()
             }.frame(minWidth: 200, minHeight: 100)
         }
     }
 
     /// Might need to reach around here from random places, not sure
-    static private(set) var theClient: SpaceWarClient?
+    static private(set) var instance: SpaceWarMain?
 
     /// Steam API initialization dance
     private func initSteam() -> SteamAPI {
@@ -121,7 +121,7 @@ struct SpaceWarApp: App {
 
     /// Quit the entire thing
     static func quit() {
-        theClient = nil // shuts down Steam
+        instance = nil // shuts down Steam
 
         // Shutdown Steam CEG (apparently after SteamAPI_Shutdown()) XXX integrate properly
         Steamworks_TermCEGLibrary();
