@@ -28,6 +28,9 @@
 
 //    STEAM_CALLBACK( CSpaceWarClient, OnGameOverlayActivated, GameOverlayActivated_t );
 
+//    m_bSentWebOpen = false;
+//
+
 //
 //    // callback when getting the results of a web call
 //    STEAM_CALLBACK( CSpaceWarClient, OnGameWebCallback, GameWebCallback_t );

@@ -12,12 +12,68 @@ import Foundation
 ///
 /// SpaceWarApp holds the only reference to this and clears it when told to quit.
 final class SpaceWarClient {
-    let steam: SteamAPI
-    let engine: Engine2D
+    private let steam: SteamAPI
+    private let engine: Engine2D
 
     init(engine: Engine2D, steam: SteamAPI) {
         self.engine = engine
         self.steam = steam
+
+        //    m_uPlayerWhoWonGame = 0;
+        //    m_ulLastNetworkDataReceivedTime = 0;
+        //    m_pServer = NULL;
+        //    m_uPlayerShipIndex = 0;
+        //    m_eConnectedStatus = k_EClientNotConnected;
+        //    m_rgchErrorText[0] = 0;
+        //    m_unServerIP = 0;
+        //    m_usServerPort = 0;
+        //    m_ulPingSentTime = 0;
+        //    m_hConnServer = k_HSteamNetConnection_Invalid;
+        //    // Initialize the peer to peer connection process
+        //    SteamNetworkingUtils()->InitRelayNetworkAccess();
+        //    for( uint32 i = 0; i < MAX_PLAYERS_PER_SERVER; ++i )
+        //    {
+        //        m_rguPlayerScores[i] = 0;
+        //        m_rgpShips[i] = NULL;
+        //    }
+        //    m_hHUDFont = pGameEngine->HCreateFont( HUD_FONT_HEIGHT, FW_BOLD, false, "Arial" );
+        //    if ( !m_hHUDFont )
+        //        OutputDebugString( "HUD font was not created properly, text won't draw\n" );
+        //
+        //    m_hInstructionsFont = pGameEngine->HCreateFont( INSTRUCTIONS_FONT_HEIGHT, FW_BOLD, false, "Arial" );
+        //    if ( !m_hInstructionsFont )
+        //        OutputDebugString( "instruction font was not created properly, text won't draw\n" );
+
+        //    // ConnectingMenu is PS3-only, ignoring it.
+        //
+        //    // Initialize pause menu
+        //    m_pQuitMenu = new CQuitMenu( pGameEngine );
+        //
+        //    // Initialize sun
+        //    m_pSun = new CSun( pGameEngine );
+        //
+        //    m_nNumWorkshopItems = 0;
+        //    for (uint32 i = 0; i < MAX_WORKSHOP_ITEMS; ++i)
+        //    {
+        //        m_rgpWorkshopItems[i] = NULL;
+        //    }
+        //
+        //    // initialize P2P auth engine
+        //    m_pP2PAuthedGame = new CP2PAuthedGame( m_pGameEngine );
+        //    // P2P voice chat
+        //    m_pVoiceChat = new CVoiceChat( pGameEngine );
+        //    LoadWorkshopItems();
+    }
+
+    deinit {
+        //    DisconnectFromServer();
+        //
+        //    if ( m_pP2PAuthedGame )
+        //    {
+        //        m_pP2PAuthedGame->EndGame();
+        //        delete m_pP2PAuthedGame;
+        //        m_pP2PAuthedGame = NULL;
+        //    }
     }
 
     func runFrame() {
@@ -1134,15 +1190,6 @@ final class SpaceWarClient {
 //    // Who just won the game? Should be set if we go into the k_EGameWinner state
 //    uint32 m_uPlayerWhoWonGame;
 //
-//    // Current game state
-//    EClientGameState m_eGameState;
-//
-//    // true if we only just transitioned state
-//    bool m_bTransitionedGameState;
-
-//    // Time the last state transition occurred (so we can count-down round restarts)
-//    uint64 m_ulStateTransitionTime;
-//
 //    // track which steam image indexes we have textures for, and what handle that texture has
 //    std::map<int, HGAMETEXTURE> m_MapSteamImagesToTextures;
 
@@ -1837,20 +1884,8 @@ final class SpaceWarClient {
 //    // Service calls that need to happen less frequently than every frame (e.g. every second)
 //    void RunOccasionally();
 
-//    // Get the steam id for the local user at this client
-//    CSteamID GetLocalSteamID() { return m_SteamIDLocalUser; }
-//
-//    // Get the local players name
-//    const char* GetLocalPlayerName()
-//    {
-//        return SteamFriends()->GetFriendPersonaName( m_SteamIDLocalUser );
-//    }
-
 //    // Get a Steam-supplied image
 //    HGAMETEXTURE GetSteamImageAsTexture( int iImage );
-
-//    // SteamID for the local user on this client
-//    CSteamID m_SteamIDLocalUser;
 
 //    // Steam China support. duration control callback can be posted asynchronously, but we also
 //    // call it directly.
@@ -1871,232 +1906,6 @@ final class SpaceWarClient {
 //
 //    // Steam wants to shut down, Game for Windows applications should shutdown too
 //    STEAM_CALLBACK( CSpaceWarClient, OnSteamShutdown, SteamShutdown_t );
-
-////-----------------------------------------------------------------------------
-//// Purpose: Get a specific Steam image RGBA as a game texture
-////-----------------------------------------------------------------------------
-//HGAMETEXTURE CSpaceWarClient::GetSteamImageAsTexture( int iImage )
-//{
-//    HGAMETEXTURE hTexture = 0;
-//
-//    // iImage of 0 from steam means no avatar is set
-//    if ( iImage )
-//    {
-//        std::map<int, HGAMETEXTURE>::iterator iter;
-//        iter = m_MapSteamImagesToTextures.find( iImage );
-//        if ( iter == m_MapSteamImagesToTextures.end() )
-//        {
-//            // We haven't created a texture for this image index yet, do so now
-//
-//            // Get the image size from Steam, making sure it looks valid afterwards
-//            uint32 uAvatarWidth, uAvatarHeight;
-//            SteamUtils()->GetImageSize( iImage, &uAvatarWidth, &uAvatarHeight );
-//            if ( uAvatarWidth > 0 && uAvatarHeight > 0 )
-//            {
-//                // Get the actual raw RGBA data from Steam and turn it into a texture in our game engine
-//                byte *pAvatarRGBA = new byte[ uAvatarWidth * uAvatarHeight * 4];
-//                SteamUtils()->GetImageRGBA( iImage, (uint8*)pAvatarRGBA, uAvatarWidth * uAvatarHeight * 4 );
-//                hTexture = m_pGameEngine->HCreateTexture( pAvatarRGBA, uAvatarWidth, uAvatarHeight );
-//                delete[] pAvatarRGBA;
-//                if ( hTexture )
-//                {
-//                    m_MapSteamImagesToTextures[ iImage ] = hTexture;
-//                }
-//            }
-//        }
-//        else
-//        {
-//            hTexture = iter->second;
-//        }
-//    }
-//
-//    return hTexture;
-//}
-
-
-//void CSpaceWarClient::Init( IGameEngine *pGameEngine )
-//{
-//    // On PC/OSX we always know the user has a SteamID and is logged in already,
-//    // as Steam enforces this before game launch.  On PS3 however the game must
-//    // initiate the logon and we need to check the state here and block the user
-//    // while Steam connects.
-//    if ( SteamUser()->BLoggedOn() )
-//    {
-//        m_SteamIDLocalUser = SteamUser()->GetSteamID();
-//        m_eGameState = k_EClientGameMenu;
-//    }
-//#ifdef _PS3
-//    else
-//    {
-//        m_eGameState = k_EClientConnectingToSteam;
-//        SteamUser()->LogOn( true );
-//    }
-//#endif
-//
-//    g_pSpaceWarClient = this;
-//    m_pGameEngine = pGameEngine;
-//    m_uPlayerWhoWonGame = 0;
-//    m_ulStateTransitionTime = m_pGameEngine->GetGameTickCount();
-//    m_ulLastNetworkDataReceivedTime = 0;
-//    m_pServer = NULL;
-//    m_uPlayerShipIndex = 0;
-//    m_eConnectedStatus = k_EClientNotConnected;
-//    m_bTransitionedGameState = true;
-//    m_rgchErrorText[0] = 0;
-//    m_unServerIP = 0;
-//    m_usServerPort = 0;
-//    m_ulPingSentTime = 0;
-//    m_bSentWebOpen = false;
-//    m_hConnServer = k_HSteamNetConnection_Invalid;
-//
-//    // Initialize the peer to peer connection process
-//    SteamNetworkingUtils()->InitRelayNetworkAccess();
-//
-//    for( uint32 i = 0; i < MAX_PLAYERS_PER_SERVER; ++i )
-//    {
-//        m_rguPlayerScores[i] = 0;
-//        m_rgpShips[i] = NULL;
-//    }
-//
-//    // Seed random num generator
-//    srand( (uint32)time( NULL ) );
-//
-//    m_hHUDFont = pGameEngine->HCreateFont( HUD_FONT_HEIGHT, FW_BOLD, false, "Arial" );
-//    if ( !m_hHUDFont )
-//        OutputDebugString( "HUD font was not created properly, text won't draw\n" );
-//
-//    m_hInstructionsFont = pGameEngine->HCreateFont( INSTRUCTIONS_FONT_HEIGHT, FW_BOLD, false, "Arial" );
-//    if ( !m_hInstructionsFont )
-//        OutputDebugString( "instruction font was not created properly, text won't draw\n" );
-//
-//    m_hInGameStoreFont = pGameEngine->HCreateFont( INSTRUCTIONS_FONT_HEIGHT, FW_BOLD, false, "Courier New" );
-//    if ( !m_hInGameStoreFont )
-//        OutputDebugString( "in-game store font was not created properly, text won't draw\n" );
-//
-//    // Initialize starfield
-//    m_pStarField = new CStarField( pGameEngine );
-//
-//    // Initialize main menu
-//    m_pMainMenu = new CMainMenu( pGameEngine );
-//
-//    // Initialize connecting menu
-//    m_pConnectingMenu = new CConnectingMenu( pGameEngine );
-//
-//    // Initialize pause menu
-//    m_pQuitMenu = new CQuitMenu( pGameEngine );
-//
-//    // Initialize sun
-//    m_pSun = new CSun( pGameEngine );
-//
-//    m_nNumWorkshopItems = 0;
-//    for (uint32 i = 0; i < MAX_WORKSHOP_ITEMS; ++i)
-//    {
-//        m_rgpWorkshopItems[i] = NULL;
-//    }
-//
-//    // initialize P2P auth engine
-//    m_pP2PAuthedGame = new CP2PAuthedGame( m_pGameEngine );
-//
-//    // Create matchmaking menus
-//    m_pServerBrowser = new CServerBrowser( m_pGameEngine );
-//    m_pLobbyBrowser = new CLobbyBrowser( m_pGameEngine );
-//    m_pLobby = new CLobby( m_pGameEngine );
-//
-//
-//    // Init stats
-//    m_pStatsAndAchievements = new CStatsAndAchievements( pGameEngine );
-//    m_pLeaderboards = new CLeaderboards( pGameEngine );
-//    m_pFriendsList = new CFriendsList( pGameEngine );
-//    m_pMusicPlayer = new CMusicPlayer( pGameEngine );
-//    m_pClanChatRoom = new CClanChatRoom( pGameEngine );
-//
-//    // Remote Play session list
-//    m_pRemotePlayList = new CRemotePlayList( pGameEngine );
-//
-//    // Remote Storage page
-//    m_pRemoteStorage = new CRemoteStorage( pGameEngine );
-//
-//    // P2P voice chat
-//    m_pVoiceChat = new CVoiceChat( pGameEngine );
-//
-//    // HTML Surface page
-//    m_pHTMLSurface = new CHTMLSurface(pGameEngine);
-//
-//    // in-game store
-//    m_pItemStore = new CItemStore( pGameEngine );
-//    m_pItemStore->LoadItemsWithPrices();
-//
-//    m_pOverlayExamples = new COverlayExamples( pGameEngine );
-//
-//    LoadWorkshopItems();
-//}
-//
-//
-////-----------------------------------------------------------------------------
-//// Purpose: Destructor
-////-----------------------------------------------------------------------------
-//CSpaceWarClient::~CSpaceWarClient()
-//{
-//    DisconnectFromServer();
-//
-//    if ( m_pP2PAuthedGame )
-//    {
-//        m_pP2PAuthedGame->EndGame();
-//        delete m_pP2PAuthedGame;
-//        m_pP2PAuthedGame = NULL;
-//    }
-//
-//    if ( m_pServer )
-//    {
-//        delete m_pServer;
-//        m_pServer = NULL;
-//    }
-//
-//    if ( m_pStarField )
-//        delete m_pStarField;
-//
-//    if ( m_pMainMenu )
-//        delete m_pMainMenu;
-//
-//    if ( m_pConnectingMenu )
-//        delete m_pConnectingMenu;
-//
-//    if ( m_pQuitMenu )
-//        delete m_pQuitMenu;
-//
-//    if ( m_pSun )
-//        delete m_pSun;
-//
-//    if ( m_pStatsAndAchievements )
-//        delete m_pStatsAndAchievements;
-//
-//    if ( m_pServerBrowser )
-//        delete m_pServerBrowser;
-//
-//    if ( m_pVoiceChat )
-//        delete m_pVoiceChat;
-//
-//    if ( m_pHTMLSurface )
-//        delete m_pHTMLSurface;
-//
-//    for( uint32 i = 0; i < MAX_PLAYERS_PER_SERVER; ++i )
-//    {
-//        if ( m_rgpShips[i] )
-//        {
-//            delete m_rgpShips[i];
-//            m_rgpShips[i] = NULL;
-//        }
-//    }
-//
-//    for (uint32 i = 0; i < MAX_WORKSHOP_ITEMS; ++i)
-//    {
-//        if ( m_rgpWorkshopItems[i] )
-//        {
-//            delete m_rgpWorkshopItems[i];
-//            m_rgpWorkshopItems[i] = NULL;
-//        }
-//    }
-//}
 
 ////-----------------------------------------------------------------------------
 //// Purpose: Handles notification of a steam ipc failure

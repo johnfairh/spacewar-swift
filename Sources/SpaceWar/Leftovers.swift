@@ -198,3 +198,7 @@
 //
 //
 
+//    m_hInGameStoreFont = pGameEngine->HCreateFont( INSTRUCTIONS_FONT_HEIGHT, FW_BOLD, false, "Courier New" );
+//    if ( !m_hInGameStoreFont )
+//        OutputDebugString( "in-game store font was not created properly, text won't draw\n" );
+//
