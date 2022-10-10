@@ -81,9 +81,35 @@ final class SpaceWarMain {
         //    m_pItemStore->LoadItemsWithPrices();
         //    m_pOverlayExamples = new COverlayExamples( pGameEngine );
 
+        // Initialize networking
+
+        steam.networkingUtils.initRelayNetworkAccess()
+
         Timer.scheduledTimer(withTimeInterval: 0.005, repeats: true) { [weak self] _ in
             self?.receiveNetworkData()
         }
+
+        // Connect to general Steam notifications
+
+        steam.onIPCFailure { [weak self] msg in
+            self?.forceQuit(reason: "Steam IPC Failure (\(msg.failureType))")
+        }
+
+        // Steam shutdown request due to a user in a second concurrent session
+        // requesting to play this game
+        steam.onSteamShutdown { [weak self] _ in
+            self?.forceQuit(reason: "Steam Shutdown")
+        }
+    }
+
+    private var handledForceQuit = false
+    func forceQuit(reason: String) {
+        guard !handledForceQuit else {
+            return
+        }
+        handledForceQuit = true
+        OutputDebugString("Forced to quit: \(reason)")
+        SpaceWarApp.quit()
     }
 
     func execCommandLineConnect(params: CmdLineParams) {
@@ -106,3 +132,46 @@ final class SpaceWarMain {
     func receiveNetworkData() {
     }
 }
+
+//    STEAM_CALLBACK( CSpaceWarClient, OnGameJoinRequested, GameRichPresenceJoinRequested_t );
+//    STEAM_CALLBACK( CSpaceWarClient, OnNewUrlLaunchParameters, NewUrlLaunchParameters_t );
+
+
+////-----------------------------------------------------------------------------
+//// Purpose: Steam is asking us to join a game, based on the user selecting
+////            'join game' on a friend in their friends list
+////            the string comes from the "connect" field set in the friends' rich presence
+////-----------------------------------------------------------------------------
+//void CSpaceWarClient::OnGameJoinRequested( GameRichPresenceJoinRequested_t *pCallback )
+//{
+//    // parse out the connect
+//    const char *pchServerAddress, *pchLobbyID;
+//
+//    if ( ParseCommandLine( pCallback->m_rgchConnect, &pchServerAddress, &pchLobbyID ) )
+//    {
+//        // exec
+//        ExecCommandLineConnect( pchServerAddress, pchLobbyID );
+//    }
+//}
+//
+//
+////-----------------------------------------------------------------------------
+//// Purpose: a Steam URL to launch this app was executed while the game is already running, eg steam://run/480//+connect%20127.0.0.1
+////          Anybody can build random Steam URLs    and these extra parameters must be carefully parsed to avoid unintended side-effects
+////-----------------------------------------------------------------------------
+//void CSpaceWarClient::OnNewUrlLaunchParameters( NewUrlLaunchParameters_t *pCallback )
+//{
+//    const char *pchServerAddress, *pchLobbyID;
+//    char szCommandLine[1024] = {};
+//
+//    if ( SteamApps()->GetLaunchCommandLine( szCommandLine, sizeof(szCommandLine) ) > 0 )
+//    {
+//        if ( ParseCommandLine( szCommandLine, &pchServerAddress, &pchLobbyID ) )
+//        {
+//            // exec
+//            ExecCommandLineConnect( pchServerAddress, pchLobbyID );
+//        }
+//    }
+//}
+//
+//

@@ -29,8 +29,6 @@ final class SpaceWarClient {
         //    m_usServerPort = 0;
         //    m_ulPingSentTime = 0;
         //    m_hConnServer = k_HSteamNetConnection_Invalid;
-        //    // Initialize the peer to peer connection process
-        //    SteamNetworkingUtils()->InitRelayNetworkAccess();
         //    for( uint32 i = 0; i < MAX_PLAYERS_PER_SERVER; ++i )
         //    {
         //        m_rguPlayerScores[i] = 0;
@@ -541,11 +539,6 @@ final class SpaceWarClient {
 //    HSteamNetConnection m_hConnServer;
 //    // Track whether we are connected to a server (and what specific state that connection is in)
 //    EClientConnectionState m_eConnectedStatus;
-
-//    // callbacks for Steam connection state
-//    STEAM_CALLBACK( CSpaceWarClient, OnSteamServersConnected, SteamServersConnected_t );
-//    STEAM_CALLBACK( CSpaceWarClient, OnSteamServersDisconnected, SteamServersDisconnected_t );
-//    STEAM_CALLBACK( CSpaceWarClient, OnSteamServerConnectFailure, SteamServerConnectFailure_t );
 
 //    // Called when we get new connections, or the state of a connection changes
 //    STEAM_CALLBACK(CSpaceWarClient, OnNetConnectionStatusChanged, SteamNetConnectionStatusChangedCallback_t);
@@ -1189,9 +1182,6 @@ final class SpaceWarClient {
 //
 //    // Who just won the game? Should be set if we go into the k_EGameWinner state
 //    uint32 m_uPlayerWhoWonGame;
-//
-//    // track which steam image indexes we have textures for, and what handle that texture has
-//    std::map<int, HGAMETEXTURE> m_MapSteamImagesToTextures;
 
 ////-----------------------------------------------------------------------------
 //// Purpose: Used to transition game state
@@ -1884,9 +1874,6 @@ final class SpaceWarClient {
 //    // Service calls that need to happen less frequently than every frame (e.g. every second)
 //    void RunOccasionally();
 
-//    // Get a Steam-supplied image
-//    HGAMETEXTURE GetSteamImageAsTexture( int iImage );
-
 //    // Steam China support. duration control callback can be posted asynchronously, but we also
 //    // call it directly.
 //    STEAM_CALLBACK( CSpaceWarClient, OnDurationControl, DurationControl_t );
@@ -1901,84 +1888,7 @@ final class SpaceWarClient {
 //    }
 //    CCallResult<CSpaceWarClient, DurationControl_t> m_SteamCallResultDurationControl;
 //
-//    // ipc failure handler
-//    STEAM_CALLBACK( CSpaceWarClient, OnIPCFailure, IPCFailure_t );
-//
-//    // Steam wants to shut down, Game for Windows applications should shutdown too
-//    STEAM_CALLBACK( CSpaceWarClient, OnSteamShutdown, SteamShutdown_t );
 
-////-----------------------------------------------------------------------------
-//// Purpose: Handles notification of a steam ipc failure
-//// we may get multiple callbacks, one for each IPC operation we attempted
-//// since the actual failure, so protect ourselves from alerting more than once.
-////-----------------------------------------------------------------------------
-//void CSpaceWarClient::OnIPCFailure( IPCFailure_t *failure )
-//{
-//    static bool bExiting = false;
-//    if ( !bExiting )
-//    {
-//        OutputDebugString( "Steam IPC Failure, shutting down\n" );
-//#if defined( _WIN32 )
-//        ::MessageBoxA( NULL, "Connection to Steam Lost, Exiting", "Steam Connection Error", MB_OK );
-//#endif
-//        m_pGameEngine->Shutdown();
-//        bExiting = true;
-//    }
-//}
-//
-////-----------------------------------------------------------------------------
-//// Purpose: Handles notification of a Steam shutdown request since a Windows
-//// user in a second concurrent session requests to play this game. Shutdown
-//// this process immediately if possible.
-////-----------------------------------------------------------------------------
-//void CSpaceWarClient::OnSteamShutdown( SteamShutdown_t *callback )
-//{
-//    static bool bExiting = false;
-//    if ( !bExiting )
-//    {
-//        OutputDebugString( "Steam shutdown request, shutting down\n" );
-//        m_pGameEngine->Shutdown();
-//        bExiting = true;
-//    }
-//}
-//
-//
-////-----------------------------------------------------------------------------
-//// Purpose: Handles notification that we are now connected to Steam
-////-----------------------------------------------------------------------------
-//void CSpaceWarClient::OnSteamServersConnected( SteamServersConnected_t *callback )
-//{
-//    if ( SteamUser()->BLoggedOn() )
-//        m_eGameState = k_EClientGameMenu;
-//    else
-//    {
-//        OutputDebugString( "Got SteamServersConnected_t, but not logged on?\n" );
-//    }
-//}
-//
-//
-////-----------------------------------------------------------------------------
-//// Purpose: Handles notification that we are now connected to Steam
-////-----------------------------------------------------------------------------
-//void CSpaceWarClient::OnSteamServersDisconnected( SteamServersDisconnected_t *callback )
-//{
-//    SetGameState( k_EClientConnectingToSteam );
-//    m_pConnectingMenu->OnConnectFailure();
-//    OutputDebugString( "Got SteamServersDisconnected_t\n" );
-//}
-
-////-----------------------------------------------------------------------------
-//// Purpose: Handles notification that we are failed to connected to Steam
-////-----------------------------------------------------------------------------
-//void CSpaceWarClient::OnSteamServerConnectFailure( SteamServerConnectFailure_t *callback )
-//{
-//    char rgchString[256];
-//    sprintf_safe( rgchString, "SteamServerConnectFailure_t: %d\n", callback->m_eResult );
-//
-//    m_pConnectingMenu->OnConnectFailure();
-//}
-//
-//
 ////-----------------------------------------------------------------------------
 //// Purpose: Do work that doesn't need to happen every frame
 ////-----------------------------------------------------------------------------
@@ -2038,49 +1948,6 @@ final class SpaceWarClient {
 //        OutputDebugString( "Duration control: Playtime remaining is short - exit soon!\n" );
 //    }
 //}
-
-//    STEAM_CALLBACK( CSpaceWarClient, OnGameJoinRequested, GameRichPresenceJoinRequested_t );
-//    STEAM_CALLBACK( CSpaceWarClient, OnNewUrlLaunchParameters, NewUrlLaunchParameters_t );
-
-
-////-----------------------------------------------------------------------------
-//// Purpose: Steam is asking us to join a game, based on the user selecting
-////            'join game' on a friend in their friends list
-////            the string comes from the "connect" field set in the friends' rich presence
-////-----------------------------------------------------------------------------
-//void CSpaceWarClient::OnGameJoinRequested( GameRichPresenceJoinRequested_t *pCallback )
-//{
-//    // parse out the connect
-//    const char *pchServerAddress, *pchLobbyID;
-//
-//    if ( ParseCommandLine( pCallback->m_rgchConnect, &pchServerAddress, &pchLobbyID ) )
-//    {
-//        // exec
-//        ExecCommandLineConnect( pchServerAddress, pchLobbyID );
-//    }
-//}
-//
-//
-////-----------------------------------------------------------------------------
-//// Purpose: a Steam URL to launch this app was executed while the game is already running, eg steam://run/480//+connect%20127.0.0.1
-////          Anybody can build random Steam URLs    and these extra parameters must be carefully parsed to avoid unintended side-effects
-////-----------------------------------------------------------------------------
-//void CSpaceWarClient::OnNewUrlLaunchParameters( NewUrlLaunchParameters_t *pCallback )
-//{
-//    const char *pchServerAddress, *pchLobbyID;
-//    char szCommandLine[1024] = {};
-//
-//    if ( SteamApps()->GetLaunchCommandLine( szCommandLine, sizeof(szCommandLine) ) > 0 )
-//    {
-//        if ( ParseCommandLine( szCommandLine, &pchServerAddress, &pchLobbyID ) )
-//        {
-//            // exec
-//            ExecCommandLineConnect( pchServerAddress, pchLobbyID );
-//        }
-//    }
-//}
-//
-//
 
 
 // MARK: C++ Main Menu
