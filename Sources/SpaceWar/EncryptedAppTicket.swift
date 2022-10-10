@@ -5,6 +5,11 @@
 
 // MARK: C++ Encrypted App Ticket
 
+extension SpaceWarMain {
+    func retrieveEncryptedAppTicket() {
+    }
+}
+
 //    void RetrieveEncryptedAppTicket();
 //    // Called when SteamUser()->RequestEncryptedAppTicket() returns asynchronously
 //    void OnRequestEncryptedAppTicket( EncryptedAppTicketResponse_t *pEncryptedAppTicketResponse, bool bIOFailure );

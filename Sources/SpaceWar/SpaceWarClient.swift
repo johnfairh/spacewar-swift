@@ -74,10 +74,18 @@ final class SpaceWarClient {
         //    }
     }
 
+    func execCommandLineConnect(params: CmdLineParams) {
+        print("ExecCommandLineConnect: \(params)")
+    }
+
     func runFrame() {
-        if engine.isKeyDown(.printable("Q")) {
-            SpaceWarApp.quit()
-        }
+
+        //    if ( m_eConnectedStatus != k_EClientNotConnected && m_pGameEngine->GetGameTickCount() - m_ulLastNetworkDataReceivedTime > MILLISECONDS_CONNECTION_TIMEOUT )
+        //    {
+        //        SetConnectionFailureText( "Game server connection failure." );
+        //        DisconnectFromServer(); // cleanup on our side, even though server won't get our disconnect msg
+        //        SetGameState( k_EClientGameConnectionFailure );
+        //    }
     }
 
     /// Called at the start of each frame and also between frames
@@ -1369,49 +1377,6 @@ final class SpaceWarClient {
 ////-----------------------------------------------------------------------------
 //void CSpaceWarClient::RunFrame()
 //{
-//    // Get any new data off the network to begin with
-//    ReceiveNetworkData();
-//
-//    if ( m_eConnectedStatus != k_EClientNotConnected && m_pGameEngine->GetGameTickCount() - m_ulLastNetworkDataReceivedTime > MILLISECONDS_CONNECTION_TIMEOUT )
-//    {
-//        SetConnectionFailureText( "Game server connection failure." );
-//        DisconnectFromServer(); // cleanup on our side, even though server won't get our disconnect msg
-//        SetGameState( k_EClientGameConnectionFailure );
-//    }
-//
-//    // Check if escape has been pressed, we'll use that info in a couple places below
-//    bool bEscapePressed = false;
-//    if ( m_pGameEngine->BIsKeyDown( VK_ESCAPE ) ||
-//        m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_PauseMenu ) ||
-//        m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_MenuCancel ) )
-//    {
-//        static uint64 m_ulLastESCKeyTick = 0;
-//        uint64 ulCurrentTickCount = m_pGameEngine->GetGameTickCount();
-//        if ( ulCurrentTickCount - 250 > m_ulLastESCKeyTick )
-//        {
-//            m_ulLastESCKeyTick = ulCurrentTickCount;
-//            bEscapePressed = true;
-//        }
-//    }
-//
-//    // Run Steam client callbacks
-//    SteamAPI_RunCallbacks();
-//
-//    // Do work that runs infrequently. we do this every second.
-//    static time_t tLastCheck = 0;
-//    time_t tNow = time( nullptr );
-//    if ( tNow != tLastCheck )
-//    {
-//        tLastCheck = tNow;
-//        RunOccasionally();
-//    }
-//
-//    // if we just transitioned state, perform on change handlers
-//    if ( m_bTransitionedGameState )
-//    {
-//        m_bTransitionedGameState = false;
-//        OnGameStateChanged( m_eGameState );
-//    }
 //
 //    // Update state for everything
 //    switch ( m_eGameState )

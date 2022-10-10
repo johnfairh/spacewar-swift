@@ -32,19 +32,10 @@ struct SpaceWarApp: App {
 
                 let main = SpaceWarMain(engine: engine, steam: steam)
 
-                // Black background
-                engine.setBackgroundColor(.rgb(0, 0, 0))
-
-                // If there are no params on the process command line then check in the Steam URL.
-                if let cmdLineParams = CmdLineParams() ??
-                    CmdLineParams(launchString: steam.apps.getLaunchCommandLine().commandLine) {
-                    main.execCommandLineConnect(params: cmdLineParams)
-                }
-
-                // test a user specific secret before entering main loop
+                // test a user-specific secret before entering main loop
                 Steamworks_TestSecret()
 
-                // XXX think this is just a demo, move it somewhere else?
+                // This is just a demo, no functional use in this program
                 main.retrieveEncryptedAppTicket()
 
                 // Save the ref
@@ -130,9 +121,17 @@ struct SpaceWarApp: App {
     }
 }
 
-struct CmdLineParams {
+struct CmdLineParams: CustomStringConvertible {
     let serverAddress: String?
     let lobbyID: String?
+
+    var description: String {
+        let params = [
+            serverAddress.map { "+connect \($0)" },
+            lobbyID.map { "+connect_lobby \($0)" }
+        ]
+        return "[\(params.compactMap { $0 }.joined(separator: ", "))]"
+    }
 
     private var isEmpty: Bool {
         serverAddress == nil && lobbyID == nil
@@ -146,12 +145,19 @@ struct CmdLineParams {
         }
     }
 
+    /// Initialize using the current process's native arguments
     init?() {
         self.init(args: ProcessInfo.processInfo.arguments)
     }
 
+    /// Initialize from a string of space-separated parameters from somewhere
     init?(launchString: String) {
         self.init(args: launchString.split(separator: " ").map { String($0) })
+    }
+
+    /// Initialize from the Steam 'launch command line' that can change over time as URLs are dispatched
+    init?(steam: SteamAPI) {
+        self.init(launchString: steam.apps.getLaunchCommandLine().commandLine)
     }
 }
 

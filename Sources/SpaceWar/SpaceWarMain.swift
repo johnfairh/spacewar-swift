@@ -13,6 +13,16 @@ extension Engine2D {
     }
 }
 
+extension Engine2D.TickCount {
+    func isMoreThan(_ duration: Engine2D.TickCount, since: Engine2D.TickCount) -> Bool {
+        self - since > duration
+    }
+
+    func isLessThan(_ duration: Engine2D.TickCount, since: Engine2D.TickCount) -> Bool {
+        self - since < duration
+    }
+}
+
 /// Top-level game control type holding ref to the Steam client and everything else.
 ///
 /// Corresponds to the non-core-game parts of SpaceWarClient, attempting to split
@@ -43,6 +53,8 @@ final class SpaceWarMain {
     private(set) var gameState: ClientGameState
     private(set) var stateTransitionTime: Engine2D.TickCount
     private var transitionedGameState: Bool
+    private var cancelInput: Debounced
+    private var infrequent: Debounced
 
     init(engine: Engine2D, steam: SteamAPI) {
         self.engine = engine
@@ -55,11 +67,19 @@ final class SpaceWarMain {
         gameState = .gameMenu // main menu
         stateTransitionTime = engine.gameTickCount
         transitionedGameState = true
+        cancelInput = Debounced(debounce: 250) {
+            engine.isKeyDown(.escape)
+            /* XXX SteamInput ||
+               m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_PauseMenu ) ||
+             m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_MenuCancel ) ) */
+        }
+        // Gadget to fire every second
+        infrequent = Debounced(debounce: 1000) { true }
 
         // The game part of spacewarclient
         gameClient = SpaceWarClient(engine: engine, steam: steam)
 
-        // Initialize starfield - common background almost always there
+        // Initialize starfield - common background almost always drawn
         starField = StarField(engine: engine)
 
         //    // Initialize main menu
@@ -81,6 +101,10 @@ final class SpaceWarMain {
         //    m_pItemStore->LoadItemsWithPrices();
         //    m_pOverlayExamples = new COverlayExamples( pGameEngine );
 
+        // Initialize engine
+
+        engine.setBackgroundColor(.rgb(0, 0, 0))
+
         // Initialize networking
 
         steam.networkingUtils.initRelayNetworkAccess()
@@ -92,13 +116,37 @@ final class SpaceWarMain {
         // Connect to general Steam notifications
 
         steam.onIPCFailure { [weak self] msg in
+            // Some awful O/S or library error
             self?.forceQuit(reason: "Steam IPC Failure (\(msg.failureType))")
         }
 
-        // Steam shutdown request due to a user in a second concurrent session
-        // requesting to play this game
         steam.onSteamShutdown { [weak self] _ in
+            // Steam shutdown request due to a user in a second concurrent session
+            // requesting to play this game
             self?.forceQuit(reason: "Steam Shutdown")
+        }
+
+        // Command-line server-connect instructions
+
+        if let cmdLineParams = CmdLineParams() ?? CmdLineParams(steam: steam) {
+            gameClient.execCommandLineConnect(params: cmdLineParams)
+        }
+
+        steam.onGameRichPresenceJoinRequested { [weak self] msg in
+            // Steam is asking us to join a game, based on the user selecting
+            // 'join game' on a friend in their friends list
+            OutputDebugString("RichPresenceJoinRequested: \(msg.connect)")
+            if let self, let params = CmdLineParams(launchString: msg.connect) {
+                self.gameClient.execCommandLineConnect(params: params)
+            }
+        }
+
+        steam.onNewUrlLaunchParameters { [weak self] msg in
+            // a Steam URL to launch this app was executed while the game is
+            // already running, eg steam://run/480//+connect%20127.0.0.1
+            if let self, let params = CmdLineParams(steam: self.steam) {
+                self.gameClient.execCommandLineConnect(params: params)
+            }
         }
     }
 
@@ -112,15 +160,32 @@ final class SpaceWarMain {
         SpaceWarApp.quit()
     }
 
-    func execCommandLineConnect(params: CmdLineParams) {
-    }
+    // MARK: State machine
 
-    func retrieveEncryptedAppTicket() {
+    func onGameStateChanged() {
     }
 
     func runFrame() {
+        // Get any new data off the network to begin with
         receiveNetworkData()
+
+        // Check if escape has been pressed, we'll use that info in a couple places below
+        let escapedPressed = cancelInput.test(now: engine.gameTickCount)
+
+        // Run Steam client callbacks
         steam.runCallbacks()
+
+        // Do work that runs infrequently. we do this every second.
+        if infrequent.test(now: engine.gameTickCount) {
+            runOccasionally()
+        }
+
+        // if we just transitioned state, perform on change handlers
+        if transitionedGameState {
+            transitionedGameState = false
+            onGameStateChanged()
+        }
+
         starField.render()
 
         if engine.isKeyDown(.printable("Q")) {
@@ -128,50 +193,35 @@ final class SpaceWarMain {
         }
     }
 
+    func runOccasionally() {
+        print("occasion")
+    }
+
     /// Called at the start of each frame and also between frames
     func receiveNetworkData() {
+        gameClient.receiveNetworkData()
     }
 }
 
-//    STEAM_CALLBACK( CSpaceWarClient, OnGameJoinRequested, GameRichPresenceJoinRequested_t );
-//    STEAM_CALLBACK( CSpaceWarClient, OnNewUrlLaunchParameters, NewUrlLaunchParameters_t );
+/// Helper to debounce events to avoid one 'esc' press jumping through layers of menus
+struct Debounced {
+    let sample: () -> Bool
+    let debounce: Engine2D.TickCount
 
+    private(set) var lastPress: Engine2D.TickCount
 
-////-----------------------------------------------------------------------------
-//// Purpose: Steam is asking us to join a game, based on the user selecting
-////            'join game' on a friend in their friends list
-////            the string comes from the "connect" field set in the friends' rich presence
-////-----------------------------------------------------------------------------
-//void CSpaceWarClient::OnGameJoinRequested( GameRichPresenceJoinRequested_t *pCallback )
-//{
-//    // parse out the connect
-//    const char *pchServerAddress, *pchLobbyID;
-//
-//    if ( ParseCommandLine( pCallback->m_rgchConnect, &pchServerAddress, &pchLobbyID ) )
-//    {
-//        // exec
-//        ExecCommandLineConnect( pchServerAddress, pchLobbyID );
-//    }
-//}
-//
-//
-////-----------------------------------------------------------------------------
-//// Purpose: a Steam URL to launch this app was executed while the game is already running, eg steam://run/480//+connect%20127.0.0.1
-////          Anybody can build random Steam URLs    and these extra parameters must be carefully parsed to avoid unintended side-effects
-////-----------------------------------------------------------------------------
-//void CSpaceWarClient::OnNewUrlLaunchParameters( NewUrlLaunchParameters_t *pCallback )
-//{
-//    const char *pchServerAddress, *pchLobbyID;
-//    char szCommandLine[1024] = {};
-//
-//    if ( SteamApps()->GetLaunchCommandLine( szCommandLine, sizeof(szCommandLine) ) > 0 )
-//    {
-//        if ( ParseCommandLine( szCommandLine, &pchServerAddress, &pchLobbyID ) )
-//        {
-//            // exec
-//            ExecCommandLineConnect( pchServerAddress, pchLobbyID );
-//        }
-//    }
-//}
-//
-//
+    /// Wrap a predicate so it returns `true` only once every `debounce` milliseconds
+    init(debounce: Engine2D.TickCount, sample: @escaping () -> Bool) {
+        self.sample = sample
+        self.debounce = debounce
+        self.lastPress = 0
+    }
+
+    mutating func test(now: Engine2D.TickCount) -> Bool {
+        guard sample(), now.isMoreThan(debounce, since: lastPress) else {
+            return false
+        }
+        lastPress = now
+        return true
+    }
+}
