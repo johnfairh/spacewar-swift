@@ -23,6 +23,44 @@ extension Engine2D.TickCount {
     }
 }
 
+/// Gadget to wrap up the 'state' pattern that gets split three ways in this port.
+///
+/// Record time of state change
+/// Provide call to execute code first time made in new state
+/// Provide setter to nop if already there and execute code if not
+struct MonitoredState<ActualState: Equatable> {
+    let engine: Engine2D
+
+    init(engine: Engine2D, initial: ActualState) {
+        self.engine = engine
+        self.state = initial
+        self.transitioned = false
+        self.transitionTime = 0
+    }
+
+    private(set) var state: ActualState
+
+    mutating func set(_ newState: ActualState, call: () -> Void = {}) {
+        guard newState != state else {
+            return
+        }
+        state = newState
+        transitioned = true
+        transitionTime = engine.gameTickCount
+        call()
+    }
+
+    private(set) var transitioned: Bool
+    private(set) var transitionTime: Engine2D.TickCount
+
+    mutating func onTransition(call: () -> Void) {
+        if transitioned {
+            transitioned = false
+            call()
+        }
+    }
+}
+
 /// Top-level game control type holding ref to the Steam client and everything else.
 ///
 /// Corresponds to the non-core-game parts of SpaceWarClient, attempting to split
@@ -31,6 +69,7 @@ extension Engine2D.TickCount {
 /// SpaceWarApp holds the only reference to this and clears it when told to quit.
 ///
 /// The entire architecture of this program is cruft and accretion - knowingly cargo-culting it.
+/// Though I have modularized slightly rather than having one massive state enum.
 ///
 /// No PS3 accommodations.
 final class SpaceWarMain {
@@ -46,13 +85,11 @@ final class SpaceWarMain {
 
     // Components
     private let gameClient: SpaceWarClient
+    private let lobbies: Lobbies
     private let starField: StarField
 
-    /// Overall game state - includes several states to do with actually running the game, that are owned
-    /// by ``SpaceWarClient``, and states for each of the other demo/utility modes we can be in.
-    private(set) var gameState: ClientGameState
-    private(set) var stateTransitionTime: Engine2D.TickCount
-    private var transitionedGameState: Bool
+    /// Overall game state
+    private(set) var gameState: MonitoredState<MainGameState>
     private var cancelInput: Debounced
     private var infrequent: Debounced
 
@@ -64,9 +101,7 @@ final class SpaceWarMain {
         precondition(steam.user.loggedOn())
         localUserSteamID = steam.user.getSteamID()
 
-        gameState = .gameMenu // main menu
-        stateTransitionTime = engine.gameTickCount
-        transitionedGameState = true
+        gameState = MonitoredState(engine: engine, initial: .gameMenu)
         cancelInput = Debounced(debounce: 250) {
             engine.isKeyDown(.escape)
             /* XXX SteamInput ||
@@ -78,6 +113,8 @@ final class SpaceWarMain {
 
         // The game part of spacewarclient
         gameClient = SpaceWarClient(engine: engine, steam: steam)
+        // The lobby part of spacewarclient
+        lobbies = Lobbies(engine: engine, steam: steam)
 
         // Initialize starfield - common background almost always drawn
         starField = StarField(engine: engine)
@@ -126,6 +163,24 @@ final class SpaceWarMain {
             self?.forceQuit(reason: "Steam Shutdown")
         }
 
+        steam.onSteamServersDisconnected { [weak self] _ in
+            // Notification that we've been disconnected from Steam
+            guard let self else {
+                return
+            }
+            self.setGameState(.connectingToSteam)
+            OutputDebugString("Got SteamServersDisconnected_t")
+        }
+
+        steam.onSteamServersConnected { [weak self] _ in
+            // Notification that we are reconnected to Steam
+            if let self, self.steam.user.loggedOn() {
+                self.setGameState(.gameMenu)
+            } else {
+                OutputDebugString("Got SteamServersConnected, but not logged on?")
+            }
+        }
+
         // Command-line server-connect instructions
 
         if let cmdLineParams = CmdLineParams() ?? CmdLineParams(steam: steam) {
@@ -162,9 +217,18 @@ final class SpaceWarMain {
 
     // MARK: State machine
 
+    /// Transition game state
+    func setGameState(_ state: MainGameState) {
+        gameState.set(state) {
+            //    // update any rich presence state
+            //    XXX UpdateRichPresenceConnectionInfo();
+        }
+    }
+
     func onGameStateChanged() {
     }
 
+    /// Main frame function, updates the state of the world and performs rendering
     func runFrame() {
         // Get any new data off the network to begin with
         receiveNetworkData()
@@ -175,18 +239,197 @@ final class SpaceWarMain {
         // Run Steam client callbacks
         steam.runCallbacks()
 
-        // Do work that runs infrequently. we do this every second.
+        // Do work that runs infrequently. we do this every second
         if infrequent.test(now: engine.gameTickCount) {
             runOccasionally()
         }
 
         // if we just transitioned state, perform on change handlers
-        if transitionedGameState {
-            transitionedGameState = false
+        gameState.onTransition {
             onGameStateChanged()
         }
 
-        starField.render()
+        // factor out starfield rendering - do unless we're in web-page mode
+        if gameState.state != .htmlSurface {
+            starField.render()
+        }
+
+        // Update state for everything
+        switch gameState.state {
+        case .connectingToSteam:
+            // Make sure the Steam Controller is in the correct mode.
+            // XXX SteamInput       m_pGameEngine->SetSteamControllerActionSet( eControllerActionSet_MenuControls );
+            break;
+
+        case .retrySteamConnection, .linkSteamAccount, .autoCreateAccount:
+            preconditionFailure("Unexpected PS3-specific state")
+
+//        case .gameMenu:
+//            // XXX MainMenu m_pMainMenu->RunFrame();
+//            // Make sure the Steam Controller is in the correct mode.
+//            // XXX SteamInput m_pGameEngine->SetSteamControllerActionSet( eControllerActionSet_MenuControls );
+//            break;
+
+        case .startServer:
+            gameClient.startServer()
+            setGameState(.runningGame)
+
+        case .runningGame:
+            if !gameClient.runFrame() {
+                setGameState(.gameMenu)
+            }
+
+        case .joinLobby:
+            lobbies.findLobby()
+            setGameState(.doingLobby)
+        case .createLobby:
+            lobbies.createLobby()
+            setGameState(.doingLobby)
+
+        case .doingLobby:
+            switch lobbies.runFrame() {
+            case .mainMenu:
+                setGameState(.gameMenu)
+            case .lobby:
+                break
+            case .runGame(let steamID, let server):
+                gameClient.connectFromLobby(steamID: steamID, server: server)
+                setGameState(.runningGame)
+            }
+
+    //    case k_EClientFindInternetServers:
+    //    case k_EClientFindLANServers:
+    //        m_pServerBrowser->RunFrame();
+    //        break;
+
+
+            //    case k_EClientGameInstructions:
+            //        DrawInstructions();
+            //
+            //        if ( bEscapePressed )
+            //            SetGameState( k_EClientGameMenu );
+            //        break;
+
+            //    case k_EClientWorkshop:
+            //        DrawWorkshopItems();
+            //
+            //        if (bEscapePressed)
+            //            SetGameState(k_EClientGameMenu);
+            //        break;
+
+            //    case k_EClientStatsAchievements:
+            //        m_pStatsAndAchievements->Render();
+            //
+            //        if ( bEscapePressed )
+            //            SetGameState( k_EClientGameMenu );
+            //        if (m_pGameEngine->BIsKeyDown( 0x31 ) )
+            //        {
+            //            SpaceWarLocalInventory()->DoExchange();
+            //        }
+            //        else if ( m_pGameEngine->BIsKeyDown( 0x32 ) )
+            //        {
+            //            SpaceWarLocalInventory()->ModifyItemProperties();
+            //        }
+            //        break;
+
+            //    case k_EClientLeaderboards:
+            //        m_pLeaderboards->RunFrame();
+            //
+            //        if ( bEscapePressed )
+            //            SetGameState( k_EClientGameMenu );
+            //        break;
+
+            //    case k_EClientFriendsList:
+            //        m_pFriendsList->RunFrame();
+            //
+            //        if ( bEscapePressed )
+            //            SetGameState( k_EClientGameMenu );
+            //        break;
+
+            //    case k_EClientClanChatRoom:
+            //        m_pClanChatRoom->RunFrame();
+            //
+            //        if ( bEscapePressed )
+            //            SetGameState( k_EClientGameMenu );
+            //        break;
+
+            //    case k_EClientRemotePlay:
+            //        m_pRemotePlayList->RunFrame();
+            //
+            //        if ( bEscapePressed )
+            //            SetGameState( k_EClientGameMenu );
+            //        break;
+
+            //    case k_EClientRemoteStorage:
+            //        m_pRemoteStorage->Render();
+            //        break;
+
+            //    case k_EClientHTMLSurface:
+            //        m_pHTMLSurface->RunFrame();
+            //        m_pHTMLSurface->Render();
+            //        break;
+
+            //    case k_EClientMinidump:
+            //#ifdef _WIN32
+            //        RaiseException( EXCEPTION_NONCONTINUABLE_EXCEPTION,
+            //            EXCEPTION_NONCONTINUABLE,
+            //            0, NULL );
+            //#endif
+            //        SetGameState( k_EClientGameMenu );
+            //        break;
+
+            // XXX not sure about this yet, steam china out-of-the-blue
+            //     and game quit menu.
+            // Think nuke it, don't need a state, just quit
+            //    case k_EClientGameExiting:
+            //        DisconnectFromServer();
+            //        m_pGameEngine->Shutdown();
+            //        return;
+
+            //    case k_EClientWebCallback:
+            //        if ( !m_bSentWebOpen )
+            //        {
+            //            m_bSentWebOpen = true;
+            //#ifndef _PS3
+            //            char szCurDir[MAX_PATH];
+            //            if ( !_getcwd( szCurDir, sizeof(szCurDir) ) )
+            //            {
+            //                strcpy( szCurDir, "." );
+            //            }
+            //            char szURL[MAX_PATH];
+            //            sprintf_safe( szURL, "file:///%s/test.html", szCurDir );
+            //            // load the test html page, it just has a steam://gamewebcallback link in it
+            //            SteamFriends()->ActivateGameOverlayToWebPage( szURL );
+            //            SetGameState( k_EClientGameMenu );
+            //#endif
+            //        }
+            //        break;
+
+            //    case k_EClientMusic:
+            //        m_pMusicPlayer->RunFrame();
+            //
+            //        if ( bEscapePressed )
+            //        {
+            //            SetGameState( k_EClientGameMenu );
+            //        }
+            //        break;
+
+            //    case k_EClientInGameStore:
+            //        m_pItemStore->RunFrame();
+            //
+            //        if (bEscapePressed)
+            //            SetGameState(k_EClientGameMenu);
+            //        break;
+
+            //    case k_EClientOverlayAPI:
+            //        m_pOverlayExamples->RunFrame();
+            //
+            //        if ( bEscapePressed )
+            //            SetGameState( k_EClientGameMenu );
+            //        break;
+        default:
+            OutputDebugString("Unhandled game client state \(gameState)")
+        }
 
         if engine.isKeyDown(.printable("Q")) {
             SpaceWarApp.quit()
@@ -203,7 +446,7 @@ final class SpaceWarMain {
     }
 }
 
-/// Helper to debounce events to avoid one 'esc' press jumping through layers of menus
+/// Helper to debounce events eg. to avoid one 'esc' press jumping through layers of menus
 struct Debounced {
     let sample: () -> Bool
     let debounce: Engine2D.TickCount

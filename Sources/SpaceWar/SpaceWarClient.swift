@@ -7,17 +7,31 @@ import Steamworks
 import MetalEngine
 import Foundation
 
-/// Top-level game control type containing steam client and everything else, corresponds
-/// to SpaceWarClient and bits of Main.
+/// Game-related parts of SpaceWarClient.
 ///
-/// SpaceWarApp holds the only reference to this and clears it when told to quit.
+/// SpaceWarMain is in charge of this, initializes it and passes it the baton of
+/// running a game, with either a local server or connecting to one.
 final class SpaceWarClient {
     private let steam: SteamAPI
     private let engine: Engine2D
 
+    enum State {
+        case idle
+        case startServer
+        case connecting
+        case waitingForPlayers
+        case active
+        case winner
+        case draw
+        case quitMenu
+        case connectionFailure
+    }
+    private(set) var state: MonitoredState<State>
+
     init(engine: Engine2D, steam: SteamAPI) {
         self.engine = engine
         self.steam = steam
+        self.state = MonitoredState<State>(engine: engine, initial: .idle)
 
         //    m_uPlayerWhoWonGame = 0;
         //    m_ulLastNetworkDataReceivedTime = 0;
@@ -74,11 +88,37 @@ final class SpaceWarClient {
         //    }
     }
 
+    // MARK: Kick-off entrypoints
+
+    /// User hits 'start server' on the main menu.
+    /// Create a new local server, wait for it to be ready, connect to it.
+    func startServer() {
+        precondition(state.state == .idle, "Must be .idle on StartServer not \(state)") // I think...
+        state.set(.startServer)
+    }
+
+    /// User has found/started a server via a lobby, we take over now.
+    func connectFromLobby(steamID: SteamID, server: Int? /*SpaceWarServer*/) {
+        precondition(state.state == .idle, "Must be .idle on StartServer not \(state)") // I think...
+        state.set(.startServer) /* XXX */
+    }
+
     func execCommandLineConnect(params: CmdLineParams) {
         print("ExecCommandLineConnect: \(params)")
     }
 
-    func runFrame() {
+    // MARK: State machine
+
+    func onStateChanged() {
+        //    // Let the stats handler check the state (so it can detect wins, losses, etc...)
+        //    XXX m_pStatsAndAchievements->OnGameStateChange( eState );
+    }
+
+    /// Frame poll function.
+    /// Called by `SpaceWarMain` when it thinks we're in a state of running/starting a game.
+    /// Return `true` to stay in that mode, return `false` to exit to the main menu
+    func runFrame() -> Bool {
+        precondition(state.state != .idle, "SpaceWarMain thinks we're busy but we're idle :-(")
 
         //    if ( m_eConnectedStatus != k_EClientNotConnected && m_pGameEngine->GetGameTickCount() - m_ulLastNetworkDataReceivedTime > MILLISECONDS_CONNECTION_TIMEOUT )
         //    {
@@ -86,6 +126,199 @@ final class SpaceWarClient {
         //        DisconnectFromServer(); // cleanup on our side, even though server won't get our disconnect msg
         //        SetGameState( k_EClientGameConnectionFailure );
         //    }
+
+        // if we just transitioned state, perform on change handlers
+        state.onTransition {
+            onStateChanged()
+        }
+
+        switch state.state {
+            //    case k_EClientGameConnectionFailure:
+            //        DrawConnectionFailureText();
+            //
+            //        if ( bEscapePressed )
+            //            SetGameState( k_EClientGameMenu );
+            //
+            //        break;
+            //    case k_EClientGameConnecting:
+            //        // Draw text telling the user a connection attempt is in progress
+            //        DrawConnectionAttemptText();
+            //
+            //        // Check if we've waited too long and should time out the connection
+            //        if ( m_pGameEngine->GetGameTickCount() - m_ulStateTransitionTime > MILLISECONDS_CONNECTION_TIMEOUT )
+            //        {
+            //            DisconnectFromServer();
+            //            m_GameServerPing.CancelPing();
+            //            SetConnectionFailureText( "Timed out connecting to game server" );
+            //            SetGameState( k_EClientGameConnectionFailure );
+            //        }
+            //        break;
+            //    case k_EClientGameQuitMenu:
+            //        // Update all the entities (this is client side interpolation)...
+            //        m_pSun->RunFrame();
+            //        for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
+            //        {
+            //            if ( m_rgpShips[i] )
+            //                m_rgpShips[i]->RunFrame();
+            //        }
+            //
+            //        // Now draw the menu
+            //        m_pQuitMenu->RunFrame();
+            //
+            //        // Make sure the Steam Controller is in the correct mode.
+            //        m_pGameEngine->SetSteamControllerActionSet( eControllerActionSet_MenuControls );
+            //        break;
+            //    case k_EClientGameStartServer:
+            //        if ( !m_pServer )
+            //        {
+            //            m_pServer = new CSpaceWarServer( m_pGameEngine );
+            //        }
+            //
+            //        if ( m_pServer && m_pServer->IsConnectedToSteam() )
+            //        {
+            //            // server is ready, connect to it
+            //            InitiateServerConnection( m_pServer->GetSteamID() );
+            //        }
+            //        break;
+            //    case k_EClientGameDraw:
+            //    case k_EClientGameWinner:
+            //    case k_EClientGameWaitingForPlayers:
+            //        // Update all the entities (this is client side interpolation)...
+            //        m_pSun->RunFrame();
+            //        for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
+            //        {
+            //            if ( m_rgpShips[i] )
+            //                m_rgpShips[i]->RunFrame();
+            //        }
+            //
+            //        DrawHUDText();
+            //        DrawWinnerDrawOrWaitingText();
+            //
+            //        m_pVoiceChat->RunFrame();
+            //
+            //        if ( bEscapePressed )
+            //            SetGameState( k_EClientGameQuitMenu );
+            //        break;
+            //
+            //    case k_EClientGameActive:
+            //        // Make sure the Steam Controller is in the correct mode.
+            //        m_pGameEngine->SetSteamControllerActionSet( eControllerActionSet_ShipControls );
+            //
+            //        // SendHeartbeat is safe to call on every frame since the API is internally rate-limited.
+            //        // Ideally you would only call this once per second though, to minimize unnecessary calls.
+            //        SteamInventory()->SendItemDropHeartbeat();
+            //
+            //        // Update all the entities...
+            //        m_pSun->RunFrame();
+            //        for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
+            //        {
+            //            if ( m_rgpShips[i] )
+            //                m_rgpShips[i]->RunFrame();
+            //        }
+            //
+            //        for (uint32 i = 0; i < MAX_WORKSHOP_ITEMS; ++i)
+            //        {
+            //            if (m_rgpWorkshopItems[i])
+            //                m_rgpWorkshopItems[i]->RunFrame();
+            //        }
+            //
+            //        DrawHUDText();
+            //
+            //        m_pStatsAndAchievements->RunFrame();
+            //
+            //        m_pVoiceChat->RunFrame();
+            //
+            //        if ( bEscapePressed )
+            //            SetGameState( k_EClientGameQuitMenu );
+            //        break;
+        default:
+            break
+        }
+
+        //    // Send an update on our local ship to the server
+        //    if ( m_eConnectedStatus == k_EClientConnectedAndAuthenticated &&  m_rgpShips[ m_uPlayerShipIndex ] )
+        //    {
+        //        MsgClientSendLocalUpdate_t msg;
+        //        msg.SetShipPosition( m_uPlayerShipIndex );
+        //
+        //        // Send update as unreliable message.  This means that if network packets drop,
+        //        // the networking system will not attempt retransmission, and our message may not arrive.
+        //        // That's OK, because we would rather just send a new, update message, instead of
+        //        // retransmitting the old one.
+        //        if ( m_rgpShips[ m_uPlayerShipIndex ]->BGetClientUpdateData( msg.AccessUpdateData() ) )
+        //            BSendServerData( &msg, sizeof( msg ), k_nSteamNetworkingSend_Unreliable );
+        //    }
+        //
+        //    if ( m_pP2PAuthedGame )
+        //    {
+        //        if ( m_pServer )
+        //        {
+        //            // Now if we are the owner of the game, lets make sure all of our players are legit.
+        //            // if they are not, we tell the server to kick them off
+        //            // Start at 1 to skip myself
+        //            for ( int i = 1; i < MAX_PLAYERS_PER_SERVER; i++ )
+        //            {
+        //                if ( m_pP2PAuthedGame->m_rgpP2PAuthPlayer[i] && !m_pP2PAuthedGame->m_rgpP2PAuthPlayer[i]->BIsAuthOk() )
+        //                {
+        //                    m_pServer->KickPlayerOffServer( m_pP2PAuthedGame->m_rgpP2PAuthPlayer[i]->m_steamID );
+        //                }
+        //            }
+        //        }
+        //        else
+        //        {
+        //            // If we are not the owner of the game, lets make sure the game owner is legit
+        //            // if he is not, we leave the game
+        //            if ( m_pP2PAuthedGame->m_rgpP2PAuthPlayer[0] )
+        //            {
+        //                if ( !m_pP2PAuthedGame->m_rgpP2PAuthPlayer[0]->BIsAuthOk() )
+        //                {
+        //                    // leave the game
+        //                    SetGameState( k_EClientGameMenu );
+        //                }
+        //            }
+        //        }
+        //    }
+        //
+        //    // If we've started a local server run it
+        //    if ( m_pServer )
+        //    {
+        //        m_pServer->RunFrame();
+        //    }
+        //
+        //    // Accumulate stats
+        //    for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
+        //    {
+        //        if ( m_rgpShips[i] )
+        //            m_rgpShips[i]->AccumulateStats( m_pStatsAndAchievements );
+        //    }
+        //
+        //    // Render everything that might have been updated by the server
+        //    switch ( m_eGameState )
+        //    {
+        //    case k_EClientGameDraw:
+        //    case k_EClientGameWinner:
+        //    case k_EClientGameActive:
+        //        // Now render all the objects
+        //        m_pSun->Render();
+        //        for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
+        //        {
+        //            if ( m_rgpShips[i] )
+        //                m_rgpShips[i]->Render();
+        //        }
+        //
+        //        for (uint32 i = 0; i < MAX_WORKSHOP_ITEMS; ++i)
+        //        {
+        //            if ( m_rgpWorkshopItems[i] )
+        //                m_rgpWorkshopItems[i]->Render();
+        //        }
+        //
+        //        break;
+        //    default:
+        //        // Any needed drawing was already done above before server updates
+        //        break;
+        //    }
+
+        return false
     }
 
     /// Called at the start of each frame and also between frames
@@ -1163,15 +1396,8 @@ final class SpaceWarClient {
 
 // MARK: C++ Core Game State
 
-//    // Set game state
-//    void SetGameState( EClientGameState eState );
-//    EClientGameState GetGameState() { return m_eGameState; }
-//
 //    // Were we the winner?
 //    bool BLocalPlayerWonLastGame();
-
-//    // game state changes
-//    void OnGameStateChanged( EClientGameState eGameStateNew );
 
 //    // Server we are connected to
 //    CSpaceWarServer *m_pServer;
@@ -1190,25 +1416,6 @@ final class SpaceWarClient {
 //
 //    // Who just won the game? Should be set if we go into the k_EGameWinner state
 //    uint32 m_uPlayerWhoWonGame;
-
-////-----------------------------------------------------------------------------
-//// Purpose: Used to transition game state
-////-----------------------------------------------------------------------------
-//void CSpaceWarClient::SetGameState( EClientGameState eState )
-//{
-//    if ( m_eGameState == eState )
-//        return;
-//
-//    m_bTransitionedGameState = true;
-//    m_ulStateTransitionTime = m_pGameEngine->GetGameTickCount();
-//    m_eGameState = eState;
-//
-//    // Let the stats handler check the state (so it can detect wins, losses, etc...)
-//    m_pStatsAndAchievements->OnGameStateChange( eState );
-//
-//    // update any rich presence state
-//    UpdateRichPresenceConnectionInfo();
-//}
 
 ////-----------------------------------------------------------------------------
 //// Purpose: does work on transitioning from one game state to another
@@ -1373,439 +1580,6 @@ final class SpaceWarClient {
 //}
 
 ////-----------------------------------------------------------------------------
-//// Purpose: Main frame function, updates the state of the world and performs rendering
-////-----------------------------------------------------------------------------
-//void CSpaceWarClient::RunFrame()
-//{
-//
-//    // Update state for everything
-//    switch ( m_eGameState )
-//    {
-//    case k_EClientConnectingToSteam:
-//        m_pStarField->Render();
-//        m_pConnectingMenu->RunFrame();
-//        // Make sure the Steam Controller is in the correct mode.
-//        m_pGameEngine->SetSteamControllerActionSet( eControllerActionSet_MenuControls );
-//        break;
-//    case k_EClientRetrySteamConnection:
-//#ifdef _PS3
-//        m_pStarField->Render();
-//        SteamUser()->LogOn( true );
-//        m_pConnectingMenu->Reset();
-//        SetGameState( k_EClientConnectingToSteam );
-//#else
-//        OutputDebugString( "Invalidate state k_EClientRetrySteamConnection hit on non-PS3 platform" );
-//#endif
-//        break;
-//    case k_EClientLinkSteamAccount:
-//#ifdef _PS3
-//        m_pStarField->Render();
-//        SteamUser()->LogOnAndLinkSteamAccountToPSN( true, "jmccaskeybeta", "test123" );
-//        m_pConnectingMenu->Reset();
-//        SetGameState( k_EClientConnectingToSteam );
-//#else
-//        OutputDebugString( "Invalidate state k_EClientLinkSteamAccount hit on non-PS3 platform" );
-//#endif
-//        break;
-//    case k_EClientAutoCreateAccount:
-//#ifdef _PS3
-//        m_pStarField->Render();
-//        m_pConnectingMenu->Reset();
-//        SteamUser()->LogOnAndCreateNewSteamAccountIfNeeded( true );
-//        SetGameState( k_EClientConnectingToSteam );
-//#else
-//        OutputDebugString( "Invalidate state k_EClientAutoCreateAccount hit on non-PS3 platform" );
-//#endif
-//        break;
-//    case k_EClientGameMenu:
-//        m_pStarField->Render();
-//        m_pMainMenu->RunFrame();
-//        // Make sure the Steam Controller is in the correct mode.
-//        m_pGameEngine->SetSteamControllerActionSet( eControllerActionSet_MenuControls );
-//        break;
-//    case k_EClientFindInternetServers:
-//    case k_EClientFindLANServers:
-//        m_pStarField->Render();
-//        m_pServerBrowser->RunFrame();
-//        break;
-//
-//    case k_EClientCreatingLobby:
-//        m_pStarField->Render();
-//        // draw some text about creating lobby (may take a second or two)
-//        break;
-//
-//    case k_EClientInLobby:
-//        m_pStarField->Render();
-//        // display the lobby
-//        m_pLobby->RunFrame();
-//
-//        // see if we have a game server ready to play on
-//        if ( m_pServer && m_pServer->IsConnectedToSteam() )
-//        {
-//            // server is up; tell everyone else to connect
-//            SteamMatchmaking()->SetLobbyGameServer( m_steamIDLobby, 0, 0, m_pServer->GetSteamID() );
-//            // start connecting ourself via localhost (this will automatically leave the lobby)
-//            InitiateServerConnection( m_pServer->GetSteamID() );
-//        }
-//        break;
-//
-//    case k_EClientFindLobby:
-//        m_pStarField->Render();
-//
-//        // display the list of lobbies
-//        m_pLobbyBrowser->RunFrame();
-//        break;
-//
-//    case k_EClientJoiningLobby:
-//        m_pStarField->Render();
-//
-//        // Draw text telling the user a connection attempt is in progress
-//        DrawConnectionAttemptText();
-//
-//        // Check if we've waited too long and should time out the connection
-//        if ( m_pGameEngine->GetGameTickCount() - m_ulStateTransitionTime > MILLISECONDS_CONNECTION_TIMEOUT )
-//        {
-//            SetConnectionFailureText( "Timed out connecting to lobby." );
-//            SetGameState( k_EClientGameConnectionFailure );
-//        }
-//        break;
-//
-//    case k_EClientGameConnectionFailure:
-//        m_pStarField->Render();
-//        DrawConnectionFailureText();
-//
-//        if ( bEscapePressed )
-//            SetGameState( k_EClientGameMenu );
-//
-//        break;
-//    case k_EClientGameConnecting:
-//        m_pStarField->Render();
-//
-//        // Draw text telling the user a connection attempt is in progress
-//        DrawConnectionAttemptText();
-//
-//        // Check if we've waited too long and should time out the connection
-//        if ( m_pGameEngine->GetGameTickCount() - m_ulStateTransitionTime > MILLISECONDS_CONNECTION_TIMEOUT )
-//        {
-//            DisconnectFromServer();
-//            m_GameServerPing.CancelPing();
-//            SetConnectionFailureText( "Timed out connecting to game server" );
-//            SetGameState( k_EClientGameConnectionFailure );
-//        }
-//
-//        break;
-//    case k_EClientGameQuitMenu:
-//        m_pStarField->Render();
-//
-//        // Update all the entities (this is client side interpolation)...
-//        m_pSun->RunFrame();
-//        for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
-//        {
-//            if ( m_rgpShips[i] )
-//                m_rgpShips[i]->RunFrame();
-//        }
-//
-//        // Now draw the menu
-//        m_pQuitMenu->RunFrame();
-//
-//        // Make sure the Steam Controller is in the correct mode.
-//        m_pGameEngine->SetSteamControllerActionSet( eControllerActionSet_MenuControls );
-//        break;
-//    case k_EClientGameInstructions:
-//        m_pStarField->Render();
-//        DrawInstructions();
-//
-//        if ( bEscapePressed )
-//            SetGameState( k_EClientGameMenu );
-//        break;
-//    case k_EClientWorkshop:
-//        m_pStarField->Render();
-//        DrawWorkshopItems();
-//
-//        if (bEscapePressed)
-//            SetGameState(k_EClientGameMenu);
-//        break;
-//
-//    case k_EClientStatsAchievements:
-//        m_pStarField->Render();
-//        m_pStatsAndAchievements->Render();
-//
-//        if ( bEscapePressed )
-//            SetGameState( k_EClientGameMenu );
-//        if (m_pGameEngine->BIsKeyDown( 0x31 ) )
-//        {
-//            SpaceWarLocalInventory()->DoExchange();
-//        }
-//        else if ( m_pGameEngine->BIsKeyDown( 0x32 ) )
-//        {
-//            SpaceWarLocalInventory()->ModifyItemProperties();
-//        }
-//        break;
-//    case k_EClientLeaderboards:
-//        m_pStarField->Render();
-//        m_pLeaderboards->RunFrame();
-//
-//        if ( bEscapePressed )
-//            SetGameState( k_EClientGameMenu );
-//        break;
-//
-//    case k_EClientFriendsList:
-//        m_pStarField->Render();
-//        m_pFriendsList->RunFrame();
-//
-//        if ( bEscapePressed )
-//            SetGameState( k_EClientGameMenu );
-//        break;
-//
-//    case k_EClientClanChatRoom:
-//        m_pStarField->Render();
-//        m_pClanChatRoom->RunFrame();
-//
-//        if ( bEscapePressed )
-//            SetGameState( k_EClientGameMenu );
-//        break;
-//
-//    case k_EClientRemotePlay:
-//        m_pStarField->Render();
-//        m_pRemotePlayList->RunFrame();
-//
-//        if ( bEscapePressed )
-//            SetGameState( k_EClientGameMenu );
-//        break;
-//
-//    case k_EClientRemoteStorage:
-//        m_pStarField->Render();
-//        m_pRemoteStorage->Render();
-//        break;
-//
-//    case k_EClientHTMLSurface:
-//        m_pHTMLSurface->RunFrame();
-//        m_pHTMLSurface->Render();
-//        break;
-//
-//
-//    case k_EClientMinidump:
-//#ifdef _WIN32
-//        RaiseException( EXCEPTION_NONCONTINUABLE_EXCEPTION,
-//            EXCEPTION_NONCONTINUABLE,
-//            0, NULL );
-//#endif
-//        SetGameState( k_EClientGameMenu );
-//        break;
-//
-//    case k_EClientGameStartServer:
-//        m_pStarField->Render();
-//        if ( !m_pServer )
-//        {
-//            m_pServer = new CSpaceWarServer( m_pGameEngine );
-//        }
-//
-//        if ( m_pServer && m_pServer->IsConnectedToSteam() )
-//        {
-//            // server is ready, connect to it
-//            InitiateServerConnection( m_pServer->GetSteamID() );
-//        }
-//        break;
-//    case k_EClientGameDraw:
-//    case k_EClientGameWinner:
-//    case k_EClientGameWaitingForPlayers:
-//        m_pStarField->Render();
-//
-//        // Update all the entities (this is client side interpolation)...
-//        m_pSun->RunFrame();
-//        for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
-//        {
-//            if ( m_rgpShips[i] )
-//                m_rgpShips[i]->RunFrame();
-//        }
-//
-//        DrawHUDText();
-//        DrawWinnerDrawOrWaitingText();
-//
-//        m_pVoiceChat->RunFrame();
-//
-//        if ( bEscapePressed )
-//            SetGameState( k_EClientGameQuitMenu );
-//
-//        break;
-//
-//    case k_EClientGameActive:
-//        // Make sure the Steam Controller is in the correct mode.
-//        m_pGameEngine->SetSteamControllerActionSet( eControllerActionSet_ShipControls );
-//
-//        m_pStarField->Render();
-//
-//        // SendHeartbeat is safe to call on every frame since the API is internally rate-limited.
-//        // Ideally you would only call this once per second though, to minimize unnecessary calls.
-//        SteamInventory()->SendItemDropHeartbeat();
-//
-//        // Update all the entities...
-//        m_pSun->RunFrame();
-//        for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
-//        {
-//            if ( m_rgpShips[i] )
-//                m_rgpShips[i]->RunFrame();
-//        }
-//
-//        for (uint32 i = 0; i < MAX_WORKSHOP_ITEMS; ++i)
-//        {
-//            if (m_rgpWorkshopItems[i])
-//                m_rgpWorkshopItems[i]->RunFrame();
-//        }
-//
-//
-//        DrawHUDText();
-//
-//        m_pStatsAndAchievements->RunFrame();
-//
-//        m_pVoiceChat->RunFrame();
-//
-//        if ( bEscapePressed )
-//            SetGameState( k_EClientGameQuitMenu );
-//
-//        break;
-//    case k_EClientGameExiting:
-//        DisconnectFromServer();
-//        m_pGameEngine->Shutdown();
-//        return;
-//    case k_EClientWebCallback:
-//        m_pStarField->Render();
-//
-//        if ( !m_bSentWebOpen )
-//        {
-//            m_bSentWebOpen = true;
-//#ifndef _PS3
-//            char szCurDir[MAX_PATH];
-//            if ( !_getcwd( szCurDir, sizeof(szCurDir) ) )
-//            {
-//                strcpy( szCurDir, "." );
-//            }
-//            char szURL[MAX_PATH];
-//            sprintf_safe( szURL, "file:///%s/test.html", szCurDir );
-//            // load the test html page, it just has a steam://gamewebcallback link in it
-//            SteamFriends()->ActivateGameOverlayToWebPage( szURL );
-//            SetGameState( k_EClientGameMenu );
-//#endif
-//        }
-//
-//        break;
-//    case k_EClientMusic:
-//        m_pStarField->Render();
-//
-//        m_pMusicPlayer->RunFrame();
-//
-//        if ( bEscapePressed )
-//        {
-//            SetGameState( k_EClientGameMenu );
-//        }
-//        break;
-//
-//    case k_EClientInGameStore:
-//        m_pStarField->Render();
-//        m_pItemStore->RunFrame();
-//
-//        if (bEscapePressed)
-//            SetGameState(k_EClientGameMenu);
-//        break;
-//
-//    case k_EClientOverlayAPI:
-//        m_pStarField->Render();
-//        m_pOverlayExamples->RunFrame();
-//
-//        if ( bEscapePressed )
-//            SetGameState( k_EClientGameMenu );
-//        break;
-//
-//    default:
-//        OutputDebugString( "Unhandled game state in CSpaceWar::RunFrame\n" );
-//    }
-//
-//
-//    // Send an update on our local ship to the server
-//    if ( m_eConnectedStatus == k_EClientConnectedAndAuthenticated &&  m_rgpShips[ m_uPlayerShipIndex ] )
-//    {
-//        MsgClientSendLocalUpdate_t msg;
-//        msg.SetShipPosition( m_uPlayerShipIndex );
-//
-//        // Send update as unreliable message.  This means that if network packets drop,
-//        // the networking system will not attempt retransmission, and our message may not arrive.
-//        // That's OK, because we would rather just send a new, update message, instead of
-//        // retransmitting the old one.
-//        if ( m_rgpShips[ m_uPlayerShipIndex ]->BGetClientUpdateData( msg.AccessUpdateData() ) )
-//            BSendServerData( &msg, sizeof( msg ), k_nSteamNetworkingSend_Unreliable );
-//    }
-//
-//    if ( m_pP2PAuthedGame )
-//    {
-//        if ( m_pServer )
-//        {
-//            // Now if we are the owner of the game, lets make sure all of our players are legit.
-//            // if they are not, we tell the server to kick them off
-//            // Start at 1 to skip myself
-//            for ( int i = 1; i < MAX_PLAYERS_PER_SERVER; i++ )
-//            {
-//                if ( m_pP2PAuthedGame->m_rgpP2PAuthPlayer[i] && !m_pP2PAuthedGame->m_rgpP2PAuthPlayer[i]->BIsAuthOk() )
-//                {
-//                    m_pServer->KickPlayerOffServer( m_pP2PAuthedGame->m_rgpP2PAuthPlayer[i]->m_steamID );
-//                }
-//            }
-//        }
-//        else
-//        {
-//            // If we are not the owner of the game, lets make sure the game owner is legit
-//            // if he is not, we leave the game
-//            if ( m_pP2PAuthedGame->m_rgpP2PAuthPlayer[0] )
-//            {
-//                if ( !m_pP2PAuthedGame->m_rgpP2PAuthPlayer[0]->BIsAuthOk() )
-//                {
-//                    // leave the game
-//                    SetGameState( k_EClientGameMenu );
-//                }
-//            }
-//        }
-//    }
-//
-//    // If we've started a local server run it
-//    if ( m_pServer )
-//    {
-//        m_pServer->RunFrame();
-//    }
-//
-//    // Accumulate stats
-//    for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
-//    {
-//        if ( m_rgpShips[i] )
-//            m_rgpShips[i]->AccumulateStats( m_pStatsAndAchievements );
-//    }
-//
-//    // Render everything that might have been updated by the server
-//    switch ( m_eGameState )
-//    {
-//    case k_EClientGameDraw:
-//    case k_EClientGameWinner:
-//    case k_EClientGameActive:
-//        // Now render all the objects
-//        m_pSun->Render();
-//        for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
-//        {
-//            if ( m_rgpShips[i] )
-//                m_rgpShips[i]->Render();
-//        }
-//
-//        for (uint32 i = 0; i < MAX_WORKSHOP_ITEMS; ++i)
-//        {
-//            if ( m_rgpWorkshopItems[i] )
-//                m_rgpWorkshopItems[i]->Render();
-//        }
-//
-//        break;
-//    default:
-//        // Any needed drawing was already done above before server updates
-//        break;
-//    }
-//}
-
-////-----------------------------------------------------------------------------
 //// Purpose: Did we win the last game?
 ////-----------------------------------------------------------------------------
 //bool CSpaceWarClient::BLocalPlayerWonLastGame()
@@ -1835,9 +1609,6 @@ final class SpaceWarClient {
 
 
 // MARK: C++ Base Infra
-
-//    // Service calls that need to happen less frequently than every frame (e.g. every second)
-//    void RunOccasionally();
 
 //    // Steam China support. duration control callback can be posted asynchronously, but we also
 //    // call it directly.

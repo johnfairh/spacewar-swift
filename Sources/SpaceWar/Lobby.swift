@@ -1,9 +1,122 @@
 //
-//  Matchmaking.swift
+//  Lobby.swift
 //  SpaceWar
 //
 
-// MARK: C++ Server/Lobby Browser
+import Steamworks
+import MetalEngine
+
+// MARK: C++ Lobby Browser
+
+/// Root of everything to do with lobbies and matchmaking.
+///
+/// Main flows:
+/// 1) Create Lobby -> start server locally and join it
+/// 2) Browse for existing lobby -> join it -> join server remotely
+///
+class Lobbies {
+    private let steam: SteamAPI
+    private let engine: Engine2D
+
+    enum State {
+        case idle
+        case creatingLobby
+        case inLobby
+        case findLobby
+        case joiningLobby
+    }
+    private(set) var state: MonitoredState<State>
+
+    init(engine: Engine2D, steam: SteamAPI) {
+        self.engine = engine
+        self.steam = steam
+        self.state = MonitoredState(engine: engine, initial: .idle)
+    }
+
+    // MARK: Kick-off entrypoints
+
+    func createLobby() {
+        precondition(state.state == .idle)
+        state.set(.creatingLobby)
+    }
+
+    func findLobby() {
+        precondition(state.state == .idle)
+        state.set(.findLobby)
+    }
+
+    // MARK: State machine
+
+    func onStateChanged() {
+    }
+
+    /// Frame poll function.
+    /// Called by `SpaceWarMain` when it thinks we're in a state of running/starting a game.
+    /// Return what we want to do next.
+    enum FrameRc {
+        case lobby // stay in lobby screen
+        case mainMenu // quit back to mainMenu
+        case runGame(SteamID, Int? /*SpaceWarServer?*/) // connect to this server (maybe run it too)
+    }
+
+    func runFrame() -> FrameRc {
+        precondition(state.state != .idle, "SpaceWarMain thinks we're busy but we're idle :-(")
+
+        //    if ( m_eConnectedStatus != k_EClientNotConnected && m_pGameEngine->GetGameTickCount() - m_ulLastNetworkDataReceivedTime > MILLISECONDS_CONNECTION_TIMEOUT )
+        //    {
+        //        SetConnectionFailureText( "Game server connection failure." );
+        //        DisconnectFromServer(); // cleanup on our side, even though server won't get our disconnect msg
+        //        SetGameState( k_EClientGameConnectionFailure );
+        //    }
+
+        // if we just transitioned state, perform on change handlers
+        state.onTransition {
+            onStateChanged()
+        }
+
+        switch state.state {
+            //    case k_EClientCreatingLobby:
+            //        // draw some text about creating lobby (may take a second or two)
+            //        break;
+            //
+            //    case k_EClientInLobby:
+            //        // display the lobby
+            //        m_pLobby->RunFrame();
+            //
+            //        // see if we have a game server ready to play on
+            //        if ( m_pServer && m_pServer->IsConnectedToSteam() )
+            //        {
+            //            // server is up; tell everyone else to connect
+            //            SteamMatchmaking()->SetLobbyGameServer( m_steamIDLobby, 0, 0, m_pServer->GetSteamID() );
+            //            // start connecting ourself via localhost (this will automatically leave the lobby)
+            //            InitiateServerConnection( m_pServer->GetSteamID() );
+            //        }
+            //        break;
+            //
+            //    case k_EClientFindLobby:
+            //        // display the list of lobbies
+            //        m_pLobbyBrowser->RunFrame();
+            //        break;
+            //
+            //    case k_EClientJoiningLobby:
+            //        // Draw text telling the user a connection attempt is in progress
+            //        DrawConnectionAttemptText();
+            //
+            //        // Check if we've waited too long and should time out the connection
+            //        if ( m_pGameEngine->GetGameTickCount() - m_ulStateTransitionTime > MILLISECONDS_CONNECTION_TIMEOUT )
+            //        {
+            //            SetConnectionFailureText( "Timed out connecting to lobby." );
+            //            SetGameState( k_EClientGameConnectionFailure );
+            //        }
+            //        break;
+        default:
+            break
+        }
+
+        return .mainMenu
+    }
+}
+
 
 //// a game server as shown in the find servers menu
 //struct ServerBrowserMenuData_t

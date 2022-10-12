@@ -65,41 +65,43 @@ enum Misc {
 }
 
 /// Enum for possible game states on the client
-enum ClientGameState {
-  case gameStartServer
-  case gameActive
-  case gameWaitingForPlayers
-  case gameMenu
-  case gameQuitMenu
-  case gameExiting
-  case gameInstructions
-  case gameDraw
-  case gameWinner
-  case gameConnecting
-  case gameConnectionFailure
-  case findInternetServers
-  case statsAchievements
-  case creatingLobby
-  case inLobby
-  case findLobby
-  case joiningLobby
-  case findLANServers
-  case remoteStorage
-  case leaderboards
-  case friendsList
-  case minidump
-  case connectingToSteam
-  case linkSteamAccount
-  case autoCreateAccount
-  case retrySteamConnection
-  case clanChatRoom
-  case webCallback
-  case music
-  case workshop
-  case htmlSurface
-  case inGameStore
-  case remotePlay
-  case overlayAPI
+enum MainGameState {
+    case gameMenu
+    case gameExiting
+    case gameInstructions
+
+    // so, the menu item can be 'startserver' say
+    // then the 'start server' part goes in 'onstatechanged'
+    // and the 'runninggame' part goes in 'runFrame'
+    case startServer
+    case runningGame
+
+    case findInternetServers
+    case statsAchievements
+
+    // ditto for these three, should collapse to two
+    case createLobby
+    case joinLobby
+    case doingLobby
+
+    case findLANServers
+    case remoteStorage
+    case leaderboards
+    case friendsList
+    case minidump // just kill this, windows only
+    case connectingToSteam
+    // kill these three, ps3 only
+    case linkSteamAccount
+    case autoCreateAccount
+    case retrySteamConnection
+    case clanChatRoom
+    case webCallback
+    case music
+    case workshop
+    case htmlSurface
+    case inGameStore
+    case remotePlay
+    case overlayAPI
 }
 
 /// Enum for possible game states on the server
