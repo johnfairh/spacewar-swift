@@ -59,27 +59,23 @@ class Lobbies {
         //            m_SteamCallResultLobbyCreated.Set( hSteamAPICall, this, &CSpaceWarClient::OnLobbyCreated );
         //        }
         //        SteamFriends()->SetRichPresence( "status", "Creating a lobby" );
-        //        pchSteamRichPresenceDisplay = "WaitingForMatch";
         //    }
         //    else if ( m_eGameState == k_EClientInLobby )
         //    {
-        //        pchSteamRichPresenceDisplay = "WaitingForMatch";
         //    }
         //    else if ( m_eGameState == k_EClientFindLobby )
         //    {
         //        m_pLobbyBrowser->Refresh();
         //        SteamFriends()->SetRichPresence( "status", "Main menu: finding lobbies" );
-        //        pchSteamRichPresenceDisplay = "WaitingForMatch";
         //    }
 
-        //
-        //    if ( pchSteamRichPresenceDisplay != NULL )
-        //    {
-        //        SteamFriends()->SetRichPresence( "steam_display", bDisplayScoreInRichPresence ? "#StatusWithScore" : "#StatusWithoutScore" );
-        //        SteamFriends()->SetRichPresence( "gamestatus", pchSteamRichPresenceDisplay );
-        //    }
+        steam.friends.setRichPresence(gameStatus: .waitingForMatch)
 
-        //void CSpaceWarClient::UpdateRichPresenceConnectionInfo()
+        //        if m_steamIDLobby.isValid() {
+        //            steam.friends.setRichPresence(connectedTo: .lobby(m_steamIDLobby))
+        //        } else {
+        //            steam.friends.setRichPresence(connectedTo: .nothing)
+        //        }
     }
 
     /// Frame poll function.

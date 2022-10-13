@@ -110,10 +110,7 @@ final class SpaceWarClient {
     // MARK: State machine
 
     func onStateChanged() {
-        //        const char *pchSteamRichPresenceDisplay = "AtMainMenu";
-        //        bool bDisplayScoreInRichPresence = false;
-
-        //    else if ( m_eGameState == k_EClientGameWinner || m_eGameState == k_EClientGameDraw )
+        //    if ( m_eGameState == k_EClientGameWinner || m_eGameState == k_EClientGameDraw )
         //    {
         //        // game over.. update the leaderboard
         //        m_pLeaderboards->UpdateLeaderboards( m_pStatsAndAchievements );
@@ -121,8 +118,7 @@ final class SpaceWarClient {
         //        // Check if the user is due for an item drop
         //        SpaceWarLocalInventory()->CheckForItemDrops();
         //
-        //        pchSteamRichPresenceDisplay = SetInGameRichPresence();
-        //        bDisplayScoreInRichPresence = true;
+        //        SetInGameRichPresence();
         //    }
 
         //    else if ( m_eGameState == k_EClientGameActive )
@@ -134,28 +130,32 @@ final class SpaceWarClient {
         //        m_pVoiceChat->StartVoiceChat();
         //        SteamFriends()->SetRichPresence( "status", "In match" );
         //
-        //        pchSteamRichPresenceDisplay = SetInGameRichPresence();
-        //        bDisplayScoreInRichPresence = true;
+        //        SetInGameRichPresence();
+        //    }
+
+        //    else {
+        steam.friends.setRichPresence(status: "Starting a new match")
+        steam.friends.setRichPresence(gameStatus: .waitingForMatch)
         //    }
 
         //    // steam_player_group defines who the user is playing with.  Set it to the steam ID
         //    // of the server if we are connected, otherwise blank.
         //    if ( m_steamIDGameServer.IsValid() )
         //    {
-        //        char rgchBuffer[32];
-        //        sprintf_safe( rgchBuffer, "%llu", m_steamIDGameServer.ConvertToUint64() );
-        //        SteamFriends()->SetRichPresence( "steam_player_group", rgchBuffer );
+        //        SteamFriends()->SetRichPresence(playerGroup: m_steamIDGameServer)
+        //    } else {
+        //        SteamFriends().SetRichPresence(playerGroup: nil)
         //    }
-        //
-        //    if ( pchSteamRichPresenceDisplay != NULL )
+
+        //    // update any network-related rich presence state
+        //    if ( m_eConnectedStatus == k_EClientConnectedAndAuthenticated && m_unServerIP && m_usServerPort )
         //    {
-        //        SteamFriends()->SetRichPresence( "steam_display", bDisplayScoreInRichPresence ? "#StatusWithScore" : "#StatusWithoutScore" );
-        //        SteamFriends()->SetRichPresence( "gamestatus", pchSteamRichPresenceDisplay );
+        //        // game server connection method
+        //        steam.friends.setRichPresence(connectedTo: .server(0, 0))
         //    }
-
-        //    // update any rich presence state
-        //    XXX UpdateRichPresenceConnectionInfo();
-
+        //    else {
+        steam.friends.setRichPresence(connectedTo: .nothing)
+        //    }
 
         //    // Let the stats handler check the state (so it can detect wins, losses, etc...)
         //    XXX m_pStatsAndAchievements->OnGameStateChange( eState );
@@ -370,6 +370,57 @@ final class SpaceWarClient {
 
     /// Called at the start of each frame and also between frames
     func receiveNetworkData() {
+    }
+
+    /// For a player in game, set the appropriate rich presence keys for display in the Steam friends list
+    func setInGameRichPresence() {
+    //    const char *pchStatus;
+    //
+    //    bool bWinning = false;
+    //    uint32 cWinners = 0;
+    //    uint32 uHighScore = m_rguPlayerScores[0];
+    //    uint32 uMyScore = 0;
+    //    for ( uint32 i = 0; i < MAX_PLAYERS_PER_SERVER; ++i )
+    //    {
+    //        if ( m_rguPlayerScores[i] > uHighScore )
+    //        {
+    //            uHighScore = m_rguPlayerScores[i];
+    //            cWinners = 0;
+    //            bWinning = false;
+    //        }
+    //
+    //        if ( m_rguPlayerScores[i] == uHighScore )
+    //        {
+    //            cWinners++;
+    //            bWinning = bWinning || (m_rgSteamIDPlayers[i] == m_SteamIDLocalUser);
+    //        }
+    //
+    //        if ( m_rgSteamIDPlayers[i] == m_SteamIDLocalUser )
+    //        {
+    //            uMyScore = m_rguPlayerScores[i];
+    //        }
+    //    }
+    //
+    //    if ( bWinning && cWinners > 1 )
+    //    {
+    //        pchStatus = "Tied";
+    //    }
+    //    else if ( bWinning )
+    //    {
+    //        pchStatus = "Winning";
+    //    }
+    //    else
+    //    {
+    //        pchStatus = "Losing";
+    //    }
+    //
+    //    char rgchBuffer[32];
+    //    sprintf_safe( rgchBuffer, "%2u", uMyScore );
+    //    SteamFriends()->SetRichPresence( "score", rgchBuffer );
+    //
+    //    return pchStatus;
+
+        steam.friends.setRichPresence(gameStatus: .losing/*XXXpchStatus*/, score: 0/*XXXuMyScore*/)
     }
 }
 

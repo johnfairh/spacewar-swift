@@ -220,25 +220,25 @@ final class SpaceWarMain {
     /// Transition game state
     func setGameState(_ state: MainGameState) {
         gameState.set(state) {
+            // XXX is this all really gone?
         }
     }
 
     /// Called in the first `RunFrame()` after the state is changed.  Old state is NOT available.
     func onGameStateChanged() {
-        //    const char *pchSteamRichPresenceDisplay = "AtMainMenu";
-        //    bool bDisplayScoreInRichPresence = false;
+        var richPresenceDisplay = RichPresence.GameStatus.atMainMenu
 
         switch gameState.state {
         case .findInternetServers:
             //        // If we are just opening the find servers screen, then start a refresh
             //        m_pServerBrowser->RefreshInternetServers();
             //        SteamFriends()->SetRichPresence( "status", "Finding an internet game" );
-            //        pchSteamRichPresenceDisplay = "WaitingForMatch";
+            richPresenceDisplay = .waitingForMatch
             break
         case .findLANServers:
             //        m_pServerBrowser->RefreshLANServers();
             //        SteamFriends()->SetRichPresence( "status", "Finding a LAN game" );
-            //        pchSteamRichPresenceDisplay = "WaitingForMatch";
+            richPresenceDisplay = .waitingForMatch
             break
         case .gameMenu:
             //        // we've switched out to the main menu
@@ -315,18 +315,10 @@ final class SpaceWarMain {
             lobbies.createLobby()
             break
         }
-        //
-        //    if ( pchSteamRichPresenceDisplay != NULL )
-        //    {
-        //        SteamFriends()->SetRichPresence( "steam_display", bDisplayScoreInRichPresence ? "#StatusWithScore" : "#StatusWithoutScore" );
-        //        SteamFriends()->SetRichPresence( "gamestatus", pchSteamRichPresenceDisplay );
-        //    }
-        //
-        //    {
-        //        SteamFriends()->SetRichPresence( "steam_player_group", "" );
-        //    }
-        //
-        //}
+
+        steam.friends.setRichPresence(gameStatus: richPresenceDisplay)
+        steam.friends.setRichPresence(playerGroup: nil)
+        steam.friends.setRichPresence(connectedTo: .nothing)
     }
 
     /// Main frame function, updates the state of the world and performs rendering
@@ -506,7 +498,7 @@ final class SpaceWarMain {
             //            SetGameState( k_EClientGameMenu );
             //        break;
         default:
-            OutputDebugString("Unhandled game client state \(gameState)")
+            OutputDebugString("Unhandled game client state \(gameState.state)")
         }
 
         if engine.isKeyDown(.printable("Q")) {
