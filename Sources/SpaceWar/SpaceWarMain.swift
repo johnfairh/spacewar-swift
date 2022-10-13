@@ -307,17 +307,12 @@ final class SpaceWarMain {
             // Nothing to do on entry to these states
             // XXX but they should still set rich presence status...
             break
-        // XXX to sort out - client
         case .startServer:
-            break
-        case .runningGame:
-            break
-        // XXX to sort out - lobby
-        case .createLobby:
-            break
+            gameClient.startServer()
         case .joinLobby:
-            break
-        case .doingLobby:
+            lobbies.findLobby()
+        case .createLobby:
+            lobbies.createLobby()
             break
         }
         //
@@ -374,22 +369,11 @@ final class SpaceWarMain {
 //            break;
 
         case .startServer:
-            gameClient.startServer()
-            setGameState(.runningGame)
-
-        case .runningGame:
             if !gameClient.runFrame() {
                 setGameState(.gameMenu)
             }
 
-        case .joinLobby:
-            lobbies.findLobby()
-            setGameState(.doingLobby)
-        case .createLobby:
-            lobbies.createLobby()
-            setGameState(.doingLobby)
-
-        case .doingLobby:
+        case .joinLobby, .createLobby:
             switch lobbies.runFrame() {
             case .mainMenu:
                 setGameState(.gameMenu)
@@ -397,7 +381,7 @@ final class SpaceWarMain {
                 break
             case .runGame(let steamID, let server):
                 gameClient.connectFromLobby(steamID: steamID, server: server)
-                setGameState(.runningGame)
+                setGameState(.startServer)
             }
 
     //    case k_EClientFindInternetServers:

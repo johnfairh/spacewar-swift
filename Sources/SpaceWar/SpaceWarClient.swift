@@ -110,6 +110,8 @@ final class SpaceWarClient {
     // MARK: State machine
 
     func onStateChanged() {
+        //        const char *pchSteamRichPresenceDisplay = "AtMainMenu";
+        //        bool bDisplayScoreInRichPresence = false;
 
         //    else if ( m_eGameState == k_EClientGameWinner || m_eGameState == k_EClientGameDraw )
         //    {

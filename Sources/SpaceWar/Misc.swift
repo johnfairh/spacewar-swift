@@ -69,21 +69,11 @@ enum MainGameState {
     case gameMenu
     case gameExiting
     case gameInstructions
-
-    // so, the menu item can be 'startserver' say
-    // then the 'start server' part goes in 'onstatechanged'
-    // and the 'runninggame' part goes in 'runFrame'
     case startServer
-    case runningGame
-
     case findInternetServers
     case statsAchievements
-
-    // ditto for these three, should collapse to two
     case createLobby
     case joinLobby
-    case doingLobby
-
     case findLANServers
     case remoteStorage
     case leaderboards
