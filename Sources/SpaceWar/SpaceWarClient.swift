@@ -110,6 +110,51 @@ final class SpaceWarClient {
     // MARK: State machine
 
     func onStateChanged() {
+
+        //    else if ( m_eGameState == k_EClientGameWinner || m_eGameState == k_EClientGameDraw )
+        //    {
+        //        // game over.. update the leaderboard
+        //        m_pLeaderboards->UpdateLeaderboards( m_pStatsAndAchievements );
+        //
+        //        // Check if the user is due for an item drop
+        //        SpaceWarLocalInventory()->CheckForItemDrops();
+        //
+        //        pchSteamRichPresenceDisplay = SetInGameRichPresence();
+        //        bDisplayScoreInRichPresence = true;
+        //    }
+
+        //    else if ( m_eGameState == k_EClientGameActive )
+        //    {
+        //        // Load Inventory
+        //        SpaceWarLocalInventory()->RefreshFromServer();
+        //
+        //        // start voice chat
+        //        m_pVoiceChat->StartVoiceChat();
+        //        SteamFriends()->SetRichPresence( "status", "In match" );
+        //
+        //        pchSteamRichPresenceDisplay = SetInGameRichPresence();
+        //        bDisplayScoreInRichPresence = true;
+        //    }
+
+        //    // steam_player_group defines who the user is playing with.  Set it to the steam ID
+        //    // of the server if we are connected, otherwise blank.
+        //    if ( m_steamIDGameServer.IsValid() )
+        //    {
+        //        char rgchBuffer[32];
+        //        sprintf_safe( rgchBuffer, "%llu", m_steamIDGameServer.ConvertToUint64() );
+        //        SteamFriends()->SetRichPresence( "steam_player_group", rgchBuffer );
+        //    }
+        //
+        //    if ( pchSteamRichPresenceDisplay != NULL )
+        //    {
+        //        SteamFriends()->SetRichPresence( "steam_display", bDisplayScoreInRichPresence ? "#StatusWithScore" : "#StatusWithoutScore" );
+        //        SteamFriends()->SetRichPresence( "gamestatus", pchSteamRichPresenceDisplay );
+        //    }
+
+        //    // update any rich presence state
+        //    XXX UpdateRichPresenceConnectionInfo();
+
+
         //    // Let the stats handler check the state (so it can detect wins, losses, etc...)
         //    XXX m_pStatsAndAchievements->OnGameStateChange( eState );
     }
@@ -1416,168 +1461,6 @@ final class SpaceWarClient {
 //
 //    // Who just won the game? Should be set if we go into the k_EGameWinner state
 //    uint32 m_uPlayerWhoWonGame;
-
-////-----------------------------------------------------------------------------
-//// Purpose: does work on transitioning from one game state to another
-////-----------------------------------------------------------------------------
-/// Called in the RunFrame() after the state is changed.  Old state is NOT available, eGameStateNew == m_eGameState
-//void CSpaceWarClient::OnGameStateChanged( EClientGameState eGameStateNew )
-//{
-//    const char *pchSteamRichPresenceDisplay = "AtMainMenu";
-//    bool bDisplayScoreInRichPresence = false;
-//    if ( m_eGameState == k_EClientFindInternetServers )
-//    {
-//        // If we are just opening the find servers screen, then start a refresh
-//        m_pServerBrowser->RefreshInternetServers();
-//        SteamFriends()->SetRichPresence( "status", "Finding an internet game" );
-//        pchSteamRichPresenceDisplay = "WaitingForMatch";
-//    }
-//    else if ( m_eGameState == k_EClientFindLANServers )
-//    {
-//        m_pServerBrowser->RefreshLANServers();
-//        SteamFriends()->SetRichPresence( "status", "Finding a LAN game" );
-//        pchSteamRichPresenceDisplay = "WaitingForMatch";
-//    }
-//    else if ( m_eGameState == k_EClientCreatingLobby )
-//    {
-//        // start creating the lobby
-//        if ( !m_SteamCallResultLobbyCreated.IsActive() )
-//        {
-//            // ask steam to create a lobby
-//            SteamAPICall_t hSteamAPICall = SteamMatchmaking()->CreateLobby( k_ELobbyTypePublic /* public lobby, anyone can find it */, 4 );
-//            // set the function to call when this completes
-//            m_SteamCallResultLobbyCreated.Set( hSteamAPICall, this, &CSpaceWarClient::OnLobbyCreated );
-//        }
-//        SteamFriends()->SetRichPresence( "status", "Creating a lobby" );
-//        pchSteamRichPresenceDisplay = "WaitingForMatch";
-//    }
-//    else if ( m_eGameState == k_EClientInLobby )
-//    {
-//        pchSteamRichPresenceDisplay = "WaitingForMatch";
-//    }
-//    else if ( m_eGameState == k_EClientFindLobby )
-//    {
-//        m_pLobbyBrowser->Refresh();
-//        SteamFriends()->SetRichPresence( "status", "Main menu: finding lobbies" );
-//        pchSteamRichPresenceDisplay = "WaitingForMatch";
-//    }
-//    else if ( m_eGameState == k_EClientGameMenu )
-//    {
-//        // we've switched out to the main menu
-//
-//        // Tell the server we have left if we are connected
-//        DisconnectFromServer();
-//
-//        // shut down any server we were running
-//        if ( m_pServer )
-//        {
-//            delete m_pServer;
-//            m_pServer = NULL;
-//        }
-//
-//        SteamFriends()->SetRichPresence( "status", "Main menu" );
-//
-//        // Refresh inventory
-//        SpaceWarLocalInventory()->RefreshFromServer();
-//    }
-//    else if ( m_eGameState == k_EClientGameWinner || m_eGameState == k_EClientGameDraw )
-//    {
-//        // game over.. update the leaderboard
-//        m_pLeaderboards->UpdateLeaderboards( m_pStatsAndAchievements );
-//
-//        // Check if the user is due for an item drop
-//        SpaceWarLocalInventory()->CheckForItemDrops();
-//
-//        pchSteamRichPresenceDisplay = SetInGameRichPresence();
-//        bDisplayScoreInRichPresence = true;
-//    }
-//    else if ( m_eGameState == k_EClientLeaderboards )
-//    {
-//        // we've switched to the leaderboard menu
-//        m_pLeaderboards->Show();
-//        SteamFriends()->SetRichPresence( "status", "Viewing leaderboards" );
-//    }
-//    else if ( m_eGameState == k_EClientFriendsList )
-//    {
-//        // we've switched to the friends list menu
-//        m_pFriendsList->Show();
-//        SteamFriends()->SetRichPresence( "status", "Viewing friends list" );
-//    }
-//    else if ( m_eGameState == k_EClientClanChatRoom )
-//    {
-//        // we've switched to the leaderboard menu
-//        m_pClanChatRoom->Show();
-//        SteamFriends()->SetRichPresence( "status", "Chatting" );
-//    }
-//    else if ( m_eGameState == k_EClientGameActive )
-//    {
-//        // Load Inventory
-//        SpaceWarLocalInventory()->RefreshFromServer();
-//
-//        // start voice chat
-//        m_pVoiceChat->StartVoiceChat();
-//        SteamFriends()->SetRichPresence( "status", "In match" );
-//
-//        pchSteamRichPresenceDisplay = SetInGameRichPresence();
-//        bDisplayScoreInRichPresence = true;
-//    }
-//    else if ( m_eGameState == k_EClientRemotePlay )
-//    {
-//        // we've switched to the remote play menu
-//        m_pRemotePlayList->Show();
-//        SteamFriends()->SetRichPresence( "status", "Viewing remote play sessions" );
-//    }
-//    else if ( m_eGameState == k_EClientRemoteStorage )
-//    {
-//        // we've switched to the remote storage menu
-//        m_pRemoteStorage->Show();
-//        SteamFriends()->SetRichPresence( "status", "Viewing remote storage" );
-//    }
-//    else if ( m_eGameState == k_EClientMusic )
-//    {
-//        // we've switched to the music player menu
-//        m_pMusicPlayer->Show();
-//        SteamFriends()->SetRichPresence( "status", "Using music player" );
-//    }
-//    else if ( m_eGameState == k_EClientHTMLSurface )
-//    {
-//        // we've switched to the html page
-//        m_pHTMLSurface->Show();
-//        SteamFriends()->SetRichPresence("status", "Using the web");
-//    }
-//    else if ( m_eGameState == k_EClientInGameStore )
-//    {
-//        // we've switched to the item store
-//        m_pItemStore->Show();
-//        SteamFriends()->SetRichPresence( "status", "Viewing Item Store" );
-//    }
-//    else if ( m_eGameState == k_EClientOverlayAPI )
-//    {
-//        // we've switched to the item store
-//        m_pOverlayExamples->Show();
-//        SteamFriends()->SetRichPresence( "status", "Viewing Overlay API Examples" );
-//    }
-//
-//    if ( pchSteamRichPresenceDisplay != NULL )
-//    {
-//        SteamFriends()->SetRichPresence( "steam_display", bDisplayScoreInRichPresence ? "#StatusWithScore" : "#StatusWithoutScore" );
-//        SteamFriends()->SetRichPresence( "gamestatus", pchSteamRichPresenceDisplay );
-//    }
-//
-//    // steam_player_group defines who the user is playing with.  Set it to the steam ID
-//    // of the server if we are connected, otherwise blank.
-//    if ( m_steamIDGameServer.IsValid() )
-//    {
-//        char rgchBuffer[32];
-//        sprintf_safe( rgchBuffer, "%llu", m_steamIDGameServer.ConvertToUint64() );
-//        SteamFriends()->SetRichPresence( "steam_player_group", rgchBuffer );
-//    }
-//    else
-//    {
-//        SteamFriends()->SetRichPresence( "steam_player_group", "" );
-//    }
-//
-//}
 
 ////-----------------------------------------------------------------------------
 //// Purpose: Did we win the last game?

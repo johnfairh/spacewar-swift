@@ -220,12 +220,127 @@ final class SpaceWarMain {
     /// Transition game state
     func setGameState(_ state: MainGameState) {
         gameState.set(state) {
-            //    // update any rich presence state
-            //    XXX UpdateRichPresenceConnectionInfo();
         }
     }
 
+    /// Called in the first `RunFrame()` after the state is changed.  Old state is NOT available.
     func onGameStateChanged() {
+        //    const char *pchSteamRichPresenceDisplay = "AtMainMenu";
+        //    bool bDisplayScoreInRichPresence = false;
+
+        switch gameState.state {
+        case .findInternetServers:
+            //        // If we are just opening the find servers screen, then start a refresh
+            //        m_pServerBrowser->RefreshInternetServers();
+            //        SteamFriends()->SetRichPresence( "status", "Finding an internet game" );
+            //        pchSteamRichPresenceDisplay = "WaitingForMatch";
+            break
+        case .findLANServers:
+            //        m_pServerBrowser->RefreshLANServers();
+            //        SteamFriends()->SetRichPresence( "status", "Finding a LAN game" );
+            //        pchSteamRichPresenceDisplay = "WaitingForMatch";
+            break
+        case .gameMenu:
+            //        // we've switched out to the main menu
+            //
+            //        // Tell the server we have left if we are connected
+            //        DisconnectFromServer();
+            //
+            //        // shut down any server we were running
+            //        if ( m_pServer )
+            //        {
+            //            delete m_pServer;
+            //            m_pServer = NULL;
+            //        }
+            //
+            //        SteamFriends()->SetRichPresence( "status", "Main menu" );
+            //
+            //        // Refresh inventory
+            //        SpaceWarLocalInventory()->RefreshFromServer();
+            break
+        case .leaderboards:
+            //        // we've switched to the leaderboard menu
+            //        m_pLeaderboards->Show();
+            //        SteamFriends()->SetRichPresence( "status", "Viewing leaderboards" );
+            break
+        case .friendsList:
+            //        // we've switched to the friends list menu
+            //        m_pFriendsList->Show();
+            //        SteamFriends()->SetRichPresence( "status", "Viewing friends list" );
+            break
+        case .clanChatRoom:
+            //        // we've switched to the leaderboard menu
+            //        m_pClanChatRoom->Show();
+            //        SteamFriends()->SetRichPresence( "status", "Chatting" );
+            break
+        case .remotePlay:
+            //        // we've switched to the remote play menu
+            //        m_pRemotePlayList->Show();
+            //        SteamFriends()->SetRichPresence( "status", "Viewing remote play sessions" );
+            break
+        case .remoteStorage:
+            //        // we've switched to the remote storage menu
+            //        m_pRemoteStorage->Show();
+            //        SteamFriends()->SetRichPresence( "status", "Viewing remote storage" );
+            break
+        case .music:
+            //        // we've switched to the music player menu
+            //        m_pMusicPlayer->Show();
+            //        SteamFriends()->SetRichPresence( "status", "Using music player" );
+            break
+        case .htmlSurface:
+            //        // we've switched to the html page
+            //        m_pHTMLSurface->Show();
+            //        SteamFriends()->SetRichPresence("status", "Using the web");
+            break
+        case .inGameStore:
+            //        // we've switched to the item store
+            //        m_pItemStore->Show();
+            //        SteamFriends()->SetRichPresence( "status", "Viewing Item Store" );
+            break
+        case .overlayAPI:
+            //        // we've switched to the item store
+            //        m_pOverlayExamples->Show();
+            //        SteamFriends()->SetRichPresence( "status", "Viewing Overlay API Examples" );
+            break
+        case .gameExiting, .gameInstructions, .statsAchievements, .connectingToSteam, .webCallback, .workshop:
+            // Nothing to do on entry to these states
+            // XXX but they should still set rich presence status...
+            break
+        // XXX to sort out - client
+        case .startServer:
+            break
+        case .runningGame:
+            break
+        // XXX to sort out - lobby
+        case .createLobby:
+            break
+        case .joinLobby:
+            break
+        case .doingLobby:
+            break
+        // XXX to delete???
+        case .minidump:
+            break
+        case .linkSteamAccount:
+            break
+        case .autoCreateAccount:
+            break
+        case .retrySteamConnection:
+            break
+        }
+        //
+        //    if ( pchSteamRichPresenceDisplay != NULL )
+        //    {
+        //        SteamFriends()->SetRichPresence( "steam_display", bDisplayScoreInRichPresence ? "#StatusWithScore" : "#StatusWithoutScore" );
+        //        SteamFriends()->SetRichPresence( "gamestatus", pchSteamRichPresenceDisplay );
+        //    }
+        //
+        //    {
+        //        SteamFriends()->SetRichPresence( "steam_player_group", "" );
+        //    }
+        //
+        //}
     }
 
     /// Main frame function, updates the state of the world and performs rendering

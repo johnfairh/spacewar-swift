@@ -48,6 +48,38 @@ class Lobbies {
     // MARK: State machine
 
     func onStateChanged() {
+        //    else if ( m_eGameState == k_EClientCreatingLobby )
+        //    {
+        //        // start creating the lobby
+        //        if ( !m_SteamCallResultLobbyCreated.IsActive() )
+        //        {
+        //            // ask steam to create a lobby
+        //            SteamAPICall_t hSteamAPICall = SteamMatchmaking()->CreateLobby( k_ELobbyTypePublic /* public lobby, anyone can find it */, 4 );
+        //            // set the function to call when this completes
+        //            m_SteamCallResultLobbyCreated.Set( hSteamAPICall, this, &CSpaceWarClient::OnLobbyCreated );
+        //        }
+        //        SteamFriends()->SetRichPresence( "status", "Creating a lobby" );
+        //        pchSteamRichPresenceDisplay = "WaitingForMatch";
+        //    }
+        //    else if ( m_eGameState == k_EClientInLobby )
+        //    {
+        //        pchSteamRichPresenceDisplay = "WaitingForMatch";
+        //    }
+        //    else if ( m_eGameState == k_EClientFindLobby )
+        //    {
+        //        m_pLobbyBrowser->Refresh();
+        //        SteamFriends()->SetRichPresence( "status", "Main menu: finding lobbies" );
+        //        pchSteamRichPresenceDisplay = "WaitingForMatch";
+        //    }
+
+        //
+        //    if ( pchSteamRichPresenceDisplay != NULL )
+        //    {
+        //        SteamFriends()->SetRichPresence( "steam_display", bDisplayScoreInRichPresence ? "#StatusWithScore" : "#StatusWithoutScore" );
+        //        SteamFriends()->SetRichPresence( "gamestatus", pchSteamRichPresenceDisplay );
+        //    }
+
+        //void CSpaceWarClient::UpdateRichPresenceConnectionInfo()
     }
 
     /// Frame poll function.
