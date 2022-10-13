@@ -58,7 +58,6 @@ class Lobbies {
         //            // set the function to call when this completes
         //            m_SteamCallResultLobbyCreated.Set( hSteamAPICall, this, &CSpaceWarClient::OnLobbyCreated );
         //        }
-        //        SteamFriends()->SetRichPresence( "status", "Creating a lobby" );
         //    }
         //    else if ( m_eGameState == k_EClientInLobby )
         //    {
@@ -66,11 +65,11 @@ class Lobbies {
         //    else if ( m_eGameState == k_EClientFindLobby )
         //    {
         //        m_pLobbyBrowser->Refresh();
-        //        SteamFriends()->SetRichPresence( "status", "Main menu: finding lobbies" );
         //    }
 
+        steam.friends.setRichPresence(status: state.state.richPresenceStatus)
         steam.friends.setRichPresence(gameStatus: .waitingForMatch)
-
+        steam.friends.setRichPresence(playerGroup: nil)
         //        if m_steamIDLobby.isValid() {
         //            steam.friends.setRichPresence(connectedTo: .lobby(m_steamIDLobby))
         //        } else {
@@ -90,6 +89,8 @@ class Lobbies {
     func runFrame() -> FrameRc {
         precondition(state.state != .idle, "SpaceWarMain thinks we're busy but we're idle :-(")
 
+        // XXX does this really belong here? surely nothing lobbyish?
+        //
         //    if ( m_eConnectedStatus != k_EClientNotConnected && m_pGameEngine->GetGameTickCount() - m_ulLastNetworkDataReceivedTime > MILLISECONDS_CONNECTION_TIMEOUT )
         //    {
         //        SetConnectionFailureText( "Game server connection failure." );

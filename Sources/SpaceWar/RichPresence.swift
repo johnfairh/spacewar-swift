@@ -5,7 +5,8 @@
 
 import Steamworks
 
-// Helpers to pull together the various rich presence published info
+/// Helpers to pull together the various rich presence published info.  Single point of truth for magic
+/// string keys and full list of strings published to them.
 
 /// Namespace
 enum RichPresence {
@@ -31,6 +32,71 @@ enum RichPresence {
             case .server(let ip, let port): return "+connect \(ip):\(port)"
             case .lobby(let steamID): return "+connect_lobby \(steamID.asUInt64)"
             }
+        }
+    }
+}
+
+extension SpaceWarMain.State {
+    /// GameStatus to publish for specific main-game states
+    var richPresenceGameStatus: RichPresence.GameStatus {
+        switch self {
+        case .findLANServers, .findInternetServers:
+            return .waitingForMatch
+        default:
+            return .atMainMenu
+        }
+    }
+
+    /// Status to publish for specific main-game states
+    var richPresenceStatus: String {
+        switch self {
+        case .connectingToSteam: return ""
+        case .gameMenu: return "At main menu"
+        case .startServer: return ""
+        case .findLANServers: return "Finding a LAN game"
+        case .findInternetServers: return "Finding an internet game"
+        case .createLobby: return ""
+        case .joinLobby: return ""
+        case .gameInstructions: return "Viewing game instructions"
+        case .statsAchievements: return "Viewing stats and achievements"
+        case .leaderboards: return "Viewing leaderboards"
+        case .friendsList: return "Viewing friends list"
+        case .clanChatRoom: return "Chatting"
+        case .remotePlay: return "Viewing remote play sessions"
+        case .remoteStorage: return "Viewing remote storage"
+        case .webCallback: return "Viewing web callback example"
+        case .music: return "Using music player"
+        case .workshop: return "Viewing workshop items"
+        case .htmlSurface: return "Using the web"
+        case .inGameStore: return "Viewing the item store"
+        case .overlayAPI: return "Viewing overlay API examples"
+        case .gameExiting: return ""
+        }
+    }
+}
+
+extension SpaceWarClient.State {
+    /// Status to publish for specific client states
+    var richPresenceStatus: String {
+        switch self {
+        case .idle: return ""
+        case .startServer, .connecting, .waitingForPlayers, .connectionFailure:
+            return "Starting a match"
+        case .active, .winner, .draw, .quitMenu:
+            return "In a match"
+        }
+    }
+}
+
+extension Lobbies.State {
+    /// Status to publish for specific client states
+    var richPresenceStatus: String {
+        switch self {
+        case .idle: return ""
+        case .creatingLobby: return "Creating a lobby"
+        case .inLobby: return "In a lobby"
+        case .findLobby: return "Main menu: finding lobbies"
+        case .joiningLobby: return "Joining a lobby"
         }
     }
 }

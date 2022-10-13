@@ -89,7 +89,30 @@ final class SpaceWarMain {
     private let starField: StarField
 
     /// Overall game state
-    private(set) var gameState: MonitoredState<MainGameState>
+    enum State {
+        case connectingToSteam
+        case gameMenu
+        case startServer
+        case findLANServers
+        case findInternetServers
+        case createLobby
+        case joinLobby
+        case gameInstructions
+        case statsAchievements
+        case leaderboards
+        case friendsList
+        case clanChatRoom
+        case remotePlay
+        case remoteStorage
+        case webCallback
+        case music
+        case workshop
+        case htmlSurface
+        case inGameStore
+        case overlayAPI
+        case gameExiting
+    }
+    private(set) var gameState: MonitoredState<State>
     private var cancelInput: Debounced
     private var infrequent: Debounced
 
@@ -218,7 +241,7 @@ final class SpaceWarMain {
     // MARK: State machine
 
     /// Transition game state
-    func setGameState(_ state: MainGameState) {
+    func setGameState(_ state: State) {
         gameState.set(state) {
             // XXX is this all really gone?
         }
@@ -226,20 +249,7 @@ final class SpaceWarMain {
 
     /// Called in the first `RunFrame()` after the state is changed.  Old state is NOT available.
     func onGameStateChanged() {
-        var richPresenceDisplay = RichPresence.GameStatus.atMainMenu
-
         switch gameState.state {
-        case .findInternetServers:
-            //        // If we are just opening the find servers screen, then start a refresh
-            //        m_pServerBrowser->RefreshInternetServers();
-            //        SteamFriends()->SetRichPresence( "status", "Finding an internet game" );
-            richPresenceDisplay = .waitingForMatch
-            break
-        case .findLANServers:
-            //        m_pServerBrowser->RefreshLANServers();
-            //        SteamFriends()->SetRichPresence( "status", "Finding a LAN game" );
-            richPresenceDisplay = .waitingForMatch
-            break
         case .gameMenu:
             //        // we've switched out to the main menu
             //
@@ -253,70 +263,68 @@ final class SpaceWarMain {
             //            m_pServer = NULL;
             //        }
             //
-            //        SteamFriends()->SetRichPresence( "status", "Main menu" );
-            //
             //        // Refresh inventory
             //        SpaceWarLocalInventory()->RefreshFromServer();
             break
+        case .startServer:
+            gameClient.startServer()
+            // SpaceWarClient takes over now
+        case .findLANServers:
+            //        m_pServerBrowser->RefreshLANServers();
+            break
+        case .findInternetServers:
+            //        // If we are just opening the find servers screen, then start a refresh
+            //        m_pServerBrowser->RefreshInternetServers();
+            break
+        case .createLobby:
+            lobbies.createLobby()
+            // Lobbies takes over now
+        case .joinLobby:
+            lobbies.findLobby()
+            // Lobbies takes over now
         case .leaderboards:
             //        // we've switched to the leaderboard menu
             //        m_pLeaderboards->Show();
-            //        SteamFriends()->SetRichPresence( "status", "Viewing leaderboards" );
             break
         case .friendsList:
             //        // we've switched to the friends list menu
             //        m_pFriendsList->Show();
-            //        SteamFriends()->SetRichPresence( "status", "Viewing friends list" );
             break
         case .clanChatRoom:
             //        // we've switched to the leaderboard menu
             //        m_pClanChatRoom->Show();
-            //        SteamFriends()->SetRichPresence( "status", "Chatting" );
             break
         case .remotePlay:
             //        // we've switched to the remote play menu
             //        m_pRemotePlayList->Show();
-            //        SteamFriends()->SetRichPresence( "status", "Viewing remote play sessions" );
             break
         case .remoteStorage:
             //        // we've switched to the remote storage menu
             //        m_pRemoteStorage->Show();
-            //        SteamFriends()->SetRichPresence( "status", "Viewing remote storage" );
             break
         case .music:
             //        // we've switched to the music player menu
             //        m_pMusicPlayer->Show();
-            //        SteamFriends()->SetRichPresence( "status", "Using music player" );
             break
         case .htmlSurface:
             //        // we've switched to the html page
             //        m_pHTMLSurface->Show();
-            //        SteamFriends()->SetRichPresence("status", "Using the web");
             break
         case .inGameStore:
             //        // we've switched to the item store
             //        m_pItemStore->Show();
-            //        SteamFriends()->SetRichPresence( "status", "Viewing Item Store" );
             break
         case .overlayAPI:
             //        // we've switched to the item store
             //        m_pOverlayExamples->Show();
-            //        SteamFriends()->SetRichPresence( "status", "Viewing Overlay API Examples" );
             break
         case .gameExiting, .gameInstructions, .statsAchievements, .connectingToSteam, .webCallback, .workshop:
             // Nothing to do on entry to these states
-            // XXX but they should still set rich presence status...
-            break
-        case .startServer:
-            gameClient.startServer()
-        case .joinLobby:
-            lobbies.findLobby()
-        case .createLobby:
-            lobbies.createLobby()
             break
         }
 
-        steam.friends.setRichPresence(gameStatus: richPresenceDisplay)
+        steam.friends.setRichPresence(status: gameState.state.richPresenceStatus)
+        steam.friends.setRichPresence(gameStatus: gameState.state.richPresenceGameStatus)
         steam.friends.setRichPresence(playerGroup: nil)
         steam.friends.setRichPresence(connectedTo: .nothing)
     }

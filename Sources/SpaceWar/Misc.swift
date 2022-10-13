@@ -64,31 +64,6 @@ enum Misc {
     ]
 }
 
-/// Enum for possible game states on the client
-enum MainGameState {
-    case gameMenu
-    case gameExiting
-    case gameInstructions
-    case startServer
-    case findInternetServers
-    case statsAchievements
-    case createLobby
-    case joinLobby
-    case findLANServers
-    case remoteStorage
-    case leaderboards
-    case friendsList
-    case connectingToSteam
-    case clanChatRoom
-    case webCallback
-    case music
-    case workshop
-    case htmlSurface
-    case inGameStore
-    case remotePlay
-    case overlayAPI
-}
-
 /// Enum for possible game states on the server
 enum ServerGameState {
   case waitingForPlayers

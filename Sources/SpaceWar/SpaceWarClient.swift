@@ -117,7 +117,6 @@ final class SpaceWarClient {
         //
         //        // Check if the user is due for an item drop
         //        SpaceWarLocalInventory()->CheckForItemDrops();
-        //
         //        SetInGameRichPresence();
         //    }
 
@@ -128,15 +127,15 @@ final class SpaceWarClient {
         //
         //        // start voice chat
         //        m_pVoiceChat->StartVoiceChat();
-        //        SteamFriends()->SetRichPresence( "status", "In match" );
         //
         //        SetInGameRichPresence();
         //    }
 
         //    else {
-        steam.friends.setRichPresence(status: "Starting a new match")
         steam.friends.setRichPresence(gameStatus: .waitingForMatch)
         //    }
+
+        steam.friends.setRichPresence(status: state.state.richPresenceStatus)
 
         //    // steam_player_group defines who the user is playing with.  Set it to the steam ID
         //    // of the server if we are connected, otherwise blank.
@@ -147,6 +146,7 @@ final class SpaceWarClient {
         //        SteamFriends().SetRichPresence(playerGroup: nil)
         //    }
 
+        // XXX might need to factor this out, called elsewhere too
         //    // update any network-related rich presence state
         //    if ( m_eConnectedStatus == k_EClientConnectedAndAuthenticated && m_unServerIP && m_usServerPort )
         //    {
