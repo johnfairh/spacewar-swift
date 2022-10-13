@@ -88,12 +88,7 @@ enum MainGameState {
     case remoteStorage
     case leaderboards
     case friendsList
-    case minidump // just kill this, windows only
     case connectingToSteam
-    // kill these three, ps3 only
-    case linkSteamAccount
-    case autoCreateAccount
-    case retrySteamConnection
     case clanChatRoom
     case webCallback
     case music

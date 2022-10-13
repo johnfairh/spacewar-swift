@@ -14,11 +14,11 @@ extension Engine2D {
 }
 
 extension Engine2D.TickCount {
-    func isMoreThan(_ duration: Engine2D.TickCount, since: Engine2D.TickCount) -> Bool {
+    func isLongerThan(_ duration: Engine2D.TickCount, since: Engine2D.TickCount) -> Bool {
         self - since > duration
     }
 
-    func isLessThan(_ duration: Engine2D.TickCount, since: Engine2D.TickCount) -> Bool {
+    func isShorterThan(_ duration: Engine2D.TickCount, since: Engine2D.TickCount) -> Bool {
         self - since < duration
     }
 }
@@ -319,15 +319,6 @@ final class SpaceWarMain {
             break
         case .doingLobby:
             break
-        // XXX to delete???
-        case .minidump:
-            break
-        case .linkSteamAccount:
-            break
-        case .autoCreateAccount:
-            break
-        case .retrySteamConnection:
-            break
         }
         //
         //    if ( pchSteamRichPresenceDisplay != NULL )
@@ -375,9 +366,6 @@ final class SpaceWarMain {
             // Make sure the Steam Controller is in the correct mode.
             // XXX SteamInput       m_pGameEngine->SetSteamControllerActionSet( eControllerActionSet_MenuControls );
             break;
-
-        case .retrySteamConnection, .linkSteamAccount, .autoCreateAccount:
-            preconditionFailure("Unexpected PS3-specific state")
 
 //        case .gameMenu:
 //            // XXX MainMenu m_pMainMenu->RunFrame();
@@ -484,15 +472,6 @@ final class SpaceWarMain {
             //        m_pHTMLSurface->Render();
             //        break;
 
-            //    case k_EClientMinidump:
-            //#ifdef _WIN32
-            //        RaiseException( EXCEPTION_NONCONTINUABLE_EXCEPTION,
-            //            EXCEPTION_NONCONTINUABLE,
-            //            0, NULL );
-            //#endif
-            //        SetGameState( k_EClientGameMenu );
-            //        break;
-
             // XXX not sure about this yet, steam china out-of-the-blue
             //     and game quit menu.
             // Think nuke it, don't need a state, just quit
@@ -576,7 +555,7 @@ struct Debounced {
     }
 
     mutating func test(now: Engine2D.TickCount) -> Bool {
-        guard sample(), now.isMoreThan(debounce, since: lastPress) else {
+        guard sample(), now.isLongerThan(debounce, since: lastPress) else {
             return false
         }
         lastPress = now
