@@ -26,9 +26,9 @@ enum RichPresence {
         case server(Int, UInt16)
         case lobby(SteamID)
 
-        var connectValue: String {
+        var connectValue: String? {
             switch self {
-            case .nothing: return "" // XXX nil
+            case .nothing: return nil
             case .server(let ip, let port): return "+connect \(ip):\(port)"
             case .lobby(let steamID): return "+connect_lobby \(steamID.asUInt64)"
             }
@@ -48,15 +48,15 @@ extension SpaceWarMain.State {
     }
 
     /// Status to publish for specific main-game states
-    var richPresenceStatus: String {
+    var richPresenceStatus: String? {
         switch self {
-        case .connectingToSteam: return ""
+        case .connectingToSteam: return nil
         case .gameMenu: return "At main menu"
-        case .startServer: return ""
+        case .startServer: return nil
         case .findLANServers: return "Finding a LAN game"
         case .findInternetServers: return "Finding an internet game"
-        case .createLobby: return ""
-        case .joinLobby: return ""
+        case .createLobby: return nil
+        case .joinLobby: return nil
         case .gameInstructions: return "Viewing game instructions"
         case .statsAchievements: return "Viewing stats and achievements"
         case .leaderboards: return "Viewing leaderboards"
@@ -70,16 +70,16 @@ extension SpaceWarMain.State {
         case .htmlSurface: return "Using the web"
         case .inGameStore: return "Viewing the item store"
         case .overlayAPI: return "Viewing overlay API examples"
-        case .gameExiting: return ""
+        case .gameExiting: return nil
         }
     }
 }
 
 extension SpaceWarClient.State {
     /// Status to publish for specific client states
-    var richPresenceStatus: String {
+    var richPresenceStatus: String? {
         switch self {
-        case .idle: return ""
+        case .idle: return nil
         case .startServer, .connecting, .waitingForPlayers, .connectionFailure:
             return "Starting a match"
         case .active, .winner, .draw, .quitMenu:
@@ -90,9 +90,9 @@ extension SpaceWarClient.State {
 
 extension Lobbies.State {
     /// Status to publish for specific client states
-    var richPresenceStatus: String {
+    var richPresenceStatus: String? {
         switch self {
-        case .idle: return ""
+        case .idle: return nil
         case .creatingLobby: return "Creating a lobby"
         case .inLobby: return "In a lobby"
         case .findLobby: return "Main menu: finding lobbies"
@@ -103,31 +103,31 @@ extension Lobbies.State {
 
 extension SteamFriends {
     /// Status, english, fine-grained, to 'view game info'
-    func setRichPresence(status: String) {
-        _ = setRichPresence(key: "status", value: status)
+    func setRichPresence(status: String?) {
+        setRichPresence(key: "status", value: status)
     }
 
     /// Status, translated, to the steam UI, see richpresenceloc.vdf - this version for use when not in a game
     func setRichPresence(gameStatus: RichPresence.GameStatus) {
-        _ = setRichPresence(key: "gamestatus", value: gameStatus.rawValue) /*XXX discard*/
-        _ = setRichPresence(key: "steam_display", value: "#StatusWithoutScore")
+        setRichPresence(key: "gamestatus", value: gameStatus.rawValue)
+        setRichPresence(key: "steam_display", value: "#StatusWithoutScore")
     }
 
     /// Status, translated, to the steam UI, see richpresenceloc.vdf - this version for use when in a game
     func setRichPresence(gameStatus: RichPresence.GameStatus, score: Int) {
-        _ = setRichPresence(key: "gamestatus", value: gameStatus.rawValue)
-        _ = setRichPresence(key: "score", value: String(score))
-        _ = setRichPresence(key: "steam_display", value: "#StatusWithScore")
+        setRichPresence(key: "gamestatus", value: gameStatus.rawValue)
+        setRichPresence(key: "score", value: String(score))
+        setRichPresence(key: "steam_display", value: "#StatusWithScore")
     }
 
     /// Associated player group, if any
     func setRichPresence(playerGroup: SteamID?) {
-        let value = playerGroup.map { String($0.asUInt64) } ?? ""
-        _ = setRichPresence(key: "steam_player_group", value: value)
+        let value = playerGroup.map { String($0.asUInt64) }
+        setRichPresence(key: "steam_player_group", value: value)
     }
 
     /// Connection parameters - connected to server/lobby/nothing
     func setRichPresence(connectedTo: RichPresence.Connected) {
-        _ = setRichPresence(key: "connect", value: connectedTo.connectValue)
+        setRichPresence(key: "connect", value: connectedTo.connectValue)
     }
 }

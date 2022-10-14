@@ -30,7 +30,7 @@ class Lobbies {
     init(engine: Engine2D, steam: SteamAPI) {
         self.engine = engine
         self.steam = steam
-        self.state = MonitoredState(engine: engine, initial: .idle)
+        self.state = MonitoredState(tickSource: engine, initial: .idle)
     }
 
     // MARK: Kick-off entrypoints

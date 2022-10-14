@@ -49,7 +49,7 @@ enum Misc {
     static let CLIENT_UPDATE_SEND_RATE = 30
 
     /// How fast does the server internally run at?
-    static let X_CLIENT_AND_SERVER_FPS = 86
+    static let MAX_CLIENT_AND_SERVER_FPS = 86
 
     /// Leaderboard names
     static let LEADERBOARD_QUICKEST_WIN = "Quickest Win"

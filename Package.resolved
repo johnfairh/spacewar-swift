@@ -6,7 +6,7 @@
       "location" : "https://github.com/johnfairh/steamworks-swift",
       "state" : {
         "branch" : "main",
-        "revision" : "182cea1868516c575531d645dfd65b354bb30cae"
+        "revision" : "f1f67feca2cee7a491ac838e5578f8bad7612394"
       }
     },
     {
@@ -23,8 +23,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/johnfairh/TMLEngines",
       "state" : {
-        "revision" : "350b08c304027a8f382c47d89d45bd2c50f66753",
-        "version" : "1.1.0"
+        "revision" : "b4d501fe2306d1f4fdd91f1a26ccbfcc76fc0274",
+        "version" : "1.2.1"
       }
     }
   ],

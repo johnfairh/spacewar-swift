@@ -7,32 +7,16 @@ import Steamworks
 import MetalEngine
 import Foundation
 
-extension Engine2D {
-    var gameTickCount: TickCount {
-        frameTimestamp
-    }
-}
-
-extension Engine2D.TickCount {
-    func isLongerThan(_ duration: Engine2D.TickCount, since: Engine2D.TickCount) -> Bool {
-        self - since > duration
-    }
-
-    func isShorterThan(_ duration: Engine2D.TickCount, since: Engine2D.TickCount) -> Bool {
-        self - since < duration
-    }
-}
-
 /// Gadget to wrap up the 'state' pattern that gets split three ways in this port.
 ///
 /// Record time of state change
 /// Provide call to execute code first time made in new state
 /// Provide setter to nop if already there and execute code if not
 final class MonitoredState<ActualState: Equatable> {
-    let engine: Engine2D
+    let tickSource: TickSource
 
-    init(engine: Engine2D, initial: ActualState) {
-        self.engine = engine
+    init(tickSource: TickSource, initial: ActualState) {
+        self.tickSource = tickSource
         self.state = initial
         self.transitioned = false
         self.transitionTime = 0
@@ -46,12 +30,12 @@ final class MonitoredState<ActualState: Equatable> {
         }
         state = newState
         transitioned = true
-        transitionTime = engine.gameTickCount
+        transitionTime = tickSource.currentTickCount
         call()
     }
 
     private(set) var transitioned: Bool
-    private(set) var transitionTime: Engine2D.TickCount
+    private(set) var transitionTime: TickSource.TickCount
 
     func onTransition(call: () -> Void) {
         if transitioned {
@@ -124,7 +108,7 @@ final class SpaceWarMain {
         precondition(steam.user.loggedOn())
         localUserSteamID = steam.user.getSteamID()
 
-        gameState = MonitoredState(engine: engine, initial: .gameMenu)
+        gameState = MonitoredState(tickSource: engine, initial: .gameMenu)
         cancelInput = Debounced(debounce: 250) {
             engine.isKeyDown(.escape)
             /* XXX SteamInput ||
@@ -208,10 +192,10 @@ final class SpaceWarMain {
             }
         }
 
-        // XXX missing callback??
-        //        steam.onDurationControl { [weak self] msg in
-        //            self?.onDurationControl(msg: msg)
-        //        }
+        steam.onDurationControl { [weak self] msg in
+            // Notification that a Steam China duration control event has happened
+            self?.onDurationControl(msg: msg)
+        }
     }
 
     private var handledForceQuit = false
@@ -574,18 +558,18 @@ final class SpaceWarMain {
 /// Helper to debounce events eg. to avoid one 'esc' press jumping through layers of menus
 struct Debounced {
     let sample: () -> Bool
-    let debounce: Engine2D.TickCount
+    let debounce: TickSource.TickCount
 
-    private(set) var lastPress: Engine2D.TickCount
+    private(set) var lastPress: TickSource.TickCount
 
     /// Wrap a predicate so it returns `true` only once every `debounce` milliseconds
-    init(debounce: Engine2D.TickCount, sample: @escaping () -> Bool) {
+    init(debounce: TickSource.TickCount, sample: @escaping () -> Bool) {
         self.sample = sample
         self.debounce = debounce
         self.lastPress = 0
     }
 
-    mutating func test(now: Engine2D.TickCount) -> Bool {
+    mutating func test(now: TickSource.TickCount) -> Bool {
         guard sample(), now.isLongerThan(debounce, since: lastPress) else {
             return false
         }

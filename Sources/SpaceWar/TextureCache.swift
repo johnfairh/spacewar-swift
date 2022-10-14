@@ -32,11 +32,13 @@ struct TextureCache {
         }
 
         let image = steam.utils.getImageRGBA(imageIndex: imageIndex)
-        guard image.rc, image.dest.count > 0 else {
+        guard image.rc, image.width > 0 else {
             return nil
         }
 
-        let texture = engine.createTexture(bytes: image.dest, width: 1, height: 1, format: .rgba)
+        let texture = engine.createTexture(bytes: image.dest,
+                                           width: image.width, height: image.height,
+                                           format: .rgba)
         textures[imageIndex] = texture
         return texture
     }

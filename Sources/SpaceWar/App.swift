@@ -14,6 +14,9 @@ import MetalEngine
 @main
 struct SpaceWarApp: App {
     init() {
+        // Some nonsense to simulate a library that probably doesn't exist
+        Steamworks_InstallCEGHooks(initCEG: Steamworks_InitCEGLibrary, termCEG: Steamworks_TermCEGLibrary)
+
 #if SWIFT_PACKAGE
         // Some nonsense to make the app work properly when built outside of Xcode
         DispatchQueue.main.async {
@@ -26,7 +29,7 @@ struct SpaceWarApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MetalEngineView() { engine in
+            MetalEngineView(preferredFPS: Misc.MAX_CLIENT_AND_SERVER_FPS) { engine in
                 // Steam init
                 let steam = initSteam()
 
@@ -51,13 +54,6 @@ struct SpaceWarApp: App {
 
     /// Steam API initialization dance
     private func initSteam() -> SteamAPI {
-        // Init Steam CEG
-        /* XXX this needs integrating into `SteamApi` for proper sequencing; tricky because doesn't exist... */
-        if !Steamworks_InitCEGLibrary() {
-            alert("Fatal Error", "Steam must be running to play this game (InitDrmLibrary() failed).");
-            preconditionFailure("Steamworks_InitCEGLibrary() failed");
-        }
-
         guard let steam = SteamAPI(appID: .spaceWar, fakeAppIdTxtFile: true) else {
             alert("Fatal Error", "Steam must be running to play this game (SteamAPI_Init() failed).");
             preconditionFailure("SteamInit failed")
@@ -113,9 +109,6 @@ struct SpaceWarApp: App {
     /// Quit the entire thing
     static func quit() {
         instance = nil // shuts down Steam
-
-        // Shutdown Steam CEG (apparently after SteamAPI_Shutdown()) XXX integrate properly
-        Steamworks_TermCEGLibrary();
 
         NSApp.terminate(self)
     }

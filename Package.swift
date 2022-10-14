@@ -11,7 +11,7 @@ let package = Package(
     .package(url: "https://github.com/johnfairh/steamworks-swift",
              branch: "main"),
     .package(url: "https://github.com/johnfairh/TMLEngines",
-             from: "1.1.0")
+             from: "1.2.0")
   ],
   targets: [
     .executableTarget(

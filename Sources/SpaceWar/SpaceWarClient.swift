@@ -31,7 +31,7 @@ final class SpaceWarClient {
     init(engine: Engine2D, steam: SteamAPI) {
         self.engine = engine
         self.steam = steam
-        self.state = MonitoredState<State>(engine: engine, initial: .idle)
+        self.state = MonitoredState<State>(tickSource: engine, initial: .idle)
 
         //    m_uPlayerWhoWonGame = 0;
         //    m_ulLastNetworkDataReceivedTime = 0;
