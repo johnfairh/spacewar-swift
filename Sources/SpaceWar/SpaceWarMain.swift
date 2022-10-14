@@ -128,7 +128,7 @@ final class SpaceWarMain {
         cancelInput = Debounced(debounce: 250) {
             engine.isKeyDown(.escape)
             /* XXX SteamInput ||
-               m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_PauseMenu ) ||
+             m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_PauseMenu ) ||
              m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_MenuCancel ) ) */
         }
         // Gadget to fire every second
@@ -162,19 +162,23 @@ final class SpaceWarMain {
         //    m_pOverlayExamples = new COverlayExamples( pGameEngine );
 
         // Initialize engine
-
         engine.setBackgroundColor(.rgb(0, 0, 0))
 
         // Initialize networking
-
         steam.networkingUtils.initRelayNetworkAccess()
 
         Timer.scheduledTimer(withTimeInterval: 0.005, repeats: true) { [weak self] _ in
             self?.receiveNetworkData()
         }
 
-        // Connect to general Steam notifications
+        initSteamNotifications()
+        initCommandLine()
+    }
 
+    // MARK: General Steam Infrastructure Interlocks
+
+    /// Connect to general Steam notifications, roughly all lifecycle-related
+    private func initSteamNotifications() {
         steam.onIPCFailure { [weak self] msg in
             // Some awful O/S or library error
             self?.forceQuit(reason: "Steam IPC Failure (\(msg.failureType))")
@@ -204,8 +208,49 @@ final class SpaceWarMain {
             }
         }
 
-        // Command-line server-connect instructions
+        // XXX missing callback??
+        //        steam.onDurationControl { [weak self] msg in
+        //            self?.onDurationControl(msg: msg)
+        //        }
+    }
 
+    private var handledForceQuit = false
+    func forceQuit(reason: String) {
+        guard !handledForceQuit else {
+            return
+        }
+        handledForceQuit = true
+        OutputDebugString("Forced to quit: \(reason)")
+        SpaceWarApp.quit()
+    }
+
+    /// Steam China duration control: called manually on occasion, can be async notification too
+    func onDurationControl(msg: DurationControl) {
+        if msg.csecsRemaining > 0 && msg.csecsRemaining < 30 {
+            // Player doesn't have much playtime left, warn them
+            OutputDebugString("Duration control: Playtime remaining is short - exit soon!")
+        }
+
+        func message(_ progress: DurationControlProgress) -> String? {
+            switch progress {
+            case .exitSoon3h: return "3h playtime since last 5h break"
+            case .exitSoon5h: return "5h playtime today"
+            case .exitSoonNight: return "10PM-8AM"
+            default: return nil
+            }
+        }
+
+        guard let exitMsg = message(msg.progress) else {
+            return
+        }
+        OutputDebugString("Duration control termination: \(exitMsg) (remaining time: \(msg.csecsRemaining))")
+
+        // perform a clean exit
+        setGameState(.gameExiting)
+    }
+
+    /// Command-line server-connect instructions, from various places
+    private func initCommandLine() {
         if let cmdLineParams = CmdLineParams() ?? CmdLineParams(steam: steam) {
             gameClient.execCommandLineConnect(params: cmdLineParams)
         }
@@ -228,14 +273,19 @@ final class SpaceWarMain {
         }
     }
 
-    private var handledForceQuit = false
-    func forceQuit(reason: String) {
-        guard !handledForceQuit else {
-            return
+    /// Called from frame loop, but once every second or so instead of every frame
+    func runOccasionally() {
+        // Update duration control
+        if steam.utils.isSteamChinaLauncher() {
+            steam.user.getDurationControl() { [weak self] msg in
+                if let msg, let self {
+                    self.onDurationControl(msg: msg)
+                }
+            }
         }
-        handledForceQuit = true
-        OutputDebugString("Forced to quit: \(reason)")
-        SpaceWarApp.quit()
+
+        //    XXX stats // Service stats and achievements - infrequently except during game when it ALSO gets called in the per-frame GameActive bit
+        //    m_pStatsAndAchievements->RunFrame();
     }
 
     // MARK: State machine
@@ -512,10 +562,6 @@ final class SpaceWarMain {
         if engine.isKeyDown(.printable("Q")) {
             SpaceWarApp.quit()
         }
-    }
-
-    func runOccasionally() {
-        print("occasion")
     }
 
     /// Called at the start of each frame and also between frames
