@@ -163,8 +163,14 @@ final class SpaceWarClient {
 
     /// Frame poll function.
     /// Called by `SpaceWarMain` when it thinks we're in a state of running/starting a game.
-    /// Return `true` to stay in that mode, return `false` to exit to the main menu
-    func runFrame() -> Bool {
+    /// Return what we want to do next.
+    enum FrameRc {
+        case game // stay in game mode
+        case mainMenu // quit back to mainMenu
+        case quit // quit to desktop
+    }
+
+    func runFrame() -> FrameRc {
         precondition(state.state != .idle, "SpaceWarMain thinks we're busy but we're idle :-(")
 
         //    if ( m_eConnectedStatus != k_EClientNotConnected && m_pGameEngine->GetGameTickCount() - m_ulLastNetworkDataReceivedTime > MILLISECONDS_CONNECTION_TIMEOUT )
@@ -365,7 +371,7 @@ final class SpaceWarClient {
         //        break;
         //    }
 
-        return false
+        return .mainMenu
     }
 
     /// Called at the start of each frame and also between frames
@@ -421,6 +427,39 @@ final class SpaceWarClient {
     //    return pchStatus;
 
         steam.friends.setRichPresence(gameStatus: .losing/*XXXpchStatus*/, score: 0/*XXXuMyScore*/)
+    }
+
+    /// Tell the connected server we are disconnecting (if we are connected)
+    func disconnectFromServer() {
+        //    if ( m_eConnectedStatus != k_EClientNotConnected )
+        //    {
+        //#ifdef USE_GS_AUTH_API
+        //        if ( m_hAuthTicket != k_HAuthTicketInvalid )
+        //            SteamUser()->CancelAuthTicket( m_hAuthTicket );
+        //        m_hAuthTicket = k_HAuthTicketInvalid;
+        //#else
+        //        SteamUser()->AdvertiseGame( k_steamIDNil, 0, 0 );
+        //#endif
+        //
+        //        // tell steam china duration control system that we are no longer in a match
+        //        SteamUser()->BSetDurationControlOnlineState( k_EDurationControlOnlineState_Offline );
+        //
+        //        m_eConnectedStatus = k_EClientNotConnected;
+        //    }
+        //    if ( m_pP2PAuthedGame )
+        //    {
+        //        m_pP2PAuthedGame->EndGame();
+        //    }
+        //
+        //    if ( m_pVoiceChat )
+        //    {
+        //        m_pVoiceChat->StopVoiceChat();
+        //    }
+        //
+        //    if ( m_hConnServer != k_HSteamNetConnection_Invalid )
+        //        SteamNetworkingSockets()->CloseConnection( m_hConnServer, k_EDRClientDisconnect, nullptr, false );
+        //    m_steamIDGameServer = CSteamID();
+        //    m_hConnServer = k_HSteamNetConnection_Invalid;
     }
 }
 
@@ -914,44 +953,6 @@ final class SpaceWarClient {
 //    }
 //}
 
-
-////-----------------------------------------------------------------------------
-//// Purpose: Tell the connected server we are disconnecting (if we are connected)
-////-----------------------------------------------------------------------------
-//void CSpaceWarClient::DisconnectFromServer()
-//{
-//    if ( m_eConnectedStatus != k_EClientNotConnected )
-//    {
-//#ifdef USE_GS_AUTH_API
-//        if ( m_hAuthTicket != k_HAuthTicketInvalid )
-//            SteamUser()->CancelAuthTicket( m_hAuthTicket );
-//        m_hAuthTicket = k_HAuthTicketInvalid;
-//#else
-//        SteamUser()->AdvertiseGame( k_steamIDNil, 0, 0 );
-//#endif
-//
-//        // tell steam china duration control system that we are no longer in a match
-//        SteamUser()->BSetDurationControlOnlineState( k_EDurationControlOnlineState_Offline );
-//
-//        m_eConnectedStatus = k_EClientNotConnected;
-//    }
-//    if ( m_pP2PAuthedGame )
-//    {
-//        m_pP2PAuthedGame->EndGame();
-//    }
-//
-//    if ( m_pVoiceChat )
-//    {
-//        m_pVoiceChat->StopVoiceChat();
-//    }
-//
-//    if ( m_hConnServer != k_HSteamNetConnection_Invalid )
-//        SteamNetworkingSockets()->CloseConnection( m_hConnServer, k_EDRClientDisconnect, nullptr, false );
-//    m_steamIDGameServer = CSteamID();
-//    m_hConnServer = k_HSteamNetConnection_Invalid;
-//}
-//
-//
 ////-----------------------------------------------------------------------------
 //// Purpose: Receive basic server info from the server after we initiate a connection
 ////-----------------------------------------------------------------------------

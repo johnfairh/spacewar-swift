@@ -28,7 +28,7 @@ extension Engine2D.TickCount {
 /// Record time of state change
 /// Provide call to execute code first time made in new state
 /// Provide setter to nop if already there and execute code if not
-struct MonitoredState<ActualState: Equatable> {
+final class MonitoredState<ActualState: Equatable> {
     let engine: Engine2D
 
     init(engine: Engine2D, initial: ActualState) {
@@ -40,7 +40,7 @@ struct MonitoredState<ActualState: Equatable> {
 
     private(set) var state: ActualState
 
-    mutating func set(_ newState: ActualState, call: () -> Void = {}) {
+    func set(_ newState: ActualState, call: () -> Void = {}) {
         guard newState != state else {
             return
         }
@@ -53,7 +53,7 @@ struct MonitoredState<ActualState: Equatable> {
     private(set) var transitioned: Bool
     private(set) var transitionTime: Engine2D.TickCount
 
-    mutating func onTransition(call: () -> Void) {
+    func onTransition(call: () -> Void) {
         if transitioned {
             transitioned = false
             call()
@@ -419,8 +419,13 @@ final class SpaceWarMain {
 //            break;
 
         case .startServer:
-            if !gameClient.runFrame() {
+            switch gameClient.runFrame() {
+            case .mainMenu:
                 setGameState(.gameMenu)
+            case .quit:
+                setGameState(.gameExiting)
+            case .game:
+                break
             }
 
         case .joinLobby, .createLobby:
@@ -506,13 +511,9 @@ final class SpaceWarMain {
             //        m_pHTMLSurface->Render();
             //        break;
 
-            // XXX not sure about this yet, steam china out-of-the-blue
-            //     and game quit menu.
-            // Think nuke it, don't need a state, just quit
-            //    case k_EClientGameExiting:
-            //        DisconnectFromServer();
-            //        m_pGameEngine->Shutdown();
-            //        return;
+        case .gameExiting:
+            gameClient.disconnectFromServer()
+            forceQuit(reason: "Requested quit to desktop")
 
             //    case k_EClientWebCallback:
             //        if ( !m_bSentWebOpen )
@@ -560,7 +561,7 @@ final class SpaceWarMain {
         }
 
         if engine.isKeyDown(.printable("Q")) {
-            SpaceWarApp.quit()
+            setGameState(.gameExiting)
         }
     }
 
