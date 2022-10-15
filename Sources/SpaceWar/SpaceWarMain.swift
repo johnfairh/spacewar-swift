@@ -7,44 +7,6 @@ import Steamworks
 import MetalEngine
 import Foundation
 
-/// Gadget to wrap up the 'state' pattern that gets split three ways in this port.
-///
-/// Record time of state change
-/// Provide call to execute code first time made in new state
-/// Provide setter to nop if already there and execute code if not
-final class MonitoredState<ActualState: Equatable> {
-    let tickSource: TickSource
-
-    init(tickSource: TickSource, initial: ActualState) {
-        self.tickSource = tickSource
-        self.state = initial
-        self.transitioned = false
-        self.transitionTime = 0
-    }
-
-    private(set) var state: ActualState
-
-    func set(_ newState: ActualState, call: () -> Void = {}) {
-        guard newState != state else {
-            return
-        }
-        state = newState
-        transitioned = true
-        transitionTime = tickSource.currentTickCount
-        call()
-    }
-
-    private(set) var transitioned: Bool
-    private(set) var transitionTime: TickSource.TickCount
-
-    func onTransition(call: () -> Void) {
-        if transitioned {
-            transitioned = false
-            call()
-        }
-    }
-}
-
 /// Top-level game control type holding ref to the Steam client and everything else.
 ///
 /// Corresponds to the non-core-game parts of SpaceWarClient, attempting to split
@@ -552,28 +514,5 @@ final class SpaceWarMain {
     /// Called at the start of each frame and also between frames
     func receiveNetworkData() {
         gameClient.receiveNetworkData()
-    }
-}
-
-/// Helper to debounce events eg. to avoid one 'esc' press jumping through layers of menus
-struct Debounced {
-    let sample: () -> Bool
-    let debounce: TickSource.TickCount
-
-    private(set) var lastPress: TickSource.TickCount
-
-    /// Wrap a predicate so it returns `true` only once every `debounce` milliseconds
-    init(debounce: TickSource.TickCount, sample: @escaping () -> Bool) {
-        self.sample = sample
-        self.debounce = debounce
-        self.lastPress = 0
-    }
-
-    mutating func test(now: TickSource.TickCount) -> Bool {
-        guard sample(), now.isLongerThan(debounce, since: lastPress) else {
-            return false
-        }
-        lastPress = now
-        return true
     }
 }
