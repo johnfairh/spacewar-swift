@@ -4,7 +4,7 @@
 //
 
 enum MainMenuItem: String, CaseIterable, MenuItemNamed {
-    case gameStartServer = "Start New Server"
+    case startServer = "Start New Server"
     case findLANServers = "Find LAN Servers"
     case findInternetServers = "Find Internet Servers"
     case createLobby = "Create Lobby"
@@ -16,7 +16,7 @@ enum MainMenuItem: String, CaseIterable, MenuItemNamed {
     case clanChatRoom = "Group Chat Room"
     case remotePlay = "Remote Play"
     case remoteStorage = "Remote Storage"
-    case webcallback = "Web Callback"
+    case webCallback = "Web Callback"
     case music = "Music Player"
     case workshop = "Workshop Items"
     case htmlSurface = "HTML Page"

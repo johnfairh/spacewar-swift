@@ -33,31 +33,13 @@ final class SpaceWarMain {
     private let gameClient: SpaceWarClient
     private let lobbies: Lobbies
     private let starField: StarField
-    private let mainMenu: MainMenu
+    private var mainMenu: MainMenu!
 
     /// Overall game state
-    enum State {
+    enum State: Equatable {
         case connectingToSteam
-        case gameMenu
-        case startServer
-        case findLANServers
-        case findInternetServers
-        case createLobby
-        case findLobby
-        case gameInstructions
-        case statsAchievements
-        case leaderboards
-        case friendsList
-        case clanChatRoom
-        case remotePlay
-        case remoteStorage
-        case webCallback
-        case music
-        case workshop
-        case htmlSurface
-        case inGameStore
-        case overlayAPI
-        case gameExiting
+        case mainMenu
+        case menuItem(MainMenuItem)
     }
     private(set) var gameState: MonitoredState<State>
     private var cancelInput: Debounced
@@ -71,7 +53,7 @@ final class SpaceWarMain {
         precondition(steam.user.loggedOn())
         localUserSteamID = steam.user.getSteamID()
 
-        gameState = MonitoredState(tickSource: engine, initial: .gameMenu)
+        gameState = MonitoredState(tickSource: engine, initial: .mainMenu)
         cancelInput = Debounced(debounce: 250) {
             engine.isKeyDown(.escape)
             /* XXX SteamInput ||
@@ -90,7 +72,10 @@ final class SpaceWarMain {
         starField = StarField(engine: engine)
 
         // Initialize main menu
-        mainMenu = MainMenu(engine: engine) { print($0) }
+        mainMenu = MainMenu(engine: engine) { [weak self] in
+            OutputDebugString("Main menu selection: \($0)")
+            self?.setGameState(.menuItem($0))
+        }
 
         //    // All the non-game screens
         //    m_pServerBrowser = new CServerBrowser( m_pGameEngine );
@@ -149,7 +134,7 @@ final class SpaceWarMain {
         steam.onSteamServersConnected { [weak self] _ in
             // Notification that we are reconnected to Steam
             if let self, self.steam.user.loggedOn() {
-                self.setGameState(.gameMenu)
+                self.setGameState(.mainMenu)
             } else {
                 OutputDebugString("Got SteamServersConnected, but not logged on?")
             }
@@ -193,7 +178,7 @@ final class SpaceWarMain {
         OutputDebugString("Duration control termination: \(exitMsg) (remaining time: \(msg.csecsRemaining))")
 
         // perform a clean exit
-        setGameState(.gameExiting)
+        setGameState(.menuItem(.gameExiting))
     }
 
     /// Command-line server-connect instructions, from various places
@@ -247,7 +232,7 @@ final class SpaceWarMain {
     /// Called in the first `RunFrame()` after the state is changed.  Old state is NOT available.
     func onGameStateChanged() {
         switch gameState.state {
-        case .gameMenu:
+        case .mainMenu:
             //        // we've switched out to the main menu
             //
             //        // Tell the server we have left if we are connected
@@ -263,59 +248,59 @@ final class SpaceWarMain {
             //        // Refresh inventory
             //        SpaceWarLocalInventory()->RefreshFromServer();
             break
-        case .startServer:
+        case .menuItem(.startServer):
             gameClient.startServer()
             // SpaceWarClient takes over now
-        case .findLANServers:
+        case .menuItem(.findLANServers):
             //        m_pServerBrowser->RefreshLANServers();
             break
-        case .findInternetServers:
+        case .menuItem(.findInternetServers):
             //        // If we are just opening the find servers screen, then start a refresh
             //        m_pServerBrowser->RefreshInternetServers();
             break
-        case .createLobby:
+        case .menuItem(.createLobby):
             lobbies.createLobby()
             // Lobbies takes over now
-        case .findLobby:
+        case .menuItem(.findLobby):
             lobbies.findLobby()
             // Lobbies takes over now
-        case .leaderboards:
+        case .menuItem(.leaderboards):
             //        // we've switched to the leaderboard menu
             //        m_pLeaderboards->Show();
             break
-        case .friendsList:
+        case .menuItem(.friendsList):
             //        // we've switched to the friends list menu
             //        m_pFriendsList->Show();
             break
-        case .clanChatRoom:
+        case .menuItem(.clanChatRoom):
             //        // we've switched to the leaderboard menu
             //        m_pClanChatRoom->Show();
             break
-        case .remotePlay:
+        case .menuItem(.remotePlay):
             //        // we've switched to the remote play menu
             //        m_pRemotePlayList->Show();
             break
-        case .remoteStorage:
+        case .menuItem(.remoteStorage):
             //        // we've switched to the remote storage menu
             //        m_pRemoteStorage->Show();
             break
-        case .music:
+        case .menuItem(.music):
             //        // we've switched to the music player menu
             //        m_pMusicPlayer->Show();
             break
-        case .htmlSurface:
+        case .menuItem(.htmlSurface):
             //        // we've switched to the html page
             //        m_pHTMLSurface->Show();
             break
-        case .inGameStore:
+        case .menuItem(.inGameStore):
             //        // we've switched to the item store
             //        m_pItemStore->Show();
             break
-        case .overlayAPI:
+        case .menuItem(.overlayAPI):
             //        // we've switched to the item store
             //        m_pOverlayExamples->Show();
             break
-        case .gameExiting, .gameInstructions, .statsAchievements, .connectingToSteam, .webCallback, .workshop:
+        case .menuItem(.gameExiting), .menuItem(.gameInstructions), .menuItem(.statsAchievements), .connectingToSteam, .menuItem(.webCallback), .menuItem(.workshop):
             // Nothing to do on entry to these states
             break
         }
@@ -348,7 +333,7 @@ final class SpaceWarMain {
         }
 
         // factor out starfield rendering - do unless we're in web-page mode
-        if gameState.state != .htmlSurface {
+        if gameState.state != .menuItem(.htmlSurface) {
             starField.render()
         }
 
@@ -359,31 +344,31 @@ final class SpaceWarMain {
             // XXX SteamInput       m_pGameEngine->SetSteamControllerActionSet( eControllerActionSet_MenuControls );
             break;
 
-        case .gameMenu:
+        case .mainMenu:
             mainMenu.runFrame()
             // Make sure the Steam Controller is in the correct mode.
             // XXX SteamInput m_pGameEngine->SetSteamControllerActionSet( eControllerActionSet_MenuControls );
             break;
 
-        case .startServer:
+        case .menuItem(.startServer):
             switch gameClient.runFrame() {
             case .mainMenu:
-                setGameState(.gameMenu)
+                setGameState(.mainMenu)
             case .quit:
-                setGameState(.gameExiting)
+                setGameState(.menuItem(.gameExiting))
             case .game:
                 break
             }
 
-        case .findLobby, .createLobby:
+        case .menuItem(.findLobby), .menuItem(.createLobby):
             switch lobbies.runFrame() {
             case .mainMenu:
-                setGameState(.gameMenu)
+                setGameState(.mainMenu)
             case .lobby:
                 break
             case .runGame(let steamID, let server):
                 gameClient.connectFromLobby(steamID: steamID, server: server)
-                setGameState(.startServer)
+                setGameState(.menuItem(.startServer))
             }
 
     //    case k_EClientFindInternetServers:
@@ -458,7 +443,7 @@ final class SpaceWarMain {
             //        m_pHTMLSurface->Render();
             //        break;
 
-        case .gameExiting:
+        case .menuItem(.gameExiting):
             gameClient.disconnectFromServer()
             forceQuit(reason: "Requested quit to desktop")
 
@@ -505,10 +490,9 @@ final class SpaceWarMain {
             //        break;
         default:
             OutputDebugString("Unhandled game client state \(gameState.state)")
-        }
-
-        if engine.isKeyDown(.printable("Q")) {
-            setGameState(.gameExiting)
+            if escapedPressed {
+                setGameState(.mainMenu)
+            }
         }
     }
 

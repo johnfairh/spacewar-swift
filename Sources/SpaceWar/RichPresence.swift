@@ -40,7 +40,7 @@ extension SpaceWarMain.State {
     /// GameStatus to publish for specific main-game states
     var richPresenceGameStatus: RichPresence.GameStatus {
         switch self {
-        case .findLANServers, .findInternetServers:
+        case .menuItem(.findLANServers), .menuItem(.findInternetServers):
             return .waitingForMatch
         default:
             return .atMainMenu
@@ -51,26 +51,26 @@ extension SpaceWarMain.State {
     var richPresenceStatus: String? {
         switch self {
         case .connectingToSteam: return nil
-        case .gameMenu: return "At main menu"
-        case .startServer: return nil
-        case .findLANServers: return "Finding a LAN game"
-        case .findInternetServers: return "Finding an internet game"
-        case .createLobby: return nil
-        case .findLobby: return nil
-        case .gameInstructions: return "Viewing game instructions"
-        case .statsAchievements: return "Viewing stats and achievements"
-        case .leaderboards: return "Viewing leaderboards"
-        case .friendsList: return "Viewing friends list"
-        case .clanChatRoom: return "Chatting"
-        case .remotePlay: return "Viewing remote play sessions"
-        case .remoteStorage: return "Viewing remote storage"
-        case .webCallback: return "Viewing web callback example"
-        case .music: return "Using music player"
-        case .workshop: return "Viewing workshop items"
-        case .htmlSurface: return "Using the web"
-        case .inGameStore: return "Viewing the item store"
-        case .overlayAPI: return "Viewing overlay API examples"
-        case .gameExiting: return nil
+        case .mainMenu: return "At main menu"
+        case .menuItem(.startServer): return nil
+        case .menuItem(.findLANServers): return "Finding a LAN game"
+        case .menuItem(.findInternetServers): return "Finding an internet game"
+        case .menuItem(.createLobby): return nil
+        case .menuItem(.findLobby): return nil
+        case .menuItem(.gameInstructions): return "Viewing game instructions"
+        case .menuItem(.statsAchievements): return "Viewing stats and achievements"
+        case .menuItem(.leaderboards): return "Viewing leaderboards"
+        case .menuItem(.friendsList): return "Viewing friends list"
+        case .menuItem(.clanChatRoom): return "Chatting"
+        case .menuItem(.remotePlay): return "Viewing remote play sessions"
+        case .menuItem(.remoteStorage): return "Viewing remote storage"
+        case .menuItem(.webCallback): return "Viewing web callback example"
+        case .menuItem(.music): return "Using music player"
+        case .menuItem(.workshop): return "Viewing workshop items"
+        case .menuItem(.htmlSurface): return "Using the web"
+        case .menuItem(.inGameStore): return "Viewing the item store"
+        case .menuItem(.overlayAPI): return "Viewing overlay API examples"
+        case .menuItem(.gameExiting): return nil
         }
     }
 }
