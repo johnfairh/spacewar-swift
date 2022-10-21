@@ -33,6 +33,7 @@ final class SpaceWarMain {
     private let gameClient: SpaceWarClient
     private let lobbies: Lobbies
     private let starField: StarField
+    private let mainMenu: MainMenu
 
     /// Overall game state
     enum State {
@@ -42,7 +43,7 @@ final class SpaceWarMain {
         case findLANServers
         case findInternetServers
         case createLobby
-        case joinLobby
+        case findLobby
         case gameInstructions
         case statsAchievements
         case leaderboards
@@ -88,8 +89,8 @@ final class SpaceWarMain {
         // Initialize starfield - common background almost always drawn
         starField = StarField(engine: engine)
 
-        //    // Initialize main menu
-        //    m_pMainMenu = new CMainMenu( pGameEngine );
+        // Initialize main menu
+        mainMenu = MainMenu(engine: engine) { print($0) }
 
         //    // All the non-game screens
         //    m_pServerBrowser = new CServerBrowser( m_pGameEngine );
@@ -275,7 +276,7 @@ final class SpaceWarMain {
         case .createLobby:
             lobbies.createLobby()
             // Lobbies takes over now
-        case .joinLobby:
+        case .findLobby:
             lobbies.findLobby()
             // Lobbies takes over now
         case .leaderboards:
@@ -358,11 +359,11 @@ final class SpaceWarMain {
             // XXX SteamInput       m_pGameEngine->SetSteamControllerActionSet( eControllerActionSet_MenuControls );
             break;
 
-//        case .gameMenu:
-//            // XXX MainMenu m_pMainMenu->RunFrame();
-//            // Make sure the Steam Controller is in the correct mode.
-//            // XXX SteamInput m_pGameEngine->SetSteamControllerActionSet( eControllerActionSet_MenuControls );
-//            break;
+        case .gameMenu:
+            mainMenu.runFrame()
+            // Make sure the Steam Controller is in the correct mode.
+            // XXX SteamInput m_pGameEngine->SetSteamControllerActionSet( eControllerActionSet_MenuControls );
+            break;
 
         case .startServer:
             switch gameClient.runFrame() {
@@ -374,7 +375,7 @@ final class SpaceWarMain {
                 break
             }
 
-        case .joinLobby, .createLobby:
+        case .findLobby, .createLobby:
             switch lobbies.runFrame() {
             case .mainMenu:
                 setGameState(.gameMenu)

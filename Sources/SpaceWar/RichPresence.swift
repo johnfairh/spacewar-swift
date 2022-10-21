@@ -56,7 +56,7 @@ extension SpaceWarMain.State {
         case .findLANServers: return "Finding a LAN game"
         case .findInternetServers: return "Finding an internet game"
         case .createLobby: return nil
-        case .joinLobby: return nil
+        case .findLobby: return nil
         case .gameInstructions: return "Viewing game instructions"
         case .statsAchievements: return "Viewing stats and achievements"
         case .leaderboards: return "Viewing leaderboards"
