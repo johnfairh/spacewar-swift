@@ -35,6 +35,8 @@ final class SpaceWarMain {
     private let starField: StarField
     private var mainMenu: MainMenu!
 
+    private let sun: Sun
+
     /// Overall game state
     enum State: Equatable {
         case connectingToSteam
@@ -71,11 +73,14 @@ final class SpaceWarMain {
         // Initialize starfield - common background almost always drawn
         starField = StarField(engine: engine)
 
+        sun = Sun(engine: engine)
+
         // Initialize main menu
         mainMenu = MainMenu(engine: engine) { [weak self] in
             OutputDebugString("Main menu selection: \($0)")
             self?.setGameState(.menuItem($0))
         }
+
 
         //    // All the non-game screens
         //    m_pServerBrowser = new CServerBrowser( m_pGameEngine );
@@ -489,7 +494,9 @@ final class SpaceWarMain {
             //            SetGameState( k_EClientGameMenu );
             //        break;
         default:
-            OutputDebugString("Unhandled game client state \(gameState.state)")
+            // OutputDebugString("Unhandled game client state \(gameState.state)")
+            sun.runFrame()
+            sun.render()
             if escapedPressed {
                 setGameState(.mainMenu)
             }
