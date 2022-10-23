@@ -6,13 +6,11 @@
 import MetalEngine
 
 final class Sun: VectorEntity /* XXX CSpaceWarEntity */ {
-
     static let VECTOR_SCALE_FACTOR: Float = 14
 
     init(engine: Engine2D) {
         super.init(engine: engine, collisionRadius: 2 * Sun.VECTOR_SCALE_FACTOR)
 
-        let center = engine.viewportSize / 2
         let sqrtof2 = Float(2).squareRoot()
 
         let color: Color2D = .rgb_i(255, 255, 102)
@@ -24,11 +22,15 @@ final class Sun: VectorEntity /* XXX CSpaceWarEntity */ {
         addLine(xPos0: sqrtof2*Sun.VECTOR_SCALE_FACTOR, yPos0: sqrtof2*Sun.VECTOR_SCALE_FACTOR, xPos1: -1.0*sqrtof2*Sun.VECTOR_SCALE_FACTOR, yPos1: -1.0*sqrtof2*Sun.VECTOR_SCALE_FACTOR, color: color)
 
         // Has to be after unlock since the base class will lock in this call
-        pos = center
+        // JF: Moved this to `runFrame()` because window size not known at init and
+        // because window size can change.  Commentary about 'lock in' is wrong.
+//        pos = center
     }
 
     /// Run a frame
     override func runFrame() {
+        pos = engine.viewportSize / 2
+
         // We want to rotate 90 degrees every 800ms (1.57 is 1/2pi, or 90 degrees in radians)
         rotationDeltaNextFrame = Float.pi/2 * Float(engine.frameDelta)/800.0
         super.runFrame()

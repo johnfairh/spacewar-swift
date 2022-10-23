@@ -142,6 +142,7 @@ class Lobbies {
             break
         }
 
+        state.set(.idle)
         return .mainMenu
     }
 }

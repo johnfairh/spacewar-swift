@@ -23,8 +23,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/johnfairh/TMLEngines",
       "state" : {
-        "revision" : "b4d501fe2306d1f4fdd91f1a26ccbfcc76fc0274",
-        "version" : "1.2.1"
+        "revision" : "a3b0c58b67244de759029fba4e7eef60ff782d47",
+        "version" : "1.2.2"
       }
     }
   ],

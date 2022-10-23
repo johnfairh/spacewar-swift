@@ -46,7 +46,7 @@ struct SpaceWarApp: App {
                 Self.instance = main
             } frame: { _ in
                 Self.instance?.runFrame()
-            }.frame(minWidth: 200, minHeight: 100)
+            }.frame(maxWidth: 1024, maxHeight: 768)
         }
     }
 
