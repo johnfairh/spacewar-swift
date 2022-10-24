@@ -34,7 +34,6 @@ final class FakeMsgQueue {
 }
 
 class FakeNet {
-    private static var nextEndpoint = UInt64(800)
     private static var endpoints: [SteamID : FakeMsgQueue] = [:]
 
     static func allocateEndpoint(for steamID: SteamID) {

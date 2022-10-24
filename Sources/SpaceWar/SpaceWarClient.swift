@@ -15,6 +15,7 @@ final class SpaceWarClient {
     private let steam: SteamAPI
     private let engine: Engine2D
 
+    /// Main game state
     enum State {
         case idle
         case startServer
@@ -26,23 +27,52 @@ final class SpaceWarClient {
         case quitMenu
         case connectionFailure
     }
-    private(set) var state: MonitoredState<State>
+    private var state: MonitoredState<State>
+
+    /// Server-connection substate
+    enum ConnectedStatus {
+        /// Initial state, not connected to a server/
+        case notConnected
+        /// We've established communication with the server, but it hasn't authed us yet
+        case connectedPendingAuthentication
+        /// Final phase, server has authed us, we are actually able to play on it
+        case connectedAndAuthenticated
+    }
+    private var connectedStatus: MonitoredState<ConnectedStatus>
+    /// Connection to server
+    private var connServer: HSteamNetConnection
+    /// Time we last got any data from the server
+    private var lastNetworkDataReceivedTime: Engine2D.TickCount
+    /// Server address details - steam ID
+    private var serverSteamID: SteamID
+    /// Server address details - IP address
+    private var serverIP: Int
+    /// Server address details - IP port
+    private var serverPort: UInt16
+    /// Server authentication ticket
+    private var authTicket: HAuthTicket
+    /// Reason why server connection failed
+    private var errorText: String
+
+    /// A local server we may or may not be running
+    private var server: SpaceWarServer?
 
     init(engine: Engine2D, steam: SteamAPI) {
         self.engine = engine
         self.steam = steam
-        self.state = MonitoredState<State>(tickSource: engine, initial: .idle)
+        self.state = .init(tickSource: engine, initial: .idle)
+        self.connectedStatus = .init(tickSource: engine, initial: .notConnected)
+        self.connServer = .invalid
+        self.lastNetworkDataReceivedTime = 0
+        self.serverSteamID = .nil
+        self.serverIP = 0
+        self.serverPort = 0
+        self.authTicket = .invalid
+        self.errorText = ""
+        self.server = nil
 
         //    m_uPlayerWhoWonGame = 0;
-        //    m_ulLastNetworkDataReceivedTime = 0;
-        //    m_pServer = NULL;
         //    m_uPlayerShipIndex = 0;
-        //    m_eConnectedStatus = k_EClientNotConnected;
-        //    m_rgchErrorText[0] = 0;
-        //    m_unServerIP = 0;
-        //    m_usServerPort = 0;
-        //    m_ulPingSentTime = 0;
-        //    m_hConnServer = k_HSteamNetConnection_Invalid;
         //    for( uint32 i = 0; i < MAX_PLAYERS_PER_SERVER; ++i )
         //    {
         //        m_rguPlayerScores[i] = 0;
@@ -856,15 +886,6 @@ final class SpaceWarClient {
 
 // MARK: C++ Client Game Networking
 
-//// Enum for various client connection states
-//enum EClientConnectionState
-//{
-//    k_EClientNotConnected,                            // Initial state, not connected to a server
-//    k_EClientConnectedPendingAuthentication,        // We've established communication with the server, but it hasn't authed us yet
-//    k_EClientConnectedAndAuthenticated,                // Final phase, server has authed us, we are actually able to play on it
-//};
-//
-
 //    // Checks for any incoming network data, then dispatches it
 //    void ReceiveNetworkData();
 //
@@ -897,26 +918,9 @@ final class SpaceWarClient {
 //
 //    // Disconnects from a server (telling it so) if we are connected
 //    void DisconnectFromServer();
-
-//    // Time we started our last connection attempt
-//    uint64 m_ulLastConnectionAttemptRetryTime;
-//
-//    // Time we last got data from the server
-//    uint64 m_ulLastNetworkDataReceivedTime;
-//
-//    // Time when we sent our ping
-//    uint64 m_ulPingSentTime;
 //
 //    // Text to display if we are in an error state
 //    char m_rgchErrorText[256];
-//    // Server address data
-//    CSteamID m_steamIDGameServer;
-//    uint32 m_unServerIP;
-//    uint16 m_usServerPort;
-//    HAuthTicket m_hAuthTicket;
-//    HSteamNetConnection m_hConnServer;
-//    // Track whether we are connected to a server (and what specific state that connection is in)
-//    EClientConnectionState m_eConnectedStatus;
 
 //    // Called when we get new connections, or the state of a connection changes
 //    STEAM_CALLBACK(CSpaceWarClient, OnNetConnectionStatusChanged, SteamNetConnectionStatusChangedCallback_t);
@@ -1425,16 +1429,6 @@ final class SpaceWarClient {
 //                OutputDebugString("Bad server exiting msg\n");
 //            }
 //            OnReceiveServerExiting();
-//        }
-//        break;
-//        case k_EMsgServerPingResponse:
-//        {
-//            uint64 ulTimePassedMS = m_pGameEngine->GetGameTickCount() - m_ulPingSentTime;
-//            char rgchT[256];
-//            sprintf_safe(rgchT, "Round-trip ping time to server %d ms\n", (int)ulTimePassedMS);
-//            rgchT[sizeof(rgchT) - 1] = 0;
-//            OutputDebugString(rgchT);
-//            m_ulPingSentTime = 0;
 //        }
 //        break;
 //
