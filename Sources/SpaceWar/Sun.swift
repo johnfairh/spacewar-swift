@@ -5,11 +5,11 @@
 
 import MetalEngine
 
-final class Sun: VectorEntity /* XXX CSpaceWarEntity */ {
+final class Sun: SpaceWarEntity {
     static let VECTOR_SCALE_FACTOR: Float = 14
 
     init(engine: Engine2D) {
-        super.init(engine: engine, collisionRadius: 2 * Sun.VECTOR_SCALE_FACTOR)
+        super.init(engine: engine, collisionRadius: 2 * Sun.VECTOR_SCALE_FACTOR, affectedByGravity: false)
 
         let sqrtof2 = Float(2).squareRoot()
 
