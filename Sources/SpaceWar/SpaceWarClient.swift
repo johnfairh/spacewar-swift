@@ -1543,9 +1543,3 @@ final class SpaceWarClient {
 //        return false;
 //    }
 //}
-
-// MARK: C++ Main Menu
-
-//    // Menu callback handler (handles a bunch of menus that just change state with no extra data)
-//    void OnMenuSelection( EClientGameState eState ) { SetGameState( eState ); }
-
