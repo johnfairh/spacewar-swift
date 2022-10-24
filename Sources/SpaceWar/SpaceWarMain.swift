@@ -34,6 +34,7 @@ final class SpaceWarMain {
     private let lobbies: Lobbies
     private let starField: StarField
     private var mainMenu: MainMenu!
+    private var debris: ShipDebris?
 
     private let sun: Sun
 
@@ -46,6 +47,7 @@ final class SpaceWarMain {
     private(set) var gameState: MonitoredState<State>
     private var cancelInput: Debounced
     private var infrequent: Debounced
+    private var pressD: Debounced
 
     init(engine: Engine2D, steam: SteamAPI) {
         self.engine = engine
@@ -61,6 +63,9 @@ final class SpaceWarMain {
             /* XXX SteamInput ||
              m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_PauseMenu ) ||
              m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_MenuCancel ) ) */
+        }
+        pressD = Debounced(debounce: 250) {
+            engine.isKeyDown(.printable("D"))
         }
         // Gadget to fire every second
         infrequent = Debounced(debounce: 1000) { true }
@@ -323,6 +328,7 @@ final class SpaceWarMain {
 
         // Check if escape has been pressed, we'll use that info in a couple places below
         let escapedPressed = cancelInput.test(now: engine.gameTickCount)
+        let dPressed = pressD.test(now: engine.gameTickCount)
 
         // Run Steam client callbacks
         steam.runCallbacks()
@@ -497,8 +503,18 @@ final class SpaceWarMain {
             // OutputDebugString("Unhandled game client state \(gameState.state)")
             sun.runFrame()
             sun.render()
+
+            if dPressed {
+                if debris == nil {
+                    debris = ShipDebris(engine: engine, pos: engine.viewportSize / 4, debrisColor: .rgb(0, 1, 0))
+                }
+            }
+            debris?.runFrame()
+            debris?.render()
+
             if escapedPressed {
                 setGameState(.mainMenu)
+                debris = nil
             }
         }
     }

@@ -97,7 +97,7 @@ class VectorEntity {
         // Note: The min here is so we don't get massive acceleration if frames for some reason don't run for a bit
         // JF: SURELY IT SHOULD BE MAX NOT MIN??? WTF. XXX
         let elapsedSeconds = max(Float(engine.frameDelta) / 1000.0, 0.1)
-        velocity = acceleration * elapsedSeconds
+        velocity += acceleration * elapsedSeconds
 
         // Make sure velocity does not exceed maximum allowed - this scales it while
         // keeping the aspect ratio consistent
@@ -121,10 +121,7 @@ class VectorEntity {
     /// Render the entity -- can  override color instead of using the vertex color
     func render(overrideColor: Color2D? = nil) {
         // Compute values which will be used for rotation below
-        let sinRotation = sin(accumulatedRotation)
-        let cosRotation = cos(accumulatedRotation)
-        let rotation = matrix_float2x2(columns: (.init(cosRotation, sinRotation),
-                                                 .init(-sinRotation, cosRotation)))
+        let rotation = matrix_float2x2(rotation: accumulatedRotation)
 
         // Iterate our vector of vertexes 2 at a time drawing lines
         vertexes.forEach { v in
@@ -151,6 +148,15 @@ class VectorEntity {
     }
 }
 
+extension matrix_float2x2 {
+    init(rotation: Radians) {
+        let sinRotation = sin(rotation)
+        let cosRotation = cos(rotation)
+        self.init(columns: (.init(cosRotation, sinRotation),
+                            .init(-sinRotation, cosRotation)))
+    }
+}
+
 extension Radians {
     /// Terrifying routine from the valve source.
     /// Reminds me of a Demis anecdote from rollercoaster tycoon about dividing by zero.
@@ -165,7 +171,7 @@ extension Radians {
             infiniteLoopProtector += 1
         }
         infiniteLoopProtector = 0
-        while self <= 2 * .pi && infiniteLoopProtector < 100 {
+        while self <= -2 * .pi && infiniteLoopProtector < 100 {
             self += 2 * .pi
             infiniteLoopProtector += 1
         }
