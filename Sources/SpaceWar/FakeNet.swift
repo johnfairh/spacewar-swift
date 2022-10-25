@@ -6,9 +6,12 @@
 import Steamworks
 
 /// Bringup/whatever network substitute
+///
+let FAKE_NET_USE = true
 
 enum FakeMsgType {
     case connect
+    case client
 }
 
 protocol FakeMsg {
@@ -18,6 +21,22 @@ protocol FakeMsg {
 struct FakeConnectMsg: FakeMsg {
     var type: FakeMsgType { .connect }
     let from: SteamID
+}
+
+struct FakeClientMsg: FakeMsg {
+    var type: FakeMsgType { .client }
+    let body: UnsafeMutableRawPointer
+    let size: Int
+    func release() {
+        body.deallocate()
+    }
+
+    init<S>(from: S) {
+        body = .allocate(byteCount: MemoryLayout<S>.size, alignment: MemoryLayout<S>.alignment)
+        let bound = body.bindMemory(to: S.self, capacity: 1)
+        bound.initialize(to: from)
+        size = MemoryLayout<S>.size
+    }
 }
 
 final class FakeMsgQueue {

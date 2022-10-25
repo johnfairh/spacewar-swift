@@ -1,0 +1,4 @@
+module CSpaceWar [system] {
+  header "cspacewar.h"
+  export *
+}

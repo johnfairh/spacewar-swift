@@ -17,6 +17,7 @@ let package = Package(
     .executableTarget(
       name: "SpaceWar",
       dependencies: [
+        "CSpaceWar",
         .product(name: "MetalEngine", package: "TMLEngines"),
         .product(name: "Steamworks", package: "steamworks-swift"),
         .product(name: "SteamworksHelpers", package: "steamworks-swift"),
@@ -26,6 +27,7 @@ let package = Package(
         .process("Resources/steam_input_manifest.vdf"),
         .process("Resources/xbox_controller.vdf")
       ]
-    )
+    ),
+    .systemLibrary(name: "CSpaceWar")
   ]
 )
