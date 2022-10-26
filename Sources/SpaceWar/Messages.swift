@@ -68,9 +68,9 @@ extension SpaceWarMsg {
     }
 
     /// Construct the wire-format (packed, endian) of this message and pass to the callback
-    func inWireFormat(_ call: (UnsafeRawPointer, Int) -> Void) {
+    func inWireFormat<T>(_ call: (UnsafeRawPointer, Int) -> T) -> T {
         let copy = CType(from: self)
-        withUnsafeBytes(of: copy) { urbp in
+        return withUnsafeBytes(of: copy) { urbp in
             call(urbp.baseAddress!, urbp.count)
         }
     }
@@ -125,16 +125,78 @@ extension MsgServerSendInfo_t: ConstructableFrom {
         messageType = Msg.serverSendInfo.rawValue.bigEndian
         steamIDServer = from.steamIDServer.asUInt64.bigEndian
         isVACSecure = from.isVACSecure ? 1 : 0
+//        self.setServerName(from.serverName)
         withUnsafeMutablePointer(to: &self) { p in
             MsgServerSendInfo_SetServerName(p, from.serverName)
         }
     }
 }
 
+// MARK: MsgServerFailAuthentication
+
+/// Msg from the server to the client when refusing a connection
+struct MsgServerFailAuthentication: SpaceWarMsg {
+    typealias CType = MsgServerFailAuthentication_t
+
+    init() {}
+    init(from: MsgServerFailAuthentication_t) {}
+}
+
+extension MsgServerFailAuthentication_t: ConstructableFrom {
+    init(from: MsgServerFailAuthentication) {
+        self.init()
+        messageType = Msg.serverFailAuthentication.rawValue.bigEndian
+    }
+}
+
+// MARK: MsgServerPassAuthentication
+
+/// Msg from the server to the client when accepting a pending connection
+struct MsgServerPassAuthentication: SpaceWarMsg {
+    typealias CType = MsgServerPassAuthentication_t
+
+    let playerPosition: UInt32
+
+    init(playerPosition: UInt32) {
+        self.playerPosition = playerPosition
+    }
+
+    init(from: MsgServerPassAuthentication_t) {
+        playerPosition = UInt32(bigEndian: from.playerPosition)
+    }
+}
+
+extension MsgServerPassAuthentication_t: ConstructableFrom {
+    init(from: MsgServerPassAuthentication) {
+        self.init()
+        messageType = Msg.serverPassAuthentication.rawValue.bigEndian
+        playerPosition = from.playerPosition.bigEndian
+    }
+}
+
+// MARK: MsgServerExiting
+
+/// Msg from the server to the client when refusing a connection
+struct MsgServerExiting: SpaceWarMsg {
+    typealias CType = MsgServerExiting_t
+
+    init() {}
+    init(from: MsgServerExiting_t) {}
+}
+
+extension MsgServerExiting_t: ConstructableFrom {
+    init(from: MsgServerExiting) {
+        self.init()
+        messageType = Msg.serverExiting.rawValue.bigEndian
+    }
+}
+
 // MARK: MsgClientBeginAuthentication
 
 /// Msg from client to server when initiating authentication
-struct MsgClientBeginAuthentication {
+struct MsgClientBeginAuthentication: SpaceWarMsg {
+    typealias CType = MsgClientBeginAuthentication_t
+
     let token: [UInt8]
     let steamID: UInt64
 

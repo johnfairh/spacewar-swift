@@ -122,7 +122,7 @@ extension SteamFriends {
 
     /// Associated player group, if any
     func setRichPresence(playerGroup: SteamID?) {
-        let value = playerGroup.map { String($0.asUInt64) }
+        let value = playerGroup.flatMap { $0.isValid ? String($0.asUInt64) : nil }
         setRichPresence(key: "steam_player_group", value: value)
     }
 

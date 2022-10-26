@@ -31,31 +31,23 @@ final class SpaceWarClient {
 
     /// Component to manage the server connection
     private let clientConnection: SpaceWarClientConnection
-    /// Time we last got any data from the server
-    private var lastNetworkDataReceivedTime: Engine2D.TickCount
-    /// Server address details - IP address
-    private var serverIP: Int
-    /// Server address details - IP port
-    private var serverPort: UInt16
-    /// Server authentication ticket
-    private var authTicket: HAuthTicket
 
     /// A local server we may or may not be running
     private var server: SpaceWarServer?
+
+
+    /// The actual game state
+    private var playerShipIndex: Int
 
     init(engine: Engine2D, steam: SteamAPI) {
         self.engine = engine
         self.steam = steam
         self.state = .init(tickSource: engine, initial: .idle)
         self.clientConnection = SpaceWarClientConnection(steam: steam, tickSource: engine)
-        self.lastNetworkDataReceivedTime = 0
-        self.serverIP = 0
-        self.serverPort = 0
-        self.authTicket = .invalid
         self.server = nil
 
+        playerShipIndex = 0
         //    m_uPlayerWhoWonGame = 0;
-        //    m_uPlayerShipIndex = 0;
         //    for( uint32 i = 0; i < MAX_PLAYERS_PER_SERVER; ++i )
         //    {
         //        m_rguPlayerScores[i] = 0;
@@ -89,14 +81,8 @@ final class SpaceWarClient {
     }
 
     deinit {
-        //    DisconnectFromServer();
-        //
-        //    if ( m_pP2PAuthedGame )
-        //    {
-        //        m_pP2PAuthedGame->EndGame();
-        //        delete m_pP2PAuthedGame;
-        //        m_pP2PAuthedGame = NULL;
-        //    }
+        clientConnection.disconnect(reason: "Client object deletion")
+        disconnect()
     }
 
     // MARK: Kick-off entrypoints
@@ -141,35 +127,29 @@ final class SpaceWarClient {
         //
         //        SetInGameRichPresence();
         //    }
-
+        //    else if m_eGameState == connectionFailure {
+        //        disconnect()
+        //    }
         //    else {
         steam.friends.setRichPresence(gameStatus: .waitingForMatch)
         //    }
 
         steam.friends.setRichPresence(status: state.state.richPresenceStatus)
 
-        //    // steam_player_group defines who the user is playing with.  Set it to the steam ID
-        //    // of the server if we are connected, otherwise blank.
-        //    if ( m_steamIDGameServer.IsValid() )
-        //    {
-        //        SteamFriends()->SetRichPresence(playerGroup: m_steamIDGameServer)
-        //    } else {
-        //        SteamFriends().SetRichPresence(playerGroup: nil)
-        //    }
-
-        // XXX might need to factor this out, called elsewhere too
-        //    // update any network-related rich presence state
-        //    if ( m_eConnectedStatus == k_EClientConnectedAndAuthenticated && m_unServerIP && m_usServerPort )
-        //    {
-        //        // game server connection method
-        //        steam.friends.setRichPresence(connectedTo: .server(0, 0))
-        //    }
-        //    else {
-        steam.friends.setRichPresence(connectedTo: .nothing)
-        //    }
+        // update network-related rich presence state and steam_player_group
+        clientConnection.updateRichPresence()
 
         //    // Let the stats handler check the state (so it can detect wins, losses, etc...)
         //    XXX m_pStatsAndAchievements->OnGameStateChange( eState );
+    }
+
+    /// Cilent tasks to be done on disconnecting from a server - not in a state-change because can
+    /// happen at weird times like object deletion.
+    func disconnect() {
+        // p2pAuthedGame.endGame()
+        // voiceChat.endGame()
+        // tell steam china duration control system that we are no longer in a match
+        _ = steam.user.setDurationControlOnlineState(newState: .offline)
     }
 
     /// Frame poll function.
@@ -184,12 +164,11 @@ final class SpaceWarClient {
     func runFrame() -> FrameRc {
         precondition(state.state != .idle, "SpaceWarMain thinks we're busy but we're idle :-(")
 
-        //    if ( clientConnection.isConnected && m_pGameEngine->GetGameTickCount() - m_ulLastNetworkDataReceivedTime > MILLISECONDS_CONNECTION_TIMEOUT )
-        //    {
-        //        SetConnectionFailureText( "Game server connection failure." );
-        //        DisconnectFromServer(); // cleanup on our side, even though server won't get our disconnect msg
-        //        SetGameState( k_EClientGameConnectionFailure );
-        //    }
+        clientConnection.testServerLivenessTimeout()
+
+        if state.state != .connectionFailure && clientConnection.connectionError != nil {
+            //SetGameState(.connectionFailure)
+        }
 
         // if we just transitioned state, perform on change handlers
         state.onTransition {
@@ -209,10 +188,7 @@ final class SpaceWarClient {
             //        DrawConnectionAttemptText();
             //
             //        // Check if we've waited too long and should time out the connection
-            //        if clientConnection.testConnectionTimeout() {
-            //            SetGameState( k_EClientGameConnectionFailure );
-            //        }
-            //        break;
+            //        clientConnection.testConnectionTimeout()
             //    case k_EClientGameQuitMenu:
             //        // Update all the entities (this is client side interpolation)...
             //        m_pSun->RunFrame();
@@ -384,129 +360,50 @@ final class SpaceWarClient {
     /// Receives incoming network data
     /// Called at the start of each frame and also between frames
     func receiveNetworkData() {
-        if FAKE_NET_USE {
-            receiveNetworkData_fake()
-        } else {
-            receiveNetworkData_real()
+        clientConnection.receiveMessages() { msg, size, data in
+            switch msg {
+            case .serverSendInfo, .serverFailAuthentication, .serverExiting:
+                preconditionFailure("Unexpected connection message \(msg)")
+
+            case .serverPassAuthentication:
+                // All connected, ready to play!
+                let authMsg = MsgServerPassAuthentication(data: data)
+                playerShipIndex = Int(authMsg.playerPosition)
+                // tell steam china duration control system that we are in a match and not to be interrupted
+                _ = steam.user.setDurationControlOnlineState(newState: .onlineHighPri)
+
+            //        case k_EMsgServerUpdateWorld:
+            //        {
+            //            if (cubMsgSize != sizeof(MsgServerUpdateWorld_t))
+            //            {
+            //                OutputDebugString("Bad server world update msg\n");
+            //                break;
+            //            }
+            //
+            //            MsgServerUpdateWorld_t* pMsg = (MsgServerUpdateWorld_t*)message->GetData();
+            //            OnReceiveServerUpdate(pMsg->AccessUpdateData());
+            //        }
+            //        break;
+            //
+            //        case k_EMsgVoiceChatData:
+            //            // This is really bad exmaple code that just assumes the message is the right size
+            //            // Don't ship code like this.
+            //            m_pVoiceChat->HandleVoiceChatData( message->GetData() );
+            //            break;
+            //
+            //        case k_EMsgP2PSendingTicket:
+            //            // This is really bad exmaple code that just assumes the message is the right size
+            //            // Don't ship code like this.
+            //            m_pP2PAuthedGame->HandleP2PSendingTicket( message->GetData() );
+            //            break;
+
+            default:
+                OutputDebugString("Unhandled message from server \(msg)")
+            }
         }
 
         // if we're running a server, do that as well
         server?.receiveNetworkData()
-    }
-
-    func receiveNetworkData_fake() {
-        guard clientConnection.serverSteamID != nil else {
-            return
-        }
-
-        while let message = FakeNet.recv(at: steam.user.getSteamID()) {
-            lastNetworkDataReceivedTime = engine.gameTickCount
-            switch message.type {
-            case .client:
-                let clientMsg = message as! FakeClientMsg
-                receiveNetworkData(size: clientMsg.size, data: clientMsg.body)
-                clientMsg.release()
-            case .connect:
-                preconditionFailure("Bad fakenet message on client: \(message)")
-            }
-        }
-    }
-
-    func receiveNetworkData(size: Int, data: UnsafeMutableRawPointer) {
-        guard size > MemoryLayout<UInt32>.size else {
-            OutputDebugString("Got garbage on client socket, too short")
-            return
-        }
-
-        guard let msg = Unpack.msgDword(data) else {
-            OutputDebugString("Got garbage on client socket, bad msg cookie")
-            return
-        }
-
-        if clientConnection.receive(msg: msg, size: size, data: data) {
-            // handled by connection layer
-            return
-        }
-
-        switch msg {
-        case .serverSendInfo:
-            preconditionFailure("Unexpected connection message \(msg)")
-        //        case k_EMsgServerPassAuthentication:
-        //        {
-        //            if (cubMsgSize != sizeof(MsgServerPassAuthentication_t))
-        //            {
-        //                OutputDebugString("Bad accept connection msg\n");
-        //                break;
-        //            }
-        //            MsgServerPassAuthentication_t* pMsg = (MsgServerPassAuthentication_t*)message->GetData();
-        //
-        //            // Our game client doesn't really care about whether the server is secure, or what its
-        //            // steamID is, but if it did we would pass them in here as they are part of the accept message
-        //            OnReceiveServerAuthenticationResponse(true, pMsg->GetPlayerPosition());
-        //        }
-        //        break;
-        //        case k_EMsgServerFailAuthentication:
-        //        {
-        //            OnReceiveServerAuthenticationResponse(false, 0);
-        //        }
-        //        break;
-        //        case k_EMsgServerUpdateWorld:
-        //        {
-        //            if (cubMsgSize != sizeof(MsgServerUpdateWorld_t))
-        //            {
-        //                OutputDebugString("Bad server world update msg\n");
-        //                break;
-        //            }
-        //
-        //            MsgServerUpdateWorld_t* pMsg = (MsgServerUpdateWorld_t*)message->GetData();
-        //            OnReceiveServerUpdate(pMsg->AccessUpdateData());
-        //        }
-        //        break;
-        //        case k_EMsgServerExiting:
-        //        {
-        //            if (cubMsgSize != sizeof(MsgServerExiting_t))
-        //            {
-        //                OutputDebugString("Bad server exiting msg\n");
-        //            }
-        //            OnReceiveServerExiting();
-        //        }
-        //        break;
-        //
-        //        case k_EMsgVoiceChatData:
-        //            // This is really bad exmaple code that just assumes the message is the right size
-        //            // Don't ship code like this.
-        //            m_pVoiceChat->HandleVoiceChatData( message->GetData() );
-        //            break;
-        //
-        //        case k_EMsgP2PSendingTicket:
-        //            // This is really bad exmaple code that just assumes the message is the right size
-        //            // Don't ship code like this.
-        //            m_pP2PAuthedGame->HandleP2PSendingTicket( message->GetData() );
-        //            break;
-
-        default:
-            OutputDebugString("Unhandled message from server \(msg)")
-        }
-    }
-
-    func receiveNetworkData_real() {
-        guard let connServer = clientConnection.netConnection else {
-            return
-        }
-
-        let rc = steam.networkingSockets.receiveMessagesOnConnection(conn: connServer, maxMessages: 32)
-        rc.messages.forEach { message in
-            lastNetworkDataReceivedTime = engine.gameTickCount
-
-            // make sure we're connected
-            if clientConnection.isConnected || state.state == .connecting {
-                receiveNetworkData(size: message.size, data: message.data)
-            } else {
-                OutputDebugString("Ignoring message in weird state \(state.state)")
-            }
-
-            message.release()
-        }
     }
 
     /// For a player in game, set the appropriate rich presence keys for display in the Steam friends list
@@ -558,22 +455,6 @@ final class SpaceWarClient {
     //    return pchStatus;
 
         steam.friends.setRichPresence(gameStatus: .losing/*XXXpchStatus*/, score: 0/*XXXuMyScore*/)
-    }
-
-    /// Tell the connected server we are disconnecting (if we are connected)
-    func disconnectFromServer() {
-        clientConnection.disconnect(reason: "XXX disconnect me")
-        // tell steam china duration control system that we are no longer in a match
-        _ = steam.user.setDurationControlOnlineState(newState: .offline)
-        //    if ( m_pP2PAuthedGame )
-        //    {
-        //        m_pP2PAuthedGame->EndGame();
-        //    }
-        //
-        //    if ( m_pVoiceChat )
-        //    {
-        //        m_pVoiceChat->StopVoiceChat();
-        //    }
     }
 
 // MARK: C++ UI Layout
@@ -967,25 +848,10 @@ final class SpaceWarClient {
 
 // MARK: C++ Client Game Networking
 
-//    // Send data to a client at the given ship index
-//    bool BSendServerData( const void *pData, uint32 nSizeOfData, int nSendFlags );
-
 //    void ExecCommandLineConnect( const char *pchServerAddress, const char *pchLobbyID );
 
-//    // Receive a response from the server for a connection attempt
-//    void OnReceiveServerAuthenticationResponse( bool bSuccess, uint32 uPlayerPosition );
-//
-//    // Recieved a response that the server is full
-//    void OnReceiveServerFullResponse();
-//
 //    // Receive a state update from the server
 //    void OnReceiveServerUpdate( ServerSpaceWarUpdateData_t *pUpdateData );
-//
-//    // Handle the server exiting
-//    void OnReceiveServerExiting();
-//
-//    // Disconnects from a server (telling it so) if we are connected
-//    void DisconnectFromServer();
 
 ////-----------------------------------------------------------------------------
 //// Purpose: applies a command-line connect
@@ -1019,42 +885,6 @@ final class SpaceWarClient {
 //    }
 //}
 
-////-----------------------------------------------------------------------------
-//// Purpose: Receive an authentication response from the server
-////-----------------------------------------------------------------------------
-//void CSpaceWarClient::OnReceiveServerAuthenticationResponse( bool bSuccess, uint32 uPlayerPosition )
-//{
-//    if ( !bSuccess )
-//    {
-//        SetConnectionFailureText( "Connection failure.\nMultiplayer authentication failed\n" );
-//        SetGameState( k_EClientGameConnectionFailure );
-//        DisconnectFromServer();
-//    }
-//    else
-//    {
-//        // Is this a duplicate message? If so ignore it...
-//        if ( m_eConnectedStatus == k_EClientConnectedAndAuthenticated && m_uPlayerShipIndex == uPlayerPosition )
-//            return;
-//
-//        m_uPlayerShipIndex = uPlayerPosition;
-//        m_eConnectedStatus = k_EClientConnectedAndAuthenticated;
-//
-//        // set information so our friends can join the lobby
-//        UpdateRichPresenceConnectionInfo();
-//
-//        // tell steam china duration control system that we are in a match and not to be interrupted
-//        SteamUser()->BSetDurationControlOnlineState( k_EDurationControlOnlineState_OnlineHighPri );
-//    }
-//}
-//
-//void CSpaceWarClient::OnReceiveServerFullResponse()
-//{
-//    SetConnectionFailureText("Connection failure.\nServer is full\n");
-//    SetGameState(k_EClientGameConnectionFailure);
-//    DisconnectFromServer();
-//}
-//
-//
 ////-----------------------------------------------------------------------------
 //// Purpose: Handles receiving a state update from the game server
 ////-----------------------------------------------------------------------------
@@ -1222,42 +1052,6 @@ final class SpaceWarClient {
 //}
 
 ////-----------------------------------------------------------------------------
-//// Purpose: Send data to the current server
-////-----------------------------------------------------------------------------
-//bool CSpaceWarClient::BSendServerData( const void *pData, uint32 nSizeOfData, int nSendFlags )
-//{
-//    EResult res = SteamNetworkingSockets()->SendMessageToConnection( m_hConnServer, pData, nSizeOfData, nSendFlags, nullptr );
-//    switch (res)
-//    {
-//        case k_EResultOK:
-//        case k_EResultIgnored:
-//            break;
-//
-//        case k_EResultInvalidParam:
-//            OutputDebugString("Failed sending data to server: Invalid connection handle, or the individual message is too big\n");
-//            return false;
-//        case k_EResultInvalidState:
-//            OutputDebugString("Failed sending data to server: Connection is in an invalid state\n");
-//            return false;
-//        case k_EResultNoConnection:
-//            OutputDebugString("Failed sending data to server: Connection has ended\n");
-//            return false;
-//        case k_EResultLimitExceeded:
-//            OutputDebugString("Failed sending data to server: There was already too much data queued to be sent\n");
-//            return false;
-//        default:
-//        {
-//            char msg[256];
-//            sprintf( msg, "SendMessageToConnection returned %d\n", res );
-//            OutputDebugString( msg );
-//            return false;
-//        }
-//    }
-//    return true;
-//}
-//
-//
-////-----------------------------------------------------------------------------
 //// Purpose: Initiates a connection to a server
 ////-----------------------------------------------------------------------------
 //void CSpaceWarClient::InitiateServerConnection( uint32 unServerAddress, const int32 nPort )
@@ -1297,44 +1091,11 @@ func initiateServerConnection(to serverSteamID: SteamID) {
     //        m_pP2PAuthedGame->m_hConnServer = m_hConnServer;
 }
 
-////-----------------------------------------------------------------------------
-//// Purpose: Handle the server telling us it is exiting
-////-----------------------------------------------------------------------------
-//void CSpaceWarClient::OnReceiveServerExiting()
-//{
-//    if ( m_pP2PAuthedGame )
-//        m_pP2PAuthedGame->EndGame();
-//
-//#ifdef USE_GS_AUTH_API
-//    if ( m_hAuthTicket != k_HAuthTicketInvalid )
-//    {
-//        SteamUser()->CancelAuthTicket( m_hAuthTicket );
-//    }
-//    m_hAuthTicket = k_HAuthTicketInvalid;
-//#else
-//    SteamUser()->AdvertiseGame( k_steamIDNil, 0, 0 );
-//#endif
-//
-//    if ( m_eGameState != k_EClientGameActive )
-//        return;
-//    m_eConnectedStatus = k_EClientNotConnected;
-//
-//    SetConnectionFailureText( "Game server has exited." );
-//    SetGameState( k_EClientGameConnectionFailure );
-//}
-
-
 // MARK: C++ Core Game State
 
 //    // Were we the winner?
 //    bool BLocalPlayerWonLastGame();
 
-//    // Server we are connected to
-//    CSpaceWarServer *m_pServer;
-//
-//    // Our ship position in the array below
-//    uint32 m_uPlayerShipIndex;
-//
 //    // List of steamIDs for each player
 //    CSteamID m_rgSteamIDPlayers[MAX_PLAYERS_PER_SERVER];
 //

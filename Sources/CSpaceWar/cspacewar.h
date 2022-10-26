@@ -13,7 +13,7 @@ typedef unsigned char uint8;
 
 #pragma pack( push, 1 )
 
-// Msg from the server to the client which is sent right after communications are established
+/// Msg from the server to the client which is sent right after communications are established
 typedef struct {
     uint32 messageType;
     uint64 steamIDServer;
@@ -26,9 +26,26 @@ static inline const char * _Nonnull MsgServerSendInfo_GetServerName(const MsgSer
     return msg->serverName;
 }
 
+__attribute__((swift_name("MsgServerSendInfo_t.setServerName(self:_:")))
 static inline void MsgServerSendInfo_SetServerName(MsgServerSendInfo_t * _Nonnull msg, const char * _Nonnull name) {
     strlcpy(msg->serverName, name, sizeof(msg->serverName));
 }
+
+/// Msg from the server to the client when refusing a connection
+typedef struct {
+    uint32 messageType;
+} MsgServerFailAuthentication_t;
+
+/// Msg from the server to client when accepting a pending connection
+typedef struct {
+  uint32 messageType;
+  uint32 playerPosition;
+} MsgServerPassAuthentication_t;
+
+/// Msg from server to clients when it is exiting
+typedef struct {
+    uint32 messageType;
+} MsgServerExiting_t;
 
 // Msg from client to server when initiating authentication
 typedef struct {
