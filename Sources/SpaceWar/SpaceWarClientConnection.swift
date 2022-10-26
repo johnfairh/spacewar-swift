@@ -38,6 +38,8 @@ final class SpaceWarClientConnection {
         case notConnected
         /// Trying to connect to a server socket
         case connectingP2P
+        /// Querying an IP for a steam address
+        case pingingServer
         /// We've established communication with the server, but it hasn't authed us yet
         case connectedPendingAuthentication
         /// Final phase, server has authed us, we are actually able to play on it
@@ -69,12 +71,16 @@ final class SpaceWarClientConnection {
         }
     }
 
+    /// Server ping query
+    private var serverPing: ServerPing?
     /// The error reason from the most recent connection failure
     private(set) var connectionError: String?
     /// The net connection for the current connection/attempted connection, or nil if none
     private(set) var netConnection: HSteamNetConnection?
     /// The Steam ID of the game server, or nil if not connected/don't know yet
     private(set) var serverSteamID: SteamID?
+    /// The name of the server, if known
+    private(set) var serverName: String?
     /// Server IP details, used for rich presence
     private var serverIP: Int?
     /// Server IP details, used for rich presence
@@ -82,9 +88,11 @@ final class SpaceWarClientConnection {
     /// Authentication ticket
     private var authTicket: HAuthTicket?
 
+    // MARK: Connect/Disconnect APIs
+
     /// Connect to a server directly via a Steam ID
     func connect(steamID: SteamID) {
-        precondition(state == .notConnected, "Server connection already busy: \(state)")
+        precondition(state == .notConnected || state == .pingingServer, "Server connection already busy: \(state)")
         OutputDebugString("ClientConnection \(state) -> connectingP2P")
         state = .connectingP2P
         serverSteamID = steamID
@@ -96,13 +104,23 @@ final class SpaceWarClientConnection {
             FakeNet.connect(to: steamID, from: steam.user.getSteamID())
         }
 
+        serverPing = nil
         connectionError = nil
         connectionStartTime = tickSource.currentTickCount
     }
 
     /// Connect to a server via IP and port - alternate flow, have to look up the SteamID and go back to the steam ID
     func connect(ip: Int, port: UInt16) {
-        preconditionFailure("Not implemented") /* XXX ip-connect */
+        precondition(state == .notConnected, "Server connection already busy: \(state)")
+        OutputDebugString("ClientConnection \(state) -> pingingServer")
+
+        serverIP = ip
+        serverPort = port
+        connectionError = nil
+        connectionStartTime = tickSource.currentTickCount
+
+        serverPing = ServerPing(steam: steam, connection: self)
+        serverPing?.ping(ip: ip, port: port)
     }
 
     /// Has there been a connection timeout?
@@ -140,11 +158,13 @@ final class SpaceWarClientConnection {
             connectionError = reason
         }
 
-        /* if state == .queryingServerIP {
-             cancel it
-           }
-        */
-        OutputDebugString("ClientConnection disconnecting from \(state)")
+        OutputDebugString("ClientConnection disconnecting from \(state), because \(reason)")
+
+        if let serverPing {
+            OutputDebugString("ClientConnection cancelling ping in disconnect")
+            serverPing.cancel()
+            self.serverPing = nil
+        }
 
         if let authTicket {
             steam.user.cancelAuthTicket(authTicket: authTicket)
@@ -163,6 +183,8 @@ final class SpaceWarClientConnection {
         serverIP = nil
         serverPort = nil
     }
+
+    // MARK: Connection Management
 
     /// Callback on our socket connection changing state.  Spot failures and disconnect.
     /// The Client will pick up the connectionError message and follow us.
@@ -203,6 +225,8 @@ final class SpaceWarClientConnection {
             disconnect(reason: disconnectReason)
         }
     }
+
+    // MARK: Message handling
 
     func receive(msg: Msg, size: Int, data: UnsafeMutableRawPointer) -> Bool {
         switch msg {
@@ -247,7 +271,7 @@ final class SpaceWarClientConnection {
         state = .connectedPendingAuthentication
 
         serverSteamID = serverInfo.steamIDServer
-        //    m_pQuitMenu->SetHeading( pchServerName ); XXX fuck!
+        serverName = serverInfo.serverName
 
         let rc = steam.networkingSockets.getConnectionInfo(conn: netConnection!)
         serverIP = rc.info.addrRemote.ipv4
@@ -351,5 +375,47 @@ final class SpaceWarClientConnection {
         // steam_player_group defines who the user is playing with.  Set it to the steam ID
         // of the server if we are connected, otherwise blank.
         steam.friends.setRichPresence(playerGroup: serverSteamID)
+    }
+}
+
+// MARK: ServerPing
+
+/// Helper to ping/query a server from an IP address
+private final class ServerPing: SteamMatchmakingPingResponse {
+    private let steam: SteamAPI
+    private weak var connection: SpaceWarClientConnection?
+    private var serverQuery: HServerQuery?
+
+    init(steam: SteamAPI, connection: SpaceWarClientConnection) {
+        self.steam = steam
+        self.connection = connection
+    }
+
+    /// Start the ping
+    func ping(ip: Int, port: UInt16) {
+        serverQuery = steam.matchmakingServers.pingServer(ip: ip, port: port, response: self)
+    }
+
+    /// Ping worked - proceed to connecting by steam ID
+    func serverResponded(server: GameServerItem) {
+        if let connection {
+            OutputDebugString("ClientConnection ping response, connecting to Steam ID")
+            connection.connect(steamID: server.steamID)
+        }
+    }
+
+    /// If the ping times out we just forget everything
+    func serverFailedToRespond() {
+        OutputDebugString("ClientConnection ping failure, waiting for connection timeout")
+        connection = nil
+    }
+
+    /// Not interested in amy result of the ping
+    func cancel() {
+        if let serverQuery, connection != nil {
+            connection = nil
+            steam.matchmakingServers.cancelServerQuery(serverQuery)
+            self.serverQuery = nil
+        }
     }
 }

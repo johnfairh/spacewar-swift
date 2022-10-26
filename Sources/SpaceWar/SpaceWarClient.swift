@@ -123,7 +123,9 @@ final class SpaceWarClient {
         //        SpaceWarLocalInventory()->RefreshFromServer();
         //
         //        // start voice chat
-        //        m_pVoiceChat->StartVoiceChat(); Pass In clientConnection.conn, update P2P thing too
+        //        m_pVoiceChat->StartVoiceChat();
+        //        m_pVoiceChat->m_hConnServer = m_hConnServer;
+        //        m_pP2PAuthedGame->m_hConnServer = m_hConnServer;
         //
         //        SetInGameRichPresence();
         //    }
@@ -173,6 +175,10 @@ final class SpaceWarClient {
         // if we just transitioned state, perform on change handlers
         state.onTransition {
             onStateChanged()
+        }
+
+        if let serverName = clientConnection.serverName {
+            //    m_pQuitMenu->SetHeading( serverName ); XXX
         }
 
         switch state.state {
@@ -1051,45 +1057,33 @@ final class SpaceWarClient {
 //    }
 //}
 
-////-----------------------------------------------------------------------------
-//// Purpose: Initiates a connection to a server
-////-----------------------------------------------------------------------------
-//void CSpaceWarClient::InitiateServerConnection( uint32 unServerAddress, const int32 nPort )
-//{
-//    if ( m_eGameState == k_EClientInLobby && m_steamIDLobby.IsValid() )
-//    {
-//        SteamMatchmaking()->LeaveLobby( m_steamIDLobby );
-//    }
-//
-//    SetGameState( k_EClientGameConnecting );
-//
-//    // Update when we last retried the connection, as well as the last packet received time so we won't timeout too soon,
-//    // and so we will retry at appropriate intervals if packets drop
-//    m_ulLastNetworkDataReceivedTime = m_ulLastConnectionAttemptRetryTime = m_pGameEngine->GetGameTickCount();
-//
-//    // ping the server to find out what it's steamID is
-//    m_unServerIP = unServerAddress;
-//    m_usServerPort = (uint16)nPort;
-//    m_GameServerPing.RetrieveSteamIDFromGameServer( this, m_unServerIP, m_usServerPort );
-//}
-//
-//
-////-----------------------------------------------------------------------------
-//// Purpose: Initiates a connection to a server via P2P (NAT-traversing) connection
-////-----------------------------------------------------------------------------
-func initiateServerConnection(to serverSteamID: SteamID) {
-    //    if ( m_eGameState == k_EClientInLobby && m_steamIDLobby.IsValid() )
-    //    {
-    //        SteamMatchmaking()->LeaveLobby( m_steamIDLobby );
-    //    }
-    //
-    //    SetGameState( k_EClientGameConnecting );
-    clientConnection.connect(steamID: serverSteamID)
-    //    if ( m_pVoiceChat )
-    //        m_pVoiceChat->m_hConnServer = m_hConnServer;
-    //    if ( m_pP2PAuthedGame )
-    //        m_pP2PAuthedGame->m_hConnServer = m_hConnServer;
-}
+    /// Initiates a connection to a server
+    func initiateServerConnection(serverAddress: Int, port: UInt16) {
+        //    if ( m_eGameState == k_EClientInLobby && m_steamIDLobby.IsValid() )
+        //    {
+        //        SteamMatchmaking()->LeaveLobby( m_steamIDLobby );
+        //    }
+        //
+        //    SetGameState( k_EClientGameConnecting );
+        clientConnection.connect(ip: serverAddress, port: port)
+    }
+
+    /// Initiates a connection to a server via P2P (NAT-traversing) connection
+    func initiateServerConnection(to serverSteamID: SteamID) {
+        //    if ( m_eGameState == k_EClientInLobby && m_steamIDLobby.IsValid() )
+        //    {
+        //        SteamMatchmaking()->LeaveLobby( m_steamIDLobby );
+        //    }
+        //
+        //    SetGameState( k_EClientGameConnecting );
+        clientConnection.connect(steamID: serverSteamID)
+    }
+
+    /// API from Main to shut down
+    func disconnectFromServer(reason: String) {
+        clientConnection.disconnect(reason: reason)
+        disconnect()
+    }
 
 // MARK: C++ Core Game State
 

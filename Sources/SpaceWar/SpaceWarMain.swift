@@ -455,7 +455,7 @@ final class SpaceWarMain {
             //        break;
 
         case .menuItem(.gameExiting):
-            gameClient.disconnectFromServer()
+            gameClient.disconnectFromServer(reason: "Program quit to desktop")
             forceQuit(reason: "Requested quit to desktop")
 
             //    case k_EClientWebCallback:
