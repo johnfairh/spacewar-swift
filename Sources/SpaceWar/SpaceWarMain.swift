@@ -57,7 +57,7 @@ final class SpaceWarMain {
         precondition(steam.user.loggedOn())
         localUserSteamID = steam.user.getSteamID()
 
-        gameState = MonitoredState(tickSource: engine, initial: .mainMenu)
+        gameState = MonitoredState(tickSource: engine, initial: .mainMenu, name: "Main")
         cancelInput = Debounced(debounce: 250) {
             engine.isKeyDown(.escape)
             /* XXX SteamInput ||
@@ -243,20 +243,8 @@ final class SpaceWarMain {
     func onGameStateChanged() {
         switch gameState.state {
         case .mainMenu:
-            //        // we've switched out to the main menu
-            //
-            //        // Tell the server we have left if we are connected
-            //        DisconnectFromServer();
-            //
-            //        // shut down any server we were running
-            //        if ( m_pServer )
-            //        {
-            //            delete m_pServer;
-            //            m_pServer = NULL;
-            //        }
-            //
-            //        // Refresh inventory
-            //        SpaceWarLocalInventory()->RefreshFromServer();
+            // Refresh inventory
+            // XXX   SpaceWarLocalInventory()->RefreshFromServer();
             break
         case .menuItem(.startServer):
             gameClient.startServer()
@@ -327,7 +315,7 @@ final class SpaceWarMain {
         receiveNetworkData()
 
         // Check if escape has been pressed, we'll use that info in a couple places below
-        let escapedPressed = cancelInput.test(now: engine.gameTickCount)
+        let escapePressed = cancelInput.test(now: engine.gameTickCount)
         let dPressed = pressD.test(now: engine.gameTickCount)
 
         // Run Steam client callbacks
@@ -362,7 +350,7 @@ final class SpaceWarMain {
             break;
 
         case .menuItem(.startServer):
-            switch gameClient.runFrame() {
+            switch gameClient.runFrame(escapePressed: escapePressed) {
             case .mainMenu:
                 setGameState(.mainMenu)
             case .quit:
@@ -455,7 +443,6 @@ final class SpaceWarMain {
             //        break;
 
         case .menuItem(.gameExiting):
-            gameClient.disconnectFromServer(reason: "Program quit to desktop")
             forceQuit(reason: "Requested quit to desktop")
 
             //    case k_EClientWebCallback:
@@ -512,7 +499,7 @@ final class SpaceWarMain {
             debris?.runFrame()
             debris?.render()
 
-            if escapedPressed {
+            if escapePressed {
                 setGameState(.mainMenu)
                 debris = nil
             }

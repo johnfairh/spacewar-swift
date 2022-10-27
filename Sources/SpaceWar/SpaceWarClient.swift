@@ -35,14 +35,13 @@ final class SpaceWarClient {
     /// A local server we may or may not be running
     private var server: SpaceWarServer?
 
-
     /// The actual game state
     private var playerShipIndex: Int
 
     init(engine: Engine2D, steam: SteamAPI) {
         self.engine = engine
         self.steam = steam
-        self.state = .init(tickSource: engine, initial: .idle)
+        self.state = .init(tickSource: engine, initial: .idle, name: "Client")
         self.clientConnection = SpaceWarClientConnection(steam: steam, tickSource: engine)
         self.server = nil
 
@@ -107,34 +106,35 @@ final class SpaceWarClient {
     // MARK: State machine
 
     func onStateChanged() {
-        //    if ( m_eGameState == k_EClientGameWinner || m_eGameState == k_EClientGameDraw )
-        //    {
-        //        // game over.. update the leaderboard
-        //        m_pLeaderboards->UpdateLeaderboards( m_pStatsAndAchievements );
-        //
-        //        // Check if the user is due for an item drop
-        //        SpaceWarLocalInventory()->CheckForItemDrops();
-        //        SetInGameRichPresence();
-        //    }
+        switch state.state {
+        case .winner, .draw:
+            //        // game over.. update the leaderboard
+            //        m_pLeaderboards->UpdateLeaderboards( m_pStatsAndAchievements );
+            //
+            //        // Check if the user is due for an item drop
+            //        SpaceWarLocalInventory()->CheckForItemDrops();
+            //        SetInGameRichPresence();
+            break
 
-        //    else if ( m_eGameState == k_EClientGameActive )
-        //    {
-        //        // Load Inventory
-        //        SpaceWarLocalInventory()->RefreshFromServer();
-        //
-        //        // start voice chat
-        //        m_pVoiceChat->StartVoiceChat();
-        //        m_pVoiceChat->m_hConnServer = m_hConnServer;
-        //        m_pP2PAuthedGame->m_hConnServer = m_hConnServer;
-        //
-        //        SetInGameRichPresence();
-        //    }
-        //    else if m_eGameState == connectionFailure {
-        //        disconnect()
-        //    }
-        //    else {
-        steam.friends.setRichPresence(gameStatus: .waitingForMatch)
-        //    }
+        case .active:
+            //        // Load Inventory
+            //        SpaceWarLocalInventory()->RefreshFromServer();
+            //
+            //        // start voice chat
+            //        m_pVoiceChat->StartVoiceChat();
+            //        m_pVoiceChat->m_hConnServer = m_hConnServer;
+            //        m_pP2PAuthedGame->m_hConnServer = m_hConnServer;
+            //
+            //        SetInGameRichPresence();
+            //    }
+            break
+
+        case .connectionFailure:
+            disconnect()
+
+        default:
+            steam.friends.setRichPresence(gameStatus: .waitingForMatch)
+        }
 
         steam.friends.setRichPresence(status: state.state.richPresenceStatus)
 
@@ -148,8 +148,8 @@ final class SpaceWarClient {
     /// Cilent tasks to be done on disconnecting from a server - not in a state-change because can
     /// happen at weird times like object deletion.
     func disconnect() {
-        // p2pAuthedGame.endGame()
-        // voiceChat.endGame()
+        // XXX p2pAuthedGame.endGame()
+        // XXX voiceChat.endGame()
         // tell steam china duration control system that we are no longer in a match
         _ = steam.user.setDurationControlOnlineState(newState: .offline)
     }
@@ -163,13 +163,13 @@ final class SpaceWarClient {
         case quit // quit to desktop
     }
 
-    func runFrame() -> FrameRc {
+    func runFrame(escapePressed: Bool) -> FrameRc {
         precondition(state.state != .idle, "SpaceWarMain thinks we're busy but we're idle :-(")
 
         clientConnection.testServerLivenessTimeout()
 
         if state.state != .connectionFailure && clientConnection.connectionError != nil {
-            //SetGameState(.connectionFailure)
+            state.set(.connectionFailure)
         }
 
         // if we just transitioned state, perform on change handlers
@@ -181,105 +181,104 @@ final class SpaceWarClient {
             //    m_pQuitMenu->SetHeading( serverName ); XXX
         }
 
+        var frameRc = FrameRc.game
+
         switch state.state {
-            //    case k_EClientGameConnectionFailure:
-            //        DrawConnectionFailureText();
-            //
-            //        if ( bEscapePressed )
-            //            SetGameState( k_EClientGameMenu );
-            //
-            //        break;
-            //    case k_EClientGameConnecting:
-            //        // Draw text telling the user a connection attempt is in progress
-            //        DrawConnectionAttemptText();
-            //
-            //        // Check if we've waited too long and should time out the connection
-            //        clientConnection.testConnectionTimeout()
-            //    case k_EClientGameQuitMenu:
-            //        // Update all the entities (this is client side interpolation)...
-            //        m_pSun->RunFrame();
-            //        for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
-            //        {
-            //            if ( m_rgpShips[i] )
-            //                m_rgpShips[i]->RunFrame();
-            //        }
-            //
-            //        // Now draw the menu
-            //        m_pQuitMenu->RunFrame();
-            //
-            //        // Make sure the Steam Controller is in the correct mode.
-            //        m_pGameEngine->SetSteamControllerActionSet( eControllerActionSet_MenuControls );
-            //        break;
-            //    case k_EClientGameStartServer:
-            //        if ( !m_pServer )
-            //        {
-            //            m_pServer = new CSpaceWarServer( m_pGameEngine );
-            //        }
-            //
-            //        if ( m_pServer && m_pServer->IsConnectedToSteam() )
-            //        {
-            //            // server is ready, connect to it
-            //            InitiateServerConnection( m_pServer->GetSteamID() );
-            //        }
-            //        break;
-            //    case k_EClientGameDraw:
-            //    case k_EClientGameWinner:
-            //    case k_EClientGameWaitingForPlayers:
-            //        // Update all the entities (this is client side interpolation)...
-            //        m_pSun->RunFrame();
-            //        for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
-            //        {
-            //            if ( m_rgpShips[i] )
-            //                m_rgpShips[i]->RunFrame();
-            //        }
-            //
-            //        DrawHUDText();
-            //        DrawWinnerDrawOrWaitingText();
-            //
-            //        m_pVoiceChat->RunFrame();
-            //
-            //        if ( bEscapePressed )
-            //            SetGameState( k_EClientGameQuitMenu );
-            //        break;
-            //
-            //    case k_EClientGameActive:
-            //        // Make sure the Steam Controller is in the correct mode.
-            //        m_pGameEngine->SetSteamControllerActionSet( eControllerActionSet_ShipControls );
-            //
-            //        // SendHeartbeat is safe to call on every frame since the API is internally rate-limited.
-            //        // Ideally you would only call this once per second though, to minimize unnecessary calls.
-            //        SteamInventory()->SendItemDropHeartbeat();
-            //
-            //        // Update all the entities...
-            //        m_pSun->RunFrame();
-            //        for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
-            //        {
-            //            if ( m_rgpShips[i] )
-            //                m_rgpShips[i]->RunFrame();
-            //        }
-            //
-            //        for (uint32 i = 0; i < MAX_WORKSHOP_ITEMS; ++i)
-            //        {
-            //            if (m_rgpWorkshopItems[i])
-            //                m_rgpWorkshopItems[i]->RunFrame();
-            //        }
-            //
-            //        DrawHUDText();
-            //
-            //        m_pStatsAndAchievements->RunFrame();
-            //
-            //        m_pVoiceChat->RunFrame();
-            //
-            //        if ( bEscapePressed )
-            //            SetGameState( k_EClientGameQuitMenu );
-            //        break;
-        default:
+        case .idle:
             break
+
+        case .startServer:
+            if server == nil {
+                server = SpaceWarServer(engine: engine)
+            }
+
+            if let server, server.isConnectedToSteam {
+                // server is ready, connect to it
+                initiateServerConnection(to: server.steamID)
+            }
+
+        case .connecting:
+            // Draw text telling the user a connection attempt is in progress
+            // XXX DrawConnectionAttemptText();
+
+            // Check if we've waited too long and should time out the connection
+            clientConnection.testConnectionTimeout()
+
+        case .connectionFailure:
+            //  XXX DrawConnectionFailureText();
+            if escapePressed {
+                frameRc = .mainMenu
+            }
+
+        case .active:
+            // Make sure the Steam Controller is in the correct mode.
+            // XXX SteamInput m_pGameEngine->SetSteamControllerActionSet( eControllerActionSet_ShipControls );
+
+            // SendHeartbeat is safe to call on every frame since the API is internally rate-limited.
+            // Ideally you would only call this once per second though, to minimize unnecessary calls.
+            // XXX inventory SteamInventory()->SendItemDropHeartbeat();
+
+            // Update all the entities...
+//            sun.runFrame()
+//            for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
+//            {
+//                if ( m_rgpShips[i] )
+//                    m_rgpShips[i]->RunFrame();
+//            }
+//
+//            for (uint32 i = 0; i < MAX_WORKSHOP_ITEMS; ++i)
+//            {
+//                if (m_rgpWorkshopItems[i])
+//                    m_rgpWorkshopItems[i]->RunFrame();
+//            }
+
+//            DrawHUDText();
+//
+//            m_pStatsAndAchievements->RunFrame();
+//
+//            m_pVoiceChat->RunFrame();
+
+            if escapePressed {
+                state.set(.quitMenu)
+            }
+
+        case .draw, .winner, .waitingForPlayers:
+            // Update all the entities (this is client side interpolation)...
+//            m_pSun->RunFrame();
+//            for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
+//            {
+//                if ( m_rgpShips[i] )
+//                    m_rgpShips[i]->RunFrame();
+//            }
+//
+//            DrawHUDText();
+//            DrawWinnerDrawOrWaitingText();
+//
+//            m_pVoiceChat->RunFrame();
+
+            if escapePressed {
+                state.set(.quitMenu)
+            }
+
+        case .quitMenu:
+            // Update all the entities (this is client side interpolation)...
+//            m_pSun->RunFrame();
+//            for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
+//            {
+//                if ( m_rgpShips[i] )
+//                    m_rgpShips[i]->RunFrame();
+//            }
+//
+//            // Now draw the menu
+//            m_pQuitMenu->RunFrame();
+
+            // Make sure the Steam Controller is in the correct mode.
+//  XXX SteamInput          m_pGameEngine->SetSteamControllerActionSet( eControllerActionSet_MenuControls );
+            break;
         }
 
-        //    // Send an update on our local ship to the server
-        //    if ( m_eConnectedStatus == k_EClientConnectedAndAuthenticated &&  m_rgpShips[ m_uPlayerShipIndex ] )
-        //    {
+        // Send an update on our local ship to the server
+        if clientConnection.isConnected /* XXX , let ship = ships[playerShipIndex] */{
         //        MsgClientSendLocalUpdate_t msg;
         //        msg.SetShipPosition( m_uPlayerShipIndex );
         //
@@ -289,8 +288,8 @@ final class SpaceWarClient {
         //        // retransmitting the old one.
         //        if ( m_rgpShips[ m_uPlayerShipIndex ]->BGetClientUpdateData( msg.AccessUpdateData() ) )
         //            BSendServerData( &msg, sizeof( msg ), k_nSteamNetworkingSend_Unreliable );
-        //    }
-        //
+        }
+
         //    if ( m_pP2PAuthedGame )
         //    {
         //        if ( m_pServer )
@@ -315,52 +314,51 @@ final class SpaceWarClient {
         //                if ( !m_pP2PAuthedGame->m_rgpP2PAuthPlayer[0]->BIsAuthOk() )
         //                {
         //                    // leave the game
-        //                    SetGameState( k_EClientGameMenu );
+        //                    frameRc = .mainMenu
         //                }
         //            }
         //        }
         //    }
-        //
-        //    // If we've started a local server run it
-        //    if ( m_pServer )
-        //    {
-        //        m_pServer->RunFrame();
-        //    }
-        //
+
+        // If we've started a local server run it
+        server?.runFrame()
+
         //    // Accumulate stats
         //    for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
         //    {
         //        if ( m_rgpShips[i] )
         //            m_rgpShips[i]->AccumulateStats( m_pStatsAndAchievements );
         //    }
-        //
-        //    // Render everything that might have been updated by the server
-        //    switch ( m_eGameState )
-        //    {
-        //    case k_EClientGameDraw:
-        //    case k_EClientGameWinner:
-        //    case k_EClientGameActive:
-        //        // Now render all the objects
-        //        m_pSun->Render();
-        //        for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
-        //        {
-        //            if ( m_rgpShips[i] )
-        //                m_rgpShips[i]->Render();
-        //        }
-        //
-        //        for (uint32 i = 0; i < MAX_WORKSHOP_ITEMS; ++i)
-        //        {
-        //            if ( m_rgpWorkshopItems[i] )
-        //                m_rgpWorkshopItems[i]->Render();
-        //        }
-        //
-        //        break;
-        //    default:
-        //        // Any needed drawing was already done above before server updates
-        //        break;
-        //    }
+        //   ships.forEach { $0?.accumulateStats(to: statsAndAchievements) }
 
-        return .mainMenu
+        // Finally Render everything that might have been updated by the server
+        switch state.state {
+        case .draw, .winner, .active:
+//            m_pSun->Render();
+//            for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
+//            {
+//                if ( m_rgpShips[i] )
+//                    m_rgpShips[i]->Render();
+//            }
+//
+//            for (uint32 i = 0; i < MAX_WORKSHOP_ITEMS; ++i)
+//            {
+//                if ( m_rgpWorkshopItems[i] )
+//                    m_rgpWorkshopItems[i]->Render();
+//            }
+            break
+
+        default:
+            // Any needed drawing was already done above before server updates
+            break
+        }
+
+        if frameRc != .game {
+            disconnectFromServer(reason: "User quit from menu")
+            server = nil
+            state.set(.idle)
+        }
+        return frameRc
     }
 
     /// Receives incoming network data
@@ -1064,7 +1062,7 @@ final class SpaceWarClient {
         //        SteamMatchmaking()->LeaveLobby( m_steamIDLobby );
         //    }
         //
-        //    SetGameState( k_EClientGameConnecting );
+        state.set(.connecting)
         clientConnection.connect(ip: serverAddress, port: port)
     }
 
@@ -1075,7 +1073,7 @@ final class SpaceWarClient {
         //        SteamMatchmaking()->LeaveLobby( m_steamIDLobby );
         //    }
         //
-        //    SetGameState( k_EClientGameConnecting );
+        state.set(.connecting)
         clientConnection.connect(steamID: serverSteamID)
     }
 

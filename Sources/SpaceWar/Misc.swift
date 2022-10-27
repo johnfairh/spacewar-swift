@@ -103,9 +103,11 @@ struct Debounced {
 /// Provide setter to nop if already there and execute code if not
 final class MonitoredState<ActualState: Equatable> {
     let tickSource: TickSource
+    let name: String
 
-    init(tickSource: TickSource, initial: ActualState) {
+    init(tickSource: TickSource, initial: ActualState, name: String = "") {
         self.tickSource = tickSource
+        self.name = name
         self.state = initial
         self.transitioned = false
         self.transitionTime = 0
@@ -117,6 +119,7 @@ final class MonitoredState<ActualState: Equatable> {
         guard newState != state else {
             return
         }
+        OutputDebugString("\(name) \(state) -> \(newState)")
         state = newState
         transitioned = true
         transitionTime = tickSource.currentTickCount

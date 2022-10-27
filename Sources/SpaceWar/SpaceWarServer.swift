@@ -23,12 +23,18 @@ struct ClientConnectionData {
 final class SpaceWarServer {
     let engine: Engine2D
 
+    /// Published state
+    private(set) var isConnectedToSteam: Bool
+
+    private(set) var steamID: SteamID /* XXX from GS API */
+
     init(engine: Engine2D) {
         self.engine = engine
+
+        isConnectedToSteam = true
+        steamID = .nonSteamGS
     }
-    //      m_bConnectedToSteam = false;
-    //
-    //
+
     //      const char *pchGameDir = "spacewar";
     //      uint32 unIP = INADDR_ANY;
     //      uint16 usMasterServerUpdaterPort = SPACEWAR_MASTER_SERVER_UPDATER_PORT;
