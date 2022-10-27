@@ -83,7 +83,8 @@ class Lobbies {
     enum FrameRc {
         case lobby // stay in lobby screen
         case mainMenu // quit back to mainMenu
-        case runGame(SteamID, Int? /*SpaceWarServer?*/) // connect to this server (maybe run it too)
+        case remoteGame(SteamID) // connect to this remote server
+        case localGame(SpaceWarServer) // connect to this local server and host it
     }
 
     func runFrame() -> FrameRc {
@@ -385,4 +386,17 @@ class Lobbies {
 //    {
 //        SteamFriends()->ActivateGameOverlayInviteDialog( selection.m_steamIDLobby );
 //    }
+//}
+
+
+//
+// just need to be sure that if we leave a lobby in UI then we leave it in backend too
+//
+///// Initiates a connection to a server
+//func initiateServerConnection(serverAddress: Int, port: UInt16) {
+//    //    if ( m_eGameState == k_EClientInLobby && m_steamIDLobby.IsValid() )
+//    //    {
+//    //        SteamMatchmaking()->LeaveLobby( m_steamIDLobby );
+//    //    }
+//    //
 //}

@@ -30,6 +30,9 @@ final class Ship: SpaceWarEntity {
     /// Decoration for this ship
     private var shipDecoration: Decoration?
 
+    /// If server then not local; if !server then can be local OR another client's model
+    var isLocalPlayer: Bool { true }
+
     init(engine: Engine2D, isServerInstance: Bool, pos: SIMD2<Float>, color: Color2D) {
         forwardThrusters = ForwardThrusters(engine: engine)
         reverseThrusters = ReverseThrusters(engine: engine)

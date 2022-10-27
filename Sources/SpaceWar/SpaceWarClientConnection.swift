@@ -137,6 +137,16 @@ final class SpaceWarClientConnection {
         disconnect(reason: "Timed out connecting to game server")
     }
 
+    /// How much time is left before the timeout?
+    var secondsLeftToConnect: UInt {
+        precondition(!isConnected, "Server connection is connected \(state), not timing anything")
+        let elapsed = tickSource.currentTickCount - connectionStartTime
+        if elapsed >= Misc.MILLISECONDS_CONNECTION_TIMEOUT {
+            return 0
+        }
+        return (Misc.MILLISECONDS_CONNECTION_TIMEOUT - elapsed) / 1000
+    }
+
     /// Has there been a server message timeout?
     ///
     /// Sets `connectionError` as a side-effect.  Can be called in any state, ignore if irrelevant.
@@ -152,7 +162,8 @@ final class SpaceWarClientConnection {
 
     /// Tear down the current connection/attempt.
     ///
-    /// Safe to call in any state.  Does not set `connectionError`.
+    /// Safe to call in any state.   `reason` is for debug and will occupy connectionError if
+    /// it's not set.
     func disconnect(reason: String) {
         if connectionError == nil {
             connectionError = reason
@@ -182,6 +193,12 @@ final class SpaceWarClientConnection {
 
         serverIP = nil
         serverPort = nil
+    }
+
+    /// Completely clean up the object's state so it's ready for a new connection
+    func terminate() {
+        disconnect(reason: "Terminating client session")
+        connectionError = nil
     }
 
     // MARK: Connection Management
@@ -301,6 +318,7 @@ final class SpaceWarClientConnection {
         msg.inWireFormat() { ptr, size in
             guard let serverSteamID else {
                 preconditionFailure("No server steam ID in sendmsg")
+                // XXX might need to return false here, timing windows in disconnect vs. voice/p2pauth
             }
             let (res, _) = steam.networkingSockets.sendMessageToConnection(conn: netConnection, steamID: serverSteamID, data: ptr, dataSize: size, sendFlags: sendFlags)
 

@@ -15,14 +15,8 @@ enum Misc {
     /// UDP port for the master server updater to listen on
     static let SPACEWAR_MASTER_SERVER_UPDATER_PORT = UInt16(27016)
 
-    /// How long to wait for a response from the server before resending our connection attempt
-    static let SERVER_CONNECTION_RETRY_MILLISECONDS = 350
-
     /// How long to wait for a client to send an update before we drop its connection server side
     static let SERVER_TIMEOUT_MILLISECONDS = 5000
-
-    /// Maximum packet size in bytes
-    static let MAX_SPACEWAR_PACKET_SIZE = 1024*512
 
     /// Maximum number of players who can join a server and play simultaneously
     static let MAX_PLAYERS_PER_SERVER = 4
@@ -40,7 +34,7 @@ enum Misc {
     static let MAX_PHOTON_BEAMS_PER_SHIP = PHOTON_BEAM_LIFETIME_IN_TICKS / PHOTON_BEAM_FIRE_INTERVAL_TICKS
 
     /// Time to timeout a connection attempt in
-    static let MILLISECONDS_CONNECTION_TIMEOUT = UInt(30000)
+    static let MILLISECONDS_CONNECTION_TIMEOUT = UInt(8000) /* XXX yawn UInt(30000) */
 
     /// How many times a second does the server send world updates to clients
     static let SERVER_UPDATE_SEND_RATE = 60

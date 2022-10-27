@@ -34,9 +34,6 @@ final class SpaceWarMain {
     private let lobbies: Lobbies
     private let starField: StarField
     private var mainMenu: MainMenu!
-    private var debris: ShipDebris?
-
-    private let sun: Sun
 
     /// Overall game state
     enum State: Equatable {
@@ -47,7 +44,6 @@ final class SpaceWarMain {
     private(set) var gameState: MonitoredState<State>
     private var cancelInput: Debounced
     private var infrequent: Debounced
-    private var pressD: Debounced
 
     init(engine: Engine2D, steam: SteamAPI) {
         self.engine = engine
@@ -64,9 +60,6 @@ final class SpaceWarMain {
              m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_PauseMenu ) ||
              m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_MenuCancel ) ) */
         }
-        pressD = Debounced(debounce: 250) {
-            engine.isKeyDown(.printable("D"))
-        }
         // Gadget to fire every second
         infrequent = Debounced(debounce: 1000) { true }
 
@@ -78,14 +71,11 @@ final class SpaceWarMain {
         // Initialize starfield - common background almost always drawn
         starField = StarField(engine: engine)
 
-        sun = Sun(engine: engine)
-
         // Initialize main menu
         mainMenu = MainMenu(engine: engine) { [weak self] in
             OutputDebugString("Main menu selection: \($0)")
             self?.setGameState(.menuItem($0))
         }
-
 
         //    // All the non-game screens
         //    m_pServerBrowser = new CServerBrowser( m_pGameEngine );
@@ -107,7 +97,9 @@ final class SpaceWarMain {
         engine.setBackgroundColor(.rgb(0, 0, 0))
 
         // Initialize networking
-        steam.networkingUtils.initRelayNetworkAccess()
+        if !FAKE_NET_USE {
+            steam.networkingUtils.initRelayNetworkAccess()
+        }
 
         Timer.scheduledTimer(withTimeInterval: 0.005, repeats: true) { [weak self] _ in
             self?.receiveNetworkData()
@@ -194,7 +186,7 @@ final class SpaceWarMain {
     /// Command-line server-connect instructions, from various places
     private func initCommandLine() {
         if let cmdLineParams = CmdLineParams() ?? CmdLineParams(steam: steam) {
-            gameClient.execCommandLineConnect(params: cmdLineParams)
+            execCommandLineConnect(params: cmdLineParams)
         }
 
         steam.onGameRichPresenceJoinRequested { [weak self] msg in
@@ -202,7 +194,7 @@ final class SpaceWarMain {
             // 'join game' on a friend in their friends list
             OutputDebugString("RichPresenceJoinRequested: \(msg.connect)")
             if let self, let params = CmdLineParams(launchString: msg.connect) {
-                self.gameClient.execCommandLineConnect(params: params)
+                self.execCommandLineConnect(params: params)
             }
         }
 
@@ -210,10 +202,54 @@ final class SpaceWarMain {
             // a Steam URL to launch this app was executed while the game is
             // already running, eg steam://run/480//+connect%20127.0.0.1
             if let self, let params = CmdLineParams(steam: self.steam) {
-                self.gameClient.execCommandLineConnect(params: params)
+                self.execCommandLineConnect(params: params)
             }
         }
     }
+
+    /// This needs to be a lot smarter to avoid colliding badly with what is currently going on
+    /// - check params are sane, go away if not
+    /// - check main state: if we're not in lobby/gameclient then should be ok to just go there
+    /// - otherwise have to call an API in lobby/gameclient passing in the cmdlineparams, to
+    ///   let the l/gc gracefully clean and quit, passing the cmdlineparams back to us
+    ///     - and then we can go back to step (2) and go to the new place...
+    ///
+    func execCommandLineConnect(params: CmdLineParams) {
+        print("ExecCommandLineConnect: \(params)")
+    }
+
+    ////-----------------------------------------------------------------------------
+    //// Purpose: applies a command-line connect
+    ////-----------------------------------------------------------------------------
+    //void CSpaceWarClient::ExecCommandLineConnect( const char *pchServerAddress, const char *pchLobbyID )
+    //{
+    //    if ( pchServerAddress )
+    //    {
+    //        int32 octet0 = 0, octet1 = 0, octet2 = 0, octet3 = 0;
+    //        int32 uPort = 0;
+    //        int nConverted = sscanf( pchServerAddress, "%d.%d.%d.%d:%d", &octet0, &octet1, &octet2, &octet3, &uPort );
+    //        if ( nConverted == 5 )
+    //        {
+    //            char rgchIPAddress[128];
+    //            sprintf_safe( rgchIPAddress, "%d.%d.%d.%d", octet0, octet1, octet2, octet3 );
+    //            uint32 unIPAddress = ( octet3 ) + ( octet2 << 8 ) + ( octet1 << 16 ) + ( octet0 << 24 );
+    //            InitiateServerConnection( unIPAddress, uPort );
+    //        }
+    //    }
+    //
+    //    // if +connect_lobby was used to specify a lobby to join, connect now
+    //    if ( pchLobbyID )
+    //    {
+    //        CSteamID steamIDLobby( (uint64)atoll( pchLobbyID ) );
+    //        if ( steamIDLobby.IsValid() )
+    //        {
+    //            // act just like we had selected it from the menu
+    //            LobbyBrowserMenuItem_t menuItem = { steamIDLobby, k_EClientJoiningLobby };
+    //            OnMenuSelection( menuItem );
+    //        }
+    //    }
+    //}
+
 
     /// Called from frame loop, but once every second or so instead of every frame
     func runOccasionally() {
@@ -247,7 +283,7 @@ final class SpaceWarMain {
             // XXX   SpaceWarLocalInventory()->RefreshFromServer();
             break
         case .menuItem(.startServer):
-            gameClient.startServer()
+            gameClient.connectToLocalServer()
             // SpaceWarClient takes over now
         case .menuItem(.findLANServers):
             //        m_pServerBrowser->RefreshLANServers();
@@ -316,7 +352,6 @@ final class SpaceWarMain {
 
         // Check if escape has been pressed, we'll use that info in a couple places below
         let escapePressed = cancelInput.test(now: engine.gameTickCount)
-        let dPressed = pressD.test(now: engine.gameTickCount)
 
         // Run Steam client callbacks
         steam.runCallbacks()
@@ -365,8 +400,11 @@ final class SpaceWarMain {
                 setGameState(.mainMenu)
             case .lobby:
                 break
-            case .runGame(let steamID, let server):
-                gameClient.connectFromLobby(steamID: steamID, server: server)
+            case .remoteGame(let steamID):
+                gameClient.connectTo(gameServerSteamID: steamID)
+                setGameState(.menuItem(.startServer))
+            case .localGame(let server):
+                gameClient.connectToLocalServer(server)
                 setGameState(.menuItem(.startServer))
             }
 
@@ -488,20 +526,8 @@ final class SpaceWarMain {
             //        break;
         default:
             // OutputDebugString("Unhandled game client state \(gameState.state)")
-            sun.runFrame()
-            sun.render()
-
-            if dPressed {
-                if debris == nil {
-                    debris = ShipDebris(engine: engine, pos: engine.viewportSize / 4, debrisColor: .rgb(0, 1, 0))
-                }
-            }
-            debris?.runFrame()
-            debris?.render()
-
             if escapePressed {
                 setGameState(.mainMenu)
-                debris = nil
             }
         }
     }
@@ -509,5 +535,15 @@ final class SpaceWarMain {
     /// Called at the start of each frame and also between frames
     func receiveNetworkData() {
         gameClient.receiveNetworkData()
+    }
+}
+
+extension SpaceWarMain.State: CustomStringConvertible {
+    var description: String {
+        switch self {
+        case .connectingToSteam: return "connectingToSteam"
+        case .mainMenu: return "mainMenu"
+        case .menuItem(let item): return "menuItem(\(item))"
+        }
     }
 }
