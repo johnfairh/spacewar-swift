@@ -20,12 +20,12 @@ final class SpaceWarServerConnection {
     var callbackPermitAuth: (ClientToken) -> Bool = { _ in true }
     /// Server callback to notify a previously authing client has failed
     var callbackAuthFailed: (ClientToken) -> Void = { _ in }
-    /// Server callback to notify a client is authenticated and ready to go!
-    var callbackAuthSuccess: (ClientToken, SteamID) -> Void = { _, _ in }
+    /// Server callback to notify a client is authenticated and ready to go - return player position
+    var callbackAuthSuccess: (ClientToken, SteamID) -> UInt32 = { _, _ in 0 }
     ///  Server callback to notify a previously 'authsuccess' client has disconnected
     var callbackDisconnected: (ClientToken) -> Void = { _ in }
 
-    struct Client {
+    final class Client {
         enum State {
             case pending
             case authInProgress
@@ -42,6 +42,11 @@ final class SpaceWarServerConnection {
         }
     }
     private var clients: [ClientToken : Client]
+    private func getClient(steamID: SteamID) -> (ClientToken, Client)? {
+        clients.first(where: { $0.value.steamID.map { $0 == steamID } ?? false })
+    }
+
+    // MARK: Init/Deinit
 
     init(steam: SteamGameServerAPI, tickSource: TickSource) {
         self.steam = steam
@@ -59,6 +64,10 @@ final class SpaceWarServerConnection {
         } else {
             listenSocket = nil
             pollGroup = nil
+        }
+
+        steam.onValidateAuthTicketResponse { [weak self] in
+            self?.onAuthSessionResponse(msg: $0)
         }
     }
 
@@ -90,7 +99,7 @@ final class SpaceWarServerConnection {
     // MARK: Client connect/disconnect
 
     /// Steam networking state change: spot connects and disconnects
-    func onNetConnectionStatusChanged(msg: SteamNetConnectionStatusChangedCallback) {
+    private func onNetConnectionStatusChanged(msg: SteamNetConnectionStatusChangedCallback) {
         if msg.info.listenSocket != .invalid && msg.oldState == .none && msg.info.state == .connecting {
             let rc = steam.networkingSockets.acceptConnection(conn: msg.conn)
             if rc != .ok {
@@ -145,69 +154,88 @@ final class SpaceWarServerConnection {
         }
 
         if let steamID = client.steamID {
+            OutputDebugString("ServerConnection disconnect EndAuthSession")
             steam.gameServer.endAuthSession(steamID: steamID)
         }
     }
 
-    // MARK: Inbound messages
+    // MARK: Authentication
 
-    func receive(msg: Msg, message: SteamMsgProtocol) -> Bool {
-        switch msg {
-        case .clientBeginAuthentication:
-            OutputDebugString("ServerConnection ClientBeginAuth \(message.token)")
-            return true // handled it
-        default:
-            return false // keep looking
+    /// Received a beginauthentication message from someone
+    func onBeginAuthentication(message: SteamMsgProtocol) {
+        OutputDebugString("ServerConnection ClientBeginAuth \(message.token)")
+
+        guard message.size == MsgClientBeginAuthentication.networkSize else {
+            OutputDebugString("ServerConnection bad length for beginauth \(message.size)")
+            return
         }
+        let beginAuthMsg = MsgClientBeginAuthentication(data: message.data)
+
+        guard let client = clients[message.token] else {
+            preconditionFailure("Got message from client that is not connected \(message.token)")
+        }
+
+        // First, check this isn't a duplicate and we already have a user logged on from the same steamid
+        guard client.state == .pending else {
+            OutputDebugString("ServerConnection unexpected auth message for existing client, ignoring")
+            return
+        }
+
+        // We are full (or will be if the pending players auth), deny new login
+        guard callbackPermitAuth(message.token) else {
+            OutputDebugString("ServerConnection client auth rejected (full)")
+            disconnect(client: message.token) /* XXX reason */
+            return
+        }
+
+        // If we get here there is room, add the player as pending auth
+        client.state = .authInProgress
+        client.lastDataTime = tickSource.currentTickCount
+        client.steamID = message.sender
+
+        // Authenticate the user with the Steam back-end servers
+        let res = steam.gameServer.beginAuthSession(authTicket: beginAuthMsg.token, steamID: message.sender)
+        if res != .ok {
+            OutputDebugString("ServerConnection BeginAuthSession failed \(res) \(message.sender)")
+            disconnect(client: message.token) /* XXX reason */
+        }
+        OutputDebugString("ServerConnection pending -> authInProgress \(message.sender)")
     }
 
-    func receiveMessages(handler: (ClientToken, Msg, Int, UnsafeMutableRawPointer) -> Void) {
-        // First deal with FAKE_NET connection requests
-        if FAKE_NET_USE && steamID.isValid {
-            while let connectMsg = FakeNet.acceptConnection(at: steamID) {
-                if connectMsg.connectNotDisconnect {
-                    connect(client: .steamID(connectMsg.from))
-                } else {
-                    disconnect(client: .steamID(connectMsg.from))
-                }
-            }
+    /// Callback after `beginAuthSession` to give the steam server's pass/fail.  Also called asynchronously if the
+    /// client/something changes to make a previously validated token invalid.
+    ///
+    /// Tells us Steam3 (VAC and newer license checking) has accepted the user connection
+    private func onAuthSessionResponse(msg: ValidateAuthTicketResponse) {
+        guard let (token, client) = getClient(steamID: msg.steamID) else {
+            OutputDebugString("ServerConnection AuthSessionRsp unknown \(msg.steamID)")
+            return
         }
 
-        func handle(message: SteamMsgProtocol) {
-            defer { message.release() }
-
-            guard message.size > MemoryLayout<UInt32>.size else {
-                OutputDebugString("ServerConnection got garbage on client socket, too short")
-                return
-            }
-
-            guard let msg = Unpack.msgDword(message.data) else {
-                OutputDebugString("ServerConnection got garbage on client socket, bad msg cookie")
-                return
-            }
-
-            clients[message.token]?.lastDataTime = tickSource.currentTickCount
-
-            if receive(msg: msg, message: message) {
-                // we handled it, don't pass to client
-                return
-            }
-
-            handler(message.token, msg, message.size, message.data)
+        guard msg.authSessionResponse == .ok else {
+            // Looks like we shouldn't let this user play, kick them
+            OutputDebugString( "ServerConnection AuthSessionFail(\(msg.authSessionResponse)) for \(token)")
+            // Send a deny for the client
+            send(msg: MsgServerFailAuthentication(), to: token, sendFlags: .reliable)
+            disconnect(client: token)
+            return
         }
 
-        // Poll all connected sockets for messages
-
-        if !FAKE_NET_USE {
-            let rc = steam.networkingSockets.receiveMessagesOnPollGroup(pollGroup: pollGroup!, maxMessages: 128)
-            rc.messages.forEach { handle(message: $0) }
-        } else if steamID.isValid {
-            let rc = steam.networkingSockets.receiveMessagesOnConnection(conn: nil, steamID: steamID, maxMessages: 128)
-            rc.messages.forEach { handle(message:$0) }
+        // This is the final approval, and means we should let the client play
+        OutputDebugString("ServerConnection AuthSessionSuccess for \(token)")
+        guard client.state == .authInProgress else {
+            OutputDebugString("ServerConnection already authed this client, nothing to do")
+            return
         }
+
+        let position = callbackAuthSuccess(token, client.steamID!)
+        OutputDebugString("ServerConnection authInProgress -> connected \(token)")
+        client.state = .connected
+
+        send(msg: MsgServerPassAuthentication(playerPosition: position), to: token, sendFlags: .reliable)
     }
 
-    // MARK: Utilities
+    // MARK: Networking send/receive
 
     /// Send a message to a client
     @discardableResult
@@ -233,6 +261,52 @@ final class SpaceWarServerConnection {
                 return
             }
             send(msg: msg, to: kv.key, sendFlags: sendFlags)
+        }
+    }
+
+    /// Receive messages - called on frame loop
+    func receiveMessages(handler: (ClientToken, Msg, Int, UnsafeMutableRawPointer) -> Void) {
+        // First deal with FAKE_NET connection requests
+        if FAKE_NET_USE && steamID.isValid {
+            while let connectMsg = FakeNet.acceptConnection(at: steamID) {
+                if connectMsg.connectNotDisconnect {
+                    connect(client: .steamID(connectMsg.from))
+                } else {
+                    disconnect(client: .steamID(connectMsg.from))
+                }
+            }
+        }
+
+        // Poll all connected sockets for messages
+        var messages: [SteamMsgProtocol] = []
+        if !FAKE_NET_USE {
+            let rc = steam.networkingSockets.receiveMessagesOnPollGroup(pollGroup: pollGroup!, maxMessages: 128)
+            messages = rc.messages
+        } else if steamID.isValid {
+            let rc = steam.networkingSockets.receiveMessagesOnConnection(conn: nil, steamID: steamID, maxMessages: 128)
+            messages = rc.messages
+        }
+
+        messages.forEach { message in
+            defer { message.release() }
+
+            guard message.size > MemoryLayout<UInt32>.size else {
+                OutputDebugString("ServerConnection got garbage on client socket, too short")
+                return
+            }
+
+            guard let msg = Unpack.msgDword(message.data) else {
+                OutputDebugString("ServerConnection got garbage on client socket, bad msg cookie")
+                return
+            }
+
+            clients[message.token]?.lastDataTime = tickSource.currentTickCount
+
+            if msg == .clientBeginAuthentication {
+                onBeginAuthentication(message: message)
+            } else {
+                handler(message.token, msg, message.size, message.data)
+            }
         }
     }
 }
