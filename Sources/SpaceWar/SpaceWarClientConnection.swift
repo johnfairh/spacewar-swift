@@ -53,6 +53,11 @@ final class SpaceWarClientConnection {
         state == .connectedPendingAuthentication || state == .connectedAndAuthenticated
     }
 
+    /// Can we receive messages?
+    var canReceiveMessages: Bool {
+        state != .notConnected && state != .pingingServer
+    }
+
     /// Time we started the current connection
     private var connectionStartTime: TickSource.TickCount
     /// Time we last heard from the server
@@ -101,6 +106,7 @@ final class SpaceWarClientConnection {
             let identity = SteamNetworkingIdentity(steamID)
             netConnection = steam.networkingSockets.connectP2P(identityRemote: identity, remoteVirtualPort: 0, options: [])
         } else {
+            FakeNet.allocateEndpoint(for: steam.user.getSteamID())
             FakeNet.connect(to: steamID, from: steam.user.getSteamID())
         }
 
@@ -123,23 +129,8 @@ final class SpaceWarClientConnection {
         serverPing?.ping(ip: ip, port: port)
     }
 
-    /// Has there been a connection timeout?
-    ///
-    /// Sets `connectionError` as a side-effect.  Only makes sense in a connecting state.
-    func testConnectionTimeout() {
-        precondition(!isConnected, "Server connection is connected \(state), not timing anything")
-
-        guard tickSource.currentTickCount.isLongerThan(Misc.MILLISECONDS_CONNECTION_TIMEOUT,
-                                                       since: connectionStartTime) else {
-            return
-        }
-        OutputDebugString("ClientConnection connection timeout, disconnecting")
-        disconnect(reason: "Timed out connecting to game server")
-    }
-
     /// How much time is left before the timeout?
     var secondsLeftToConnect: UInt {
-        precondition(!isConnected, "Server connection is connected \(state), not timing anything")
         let elapsed = tickSource.currentTickCount - connectionStartTime
         if elapsed >= Misc.MILLISECONDS_CONNECTION_TIMEOUT {
             return 0
@@ -147,17 +138,28 @@ final class SpaceWarClientConnection {
         return (Misc.MILLISECONDS_CONNECTION_TIMEOUT - elapsed) / 1000
     }
 
-    /// Has there been a server message timeout?
+    /// Has there been a server message or connection timeout?
     ///
     /// Sets `connectionError` as a side-effect.  Can be called in any state, ignore if irrelevant.
     func testServerLivenessTimeout() {
-        guard isConnected,
-              tickSource.currentTickCount.isLongerThan(Misc.MILLISECONDS_CONNECTION_TIMEOUT,
-                                                       since: lastNetworkDataReceivedTime) else {
-            return
+        let base: TickSource.TickCount
+        let reason: String
+
+        switch state {
+        case .notConnected: return
+        case .pingingServer, .connectingP2P:
+            base = connectionStartTime
+            reason = "Timed out connecting to game server"
+        case .connectedPendingAuthentication, .connectedAndAuthenticated:
+            base = lastNetworkDataReceivedTime
+            reason = "Lost connection to game server"
         }
-        OutputDebugString("ClientConnection message timeout, disconnecting")
-        disconnect(reason: "Lost connection to game server")
+
+        if tickSource.currentTickCount.isLongerThan(Misc.MILLISECONDS_CONNECTION_TIMEOUT,
+                                                    since: base) {
+            OutputDebugString("ClientConnection timeout, disconnecting")
+            disconnect(reason: reason)
+        }
     }
 
     /// Tear down the current connection/attempt.
@@ -189,6 +191,7 @@ final class SpaceWarClientConnection {
                                                     debug: "", enableLinger: false)
             self.netConnection = nil
         }
+        FakeNet.freeEndpoint(for: steam.user.getSteamID())
         serverSteamID = nil
 
         serverIP = nil
@@ -290,9 +293,11 @@ final class SpaceWarClientConnection {
         serverSteamID = serverInfo.steamIDServer
         serverName = serverInfo.serverName
 
-        let rc = steam.networkingSockets.getConnectionInfo(conn: netConnection!)
-        serverIP = rc.info.addrRemote.ipv4
-        serverPort = rc.info.addrRemote.port
+        if !FAKE_NET_USE {
+            let rc = steam.networkingSockets.getConnectionInfo(conn: netConnection!)
+            serverIP = rc.info.addrRemote.ipv4
+            serverPort = rc.info.addrRemote.port
+        }
 
         // set how to connect to the game server, using the Rich Presence API
         // this lets our friends connect to this game via their friends list
@@ -348,6 +353,9 @@ final class SpaceWarClientConnection {
 
     /// Receive messages from the current server
     func receiveMessages(handler: (Msg, Int, UnsafeMutableRawPointer) -> Void) {
+        guard canReceiveMessages else {
+            return
+        }
         let rc = steam.networkingSockets.receiveMessagesOnConnection(
             conn: netConnection,
             steamID: steam.user.getSteamID(),

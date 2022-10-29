@@ -183,6 +183,7 @@ final class SpaceWarClient {
     func runFrame(escapePressed: Bool) -> FrameRc {
         precondition(state.state != .idle, "SpaceWarMain thinks we're busy but we're idle :-(")
 
+        // Check for connection and ping timeout
         clientConnection.testServerLivenessTimeout()
 
         if state.state != .connectionFailure && clientConnection.connectionError != nil {
@@ -218,9 +219,6 @@ final class SpaceWarClient {
             // Draw text telling the user a connection attempt is in progress
             clientLayout.drawConnectionAttemptText(secondsLeft: clientConnection.secondsLeftToConnect,
                                                    connectingToWhat: "server")
-
-            // Check if we've waited too long and should time out the connection
-            clientConnection.testConnectionTimeout()
 
         case .connectionFailure:
             guard let failureReason = clientConnection.connectionError else {

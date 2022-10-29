@@ -22,80 +22,68 @@ struct ClientConnectionData {
 
 final class SpaceWarServer {
     let engine: Engine2D
+    let steam: SteamGameServerAPI
+
+    /// Network connection component
+    let serverConnection: SpaceWarServerConnection
 
     /// Published state
     private(set) var isConnectedToSteam: Bool
 
-    private(set) var steamID: SteamID /* XXX from GS API */
+    var steamID: SteamID {
+        steam.gameServer.getSteamID()
+    }
+
+    // MARK: Initialization
 
     init(engine: Engine2D) {
         self.engine = engine
 
-        isConnectedToSteam = true
-        steamID = .nonSteamGS
-    }
+        // Initialize the SteamGameServer interface, we tell it some info about us, and we request support
+        // for both Authentication (making sure users own games) and secure mode, VAC running in our game
+        // and kicking users who are VAC banned
 
-    //      const char *pchGameDir = "spacewar";
-    //      uint32 unIP = INADDR_ANY;
-    //      uint16 usMasterServerUpdaterPort = SPACEWAR_MASTER_SERVER_UPDATER_PORT;
-    //
-    //    #ifdef USE_GS_AUTH_API
-    //      EServerMode eMode = eServerModeAuthenticationAndSecure;
-    //    #else
-    //      // Don't let Steam do authentication
-    //      EServerMode eMode = eServerModeNoAuthentication;
-    //    #endif
-    //      // Initialize the SteamGameServer interface, we tell it some info about us, and we request support
-    //      // for both Authentication (making sure users own games) and secure mode, VAC running in our game
-    //      // and kicking users who are VAC banned
-    //
-    //      // !FIXME! We need a way to pass the dedicated server flag here!
-    //
-    //      if ( !SteamGameServer_Init( unIP, SPACEWAR_SERVER_PORT, usMasterServerUpdaterPort, eMode, SPACEWAR_SERVER_VERSION ) )
-    //      {
-    //        OutputDebugString( "SteamGameServer_Init call failed\n" );
-    //      }
-    //
-    //      if ( SteamGameServer() )
-    //      {
-    //        // Set the "game dir".
-    //        // This is currently required for all games.  However, soon we will be
-    //        // using the AppID for most purposes, and this string will only be needed
-    //        // for mods.  it may not be changed after the server has logged on
-    //        SteamGameServer()->SetModDir( pchGameDir );
-    //
-    //        // These fields are currently required, but will go away soon.
-    //        // See their documentation for more info
-    //        SteamGameServer()->SetProduct( "SteamworksExample" );
-    //        SteamGameServer()->SetGameDescription( "Steamworks Example" );
-    //
-    //        // We don't support specators in our game.
-    //        // .... but if we did:
-    //        //SteamGameServer()->SetSpectatorPort( ... );
-    //        //SteamGameServer()->SetSpectatorServerName( ... );
-    //
-    //        // Initiate Anonymous logon.
-    //        // Coming soon: Logging into authenticated, persistent game server account
-    //        SteamGameServer()->LogOnAnonymous();
-    //
-    //        // Initialize the peer to peer connection process.  This is not required, but we do it
-    //        // because we cannot accept connections until this initialization completes, and so we
-    //        // want to start it as soon as possible.
-    //        SteamNetworkingUtils()->InitRelayNetworkAccess();
-    //
-    //        // We want to actively update the master server with our presence so players can
-    //        // find us via the steam matchmaking/server browser interfaces
-    //        #ifdef USE_GS_AUTH_API
-    //          SteamGameServer()->SetAdvertiseServerActive( true );
-    //        #endif
-    //      }
-    //      else
-    //      {
-    //        OutputDebugString( "SteamGameServer() interface is invalid\n" );
-    //      }
-    //
+        // !FIXME! We need a way to pass the dedicated server flag here!
+
+        guard let steam = SteamGameServerAPI(port: Misc.SPACEWAR_SERVER_PORT, queryPort: Misc.SPACEWAR_MASTER_SERVER_UPDATER_PORT, serverMode: .authenticationAndSecure, version: Misc.SPACEWAR_SERVER_VERSION) else {
+            preconditionFailure("SteamGameServer init failed")
+        }
+        self.steam = steam
+        steam.useLoggerForSteamworksWarnings()
+        steam.networkingUtils.useLoggerForDebug(detailLevel: .everything)
+
+        // Set the "game dir".
+        // This is currently required for all games.  However, soon we will be
+        // using the AppID for most purposes, and this string will only be needed
+        // for mods.  it may not be changed after the server has logged on
+        steam.gameServer.setModDir(modDir: "spacewar")
+
+        // These fields are currently required, but will go away soon.
+        // See their documentation for more info
+        steam.gameServer.setProduct(product: "SteamworksExample")
+        steam.gameServer.setGameDescription(gameDescription: "Steamworks Example")
+
+        // We don't support specators in our game.
+        // .... but if we did:
+        //SteamGameServer()->SetSpectatorPort( ... );
+        //SteamGameServer()->SetSpectatorServerName( ... );
+
+        // Initiate Anonymous logon.
+        // Coming soon: Logging into authenticated, persistent game server account
+        steam.gameServer.logOnAnonymous()
+
+        // Initialize the peer to peer connection process.  This is not required, but we do it
+        // because we cannot accept connections until this initialization completes, and so we
+        // want to start it as soon as possible.
+        if !FAKE_NET_USE {
+            steam.networkingUtils.initRelayNetworkAccess()
+        }
+
+        // We want to actively update the master server with our presence so players can
+        // find us via the steam matchmaking/server browser interfaces
+        steam.gameServer.setAdvertiseServerActive(active: true)
+
     //      m_uPlayerCount = 0;
-    //      m_pGameEngine = pGameEngine;
     //      m_eGameState = k_EServerWaitingForPlayers;
     //
     //      for( uint32 i = 0; i < MAX_PLAYERS_PER_SERVER; ++i )
@@ -113,56 +101,84 @@ final class SpaceWarServer {
     //      memset( &m_rgClientData, 0, sizeof( m_rgClientData ) );
     //      memset( &m_rgPendingClientData, 0, sizeof( m_rgPendingClientData ) );
     //
-    //      // Seed random num generator
-    //      srand( (uint32)time( NULL ) );
-    //
     //      // Initialize sun
     //      m_pSun = new CSun( pGameEngine );
     //
     //      // Initialize ships
     //      ResetPlayerShips();
-    //
-    //      // create the listen socket for listening for players connecting
-    //        m_hListenSocket = SteamGameServerNetworkingSockets()->CreateListenSocketP2P(0, 0, nullptr);
-    //
-    //        // create the poll group
-    //        m_hNetPollGroup = SteamGameServerNetworkingSockets()->CreatePollGroup();
-    //      }
-    //
-    //  // Destructor
-    //  ~CSpaceWarServer();
-    //    CSpaceWarServer::~CSpaceWarServer()
-    //    {
-    //      delete m_pSun;
-    //
-    //      for( uint32 i=0; i < MAX_PLAYERS_PER_SERVER; ++i )
-    //      {
-    //        if ( m_rgpShips[i] )
-    //        {
-    //          // Tell this client we are exiting
-    //          MsgServerExiting_t msg;
-    //          BSendDataToClient( i, (char*)&msg, sizeof(msg) );
-    //
-    //          delete m_rgpShips[i];
-    //          m_rgpShips[i] = NULL;
-    //        }
-    //      }
-    //
-    //      SteamGameServerNetworkingSockets()->CloseListenSocket(m_hListenSocket);
-    //      SteamGameServerNetworkingSockets()->DestroyPollGroup(m_hNetPollGroup);
-    //
-    //      // Disconnect from the steam servers
-    //      SteamGameServer()->LogOff();
-    //
-    //      // release our reference to the steam client library
-    //      SteamGameServer_Shutdown();
-    //    }
-    //
+
+        serverConnection = SpaceWarServerConnection(steam: steam, tickSource: engine)
+        isConnectedToSteam = false
+
+        OutputDebugString("SpaceWarServer up and waiting for Steam")
+        initSteamConnectionHooks()
+    }
+
+    /// Destructor
+    deinit {
+        //      delete m_pSun;
+        //
+        //      for( uint32 i=0; i < MAX_PLAYERS_PER_SERVER; ++i )
+        //      {
+        //        if ( m_rgpShips[i] )
+        //        {
+        //          // Tell this client we are exiting
+        //          MsgServerExiting_t msg;
+        //          BSendDataToClient( i, (char*)&msg, sizeof(msg) );
+        //
+        //          delete m_rgpShips[i];
+        //          m_rgpShips[i] = NULL;
+        //        }
+        //      }
+
+        // Disconnect from the steam servers
+        steam.gameServer.logOff()
+    }
+
+    private func initSteamConnectionHooks() {
+        // Tells us when we have successfully connected to Steam
+        steam.onSteamServersConnected { [weak self] msg in
+            OutputDebugString("SpaceWarServer connected to Steam successfully")
+            if let self {
+                self.isConnectedToSteam = true
+                self.serverConnection.steamID = self.steam.gameServer.getSteamID()
+                // log on is not finished until OnPolicyResponse() is called
+                
+                // Tell Steam about our server details
+                // XXX     SendUpdatedServerDetailsToSteam();
+            }
+        }
+
+        // Tells us when there was a failure to connect to Steam
+        steam.onSteamServerConnectFailure { [weak self] _ in
+            OutputDebugString("SpaceWarServer failed to connect to Steam")
+            self?.isConnectedToSteam = false
+        }
+
+        // Tells us when we have been logged out of Steam
+        steam.onSteamServersDisconnected { [weak self] _ in
+            OutputDebugString("SpaceWarServer got logged out of Steam")
+            self?.isConnectedToSteam = false
+        }
+
+        // Tells us that Steam has set our security policy (VAC on or off)
+        steam.onGSPolicyResponse { [weak self] _ in
+            guard let self else { return }
+            if self.steam.gameServer.secure() {
+                OutputDebugString("SpaceWarServer is VAC Secure!")
+            } else {
+                OutputDebugString("SpaceWarServer is not VAC Secure!")
+            }
+        }
+    }
+
+    // MARK: State machine
+
     /// Main frame function, updates the state of the server and broadcast state to clients
     func runFrame() {
-        //      // Run any Steam Game Server API callbacks
-        //      SteamGameServer_RunCallbacks();
-        //
+        // Run any Steam Game Server API callbacks
+        steam.runCallbacks()
+
         //      // Update our server details
         //      SendUpdatedServerDetailsToSteam();
         //
@@ -272,6 +288,8 @@ final class SpaceWarServer {
 
     /// Receives incoming network data and dispatches it
     func receiveNetworkData() {
+        serverConnection.receiveMessages() { _, _, _, _ in
+        }
     //      SteamNetworkingMessage_t* msgs[128];
     //      int numMessages = SteamGameServerNetworkingSockets()->ReceiveMessagesOnPollGroup(m_hNetPollGroup, msgs, 128);
     //      for (int idxMsg = 0; idxMsg < numMessages; idxMsg++)
@@ -548,98 +566,7 @@ final class SpaceWarServer {
     //      }
     //      m_uPlayerCount = uPlayerCount;
     //    }
-    //
-    //
-    //  // data accessors
-    //  bool IsConnectedToSteam()   { return m_bConnectedToSteam; }
-    //  CSteamID GetSteamID();
-    //    //-----------------------------------------------------------------------------
-    //    // Purpose: Returns the SteamID of the game server
-    //    //-----------------------------------------------------------------------------
-    //    CSteamID CSpaceWarServer::GetSteamID()
-    //    {
-    //    #ifdef USE_GS_AUTH_API
-    //      return SteamGameServer()->GetSteamID();
-    //    #else
-    //      // this is a placeholder steam id to use when not making use of Steam auth or matchmaking
-    //      return k_steamIDNonSteamGS;
-    //    #endif
-    //    }
-    //
-    //
-    //private:
-    //    //
-    //    // Various callback functions that Steam will call to let us know about events related to our
-    //    // connection to the Steam servers for authentication purposes.
-    //    //
-    //
-    //
-    //    // Tells us when we have successfully connected to Steam
-    //    STEAM_GAMESERVER_CALLBACK( CSpaceWarServer, OnSteamServersConnected, SteamServersConnected_t );
-    //    //-----------------------------------------------------------------------------
-    //    // Purpose: Take any action we need to on Steam notifying us we are now logged in
-    //    //-----------------------------------------------------------------------------
-    //    void CSpaceWarServer::OnSteamServersConnected( SteamServersConnected_t *pLogonSuccess )
-    //    {
-    //      OutputDebugString( "SpaceWarServer connected to Steam successfully\n" );
-    //      m_bConnectedToSteam = true;
-    //
-    //      // log on is not finished until OnPolicyResponse() is called
-    //
-    //      // Tell Steam about our server details
-    //      SendUpdatedServerDetailsToSteam();
-    //    }
-    //
-    //
-    //    // Tells us when there was a failure to connect to Steam
-    //    STEAM_GAMESERVER_CALLBACK( CSpaceWarServer, OnSteamServersConnectFailure, SteamServerConnectFailure_t );
-    //    //-----------------------------------------------------------------------------
-    //    // Purpose: Called when an attempt to login to Steam fails
-    //    //-----------------------------------------------------------------------------
-    //    void CSpaceWarServer::OnSteamServersConnectFailure( SteamServerConnectFailure_t *pConnectFailure )
-    //    {
-    //      m_bConnectedToSteam = false;
-    //      OutputDebugString( "SpaceWarServer failed to connect to Steam\n" );
-    //    }
-    //
-    //
-    //    // Tells us when we have been logged out of Steam
-    //    STEAM_GAMESERVER_CALLBACK( CSpaceWarServer, OnSteamServersDisconnected, SteamServersDisconnected_t );
-    //    //-----------------------------------------------------------------------------
-    //    // Purpose: Called when we were previously logged into steam but get logged out
-    //    //-----------------------------------------------------------------------------
-    //    void CSpaceWarServer::OnSteamServersDisconnected( SteamServersDisconnected_t *pLoggedOff )
-    //    {
-    //      m_bConnectedToSteam = false;
-    //      OutputDebugString( "SpaceWarServer got logged out of Steam\n" );
-    //    }
-    //
-    //
-    //    // Tells us that Steam has set our security policy (VAC on or off)
-    //    STEAM_GAMESERVER_CALLBACK( CSpaceWarServer, OnPolicyResponse, GSPolicyResponse_t );
-    //    //-----------------------------------------------------------------------------
-    //    // Purpose: Callback from Steam when logon is fully completed and VAC secure policy is set
-    //    //-----------------------------------------------------------------------------
-    //    void CSpaceWarServer::OnPolicyResponse( GSPolicyResponse_t *pPolicyResponse )
-    //    {
-    //    #ifdef USE_GS_AUTH_API
-    //      // Check if we were able to go VAC secure or not
-    //      if ( SteamGameServer()->BSecure() )
-    //      {
-    //        OutputDebugString( "SpaceWarServer is VAC Secure!\n" );
-    //      }
-    //      else
-    //      {
-    //        OutputDebugString( "SpaceWarServer is not VAC Secure!\n" );
-    //      }
-    //      char rgch[128];
-    //      sprintf_safe( rgch, "Game server SteamID: %llu\n", SteamGameServer()->GetSteamID().ConvertToUint64() );
-    //      rgch[ sizeof(rgch) - 1 ] = 0;
-    //      OutputDebugString( rgch );
-    //    #endif
-    //    }
-    //
-    //
+
     //    //
     //    // Various callback functions that Steam will call to let us know about whether we should
     //    // allow clients to play or we should kick/deny them.
@@ -860,27 +787,6 @@ final class SpaceWarServer {
     //      {
     //        OutputDebugString("Failed sending data to a client\n");
     //          return false;
-    //      }
-    //      return true;
-    //    }
-    //
-    //
-    //    // Send data to a client at the given pending index
-    //    bool BSendDataToPendingClient( uint32 uShipIndex, char *pData, uint32 nSizeOfData );
-    //    //-----------------------------------------------------------------------------
-    //    // Purpose: Handle sending data to a pending client at a given index
-    //    //-----------------------------------------------------------------------------
-    //    bool CSpaceWarServer::BSendDataToPendingClient( uint32 uShipIndex, char *pData, uint32 nSizeOfData )
-    //    {
-    //      // Validate index
-    //      if ( uShipIndex >= MAX_PLAYERS_PER_SERVER )
-    //        return false;
-    //
-    //      int64 messageOut;
-    //      if (!SteamGameServerNetworkingSockets()->SendMessageToConnection(m_rgPendingClientData[uShipIndex].m_hConn, pData, nSizeOfData, k_nSteamNetworkingSend_Unreliable, &messageOut))
-    //      {
-    //        OutputDebugString("Failed sending data to a client\n");
-    //        return false;
     //      }
     //      return true;
     //    }

@@ -9,34 +9,13 @@ import Steamworks
 ///
 let FAKE_NET_USE = true
 
-enum FakeMsgType {
-    case connect
-    case client
-}
-
-protocol FakeMsg {
-    var type: FakeMsgType { get }
-}
-
-struct FakeConnectMsg: FakeMsg {
-    var type: FakeMsgType { .connect }
+struct FakeConnectMsg {
     let from: SteamID
 }
 
-struct FakeClientMsg: FakeMsg {
-    var type: FakeMsgType { .client }
+struct FakeClientMsg {
     let data: UnsafeMutableRawPointer
     let size: Int
-    func release() {
-        data.deallocate()
-    }
-
-    init<S>(from: S) {
-        data = .allocate(byteCount: MemoryLayout<S>.size, alignment: MemoryLayout<S>.alignment)
-        let bound = data.bindMemory(to: S.self, capacity: 1)
-        bound.initialize(to: from)
-        size = MemoryLayout<S>.size
-    }
 
     /// Take a copy of a byte-buffer
     init(data: UnsafeRawPointer, size: Int) {
@@ -44,61 +23,72 @@ struct FakeClientMsg: FakeMsg {
         self.data.copyMemory(from: data, byteCount: size)
         self.size = size
     }
+
+    func release() {
+        data.deallocate()
+    }
 }
 
-final class FakeMsgQueue {
-    private var queue = Array<any FakeMsg>()
+final class FakeMsgQueue<M> {
+    private var queue = Array<M>()
     init() {}
 
-    func send(msg: any FakeMsg) {
+    func send(msg: M) {
         queue.append(msg)
     }
 
-    func recv() -> (any FakeMsg)? {
+    func recv() -> M? {
         queue.isEmpty ? nil : queue.removeFirst()
-    }
-
-    func peek() -> (any FakeMsg)? {
-        queue.first
     }
 }
 
+struct FakeMsgEndpoint {
+    var connections = FakeMsgQueue<FakeConnectMsg>()
+    var messages = FakeMsgQueue<FakeClientMsg>()
+}
+
 class FakeNet {
-    private static var endpoints: [SteamID : FakeMsgQueue] = [:]
+    private static var endpoints: [SteamID : FakeMsgEndpoint] = [:]
 
     static func allocateEndpoint(for steamID: SteamID) {
-        precondition(endpoints[steamID] == nil)
-        endpoints[steamID] = FakeMsgQueue()
+        precondition(endpoints[steamID] == nil, "Endpoint already exists for \(steamID)")
+        endpoints[steamID] = FakeMsgEndpoint()
     }
 
     static func freeEndpoint(for steamID: SteamID) {
-        precondition(endpoints[steamID] != nil)
         endpoints[steamID] = nil
     }
 
-    static func recv(at steamID: SteamID) -> (any FakeMsg)? {
-        endpoints[steamID]?.recv()
+    static func recv(at steamID: SteamID) -> FakeClientMsg? {
+        precondition(endpoints[steamID] != nil, "Can't receive, no endpoint")
+        return endpoints[steamID]?.messages.recv()
     }
 
-    static func peek(at steamID: SteamID) -> (any FakeMsg)? {
-        endpoints[steamID]?.peek()
-    }
-
-    static func send(to steamID: SteamID, msg: any FakeMsg) {
-        endpoints[steamID]?.send(msg: msg)
+    static func send(to steamID: SteamID, msg: FakeClientMsg) {
+        endpoints[steamID]?.messages.send(msg: msg)
     }
 
     private static var listeners: Set<SteamID> = []
 
-    static func acceptConnections(for steamID: SteamID) {
+    static func startListening(at steamID: SteamID) {
         precondition(endpoints[steamID] != nil)
         listeners.insert(steamID)
     }
 
+    static func stopListening(at steamID: SteamID) {
+        listeners.remove(steamID)
+    }
+
     static func connect(to: SteamID, from: SteamID) {
+        precondition(endpoints[from] != nil, "Can't connect if no way back")
         if listeners.contains(to) {
-            send(to: to, msg: FakeConnectMsg(from: from))
+            endpoints[to]?.connections.send(msg: FakeConnectMsg(from: from))
         }
+    }
+
+    static func acceptConnection(at steamID: SteamID) -> FakeConnectMsg? {
+        precondition(listeners.contains(steamID), "Attempt to accept connection on non-listening endpoint")
+        return endpoints[steamID]?.connections.recv()
     }
 }
 
@@ -130,15 +120,12 @@ extension SteamNetworkingSockets {
         }
     }
 
-    /// `FAKE_NET_USE`-aware recv-msgs function -- stalls though if the next `FAKE_MSG` is a connect, TBD.
+    /// `FAKE_NET_USE`-aware recv-msgs function
     func receiveMessagesOnConnection(conn: HSteamNetConnection?, steamID: SteamID, maxMessages: Int) -> (rc: Int, messages: [SteamMsgProtocol]) {
         if FAKE_NET_USE {
             var msgs = [FakeClientMsg]()
-            while msgs.count < maxMessages {
-                guard let nextMsg = FakeNet.peek(at: steamID), nextMsg.type == .client else {
-                    break
-                }
-                msgs.append(nextMsg as! FakeClientMsg)
+            while msgs.count < maxMessages, let nextMsg = FakeNet.recv(at: steamID) {
+                msgs.append(nextMsg)
             }
             return (msgs.count, msgs)
         } else {

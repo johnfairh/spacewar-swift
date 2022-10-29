@@ -7,6 +7,8 @@ import SwiftUI
 import Steamworks
 import MetalEngine
 
+import Dispatch
+
 /// SwiftUI / OS startup layer, bits of gorpy steam init, singleton management, CLI parsing
 ///
 /// Don't actually create the client or set up Steam until the engine starts up and gives
