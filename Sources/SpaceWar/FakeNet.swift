@@ -11,6 +11,7 @@ let FAKE_NET_USE = true
 
 struct FakeConnectMsg {
     let from: SteamID
+    let connectNotDisconnect: Bool
 }
 
 struct FakeClientMsg {
@@ -79,10 +80,20 @@ class FakeNet {
         listeners.remove(steamID)
     }
 
-    static func connect(to: SteamID, from: SteamID) {
-        precondition(endpoints[from] != nil, "Can't connect if no way back")
-        if listeners.contains(to) {
-            endpoints[to]?.connections.send(msg: FakeConnectMsg(from: from))
+    static func connect(client: SteamID, server: SteamID) {
+        precondition(endpoints[client] != nil, "Can't connect if no way back")
+        if listeners.contains(server) {
+            endpoints[server]?.connections.send(msg: FakeConnectMsg(from: client, connectNotDisconnect: true))
+        } else {
+            OutputDebugString("FakeNet connect - attempt to connect to \(server) but not listening?")
+        }
+    }
+
+    static func disconnect(client: SteamID, server: SteamID) {
+        if listeners.contains(server) {
+            endpoints[server]?.connections.send(msg: FakeConnectMsg(from: client, connectNotDisconnect: false))
+        } else {
+            OutputDebugString("FakeNet connect - attempt to disconnect from \(server) but not listening?")
         }
     }
 

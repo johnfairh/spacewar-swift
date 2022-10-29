@@ -93,56 +93,25 @@ final class SpaceWarServerConnection {
 
     // MARK: Client connect/disconnect
 
+    /// Steam networking state change: spot connects and disconnects
     func onNetConnectionStatusChanged(msg: SteamNetConnectionStatusChangedCallback) {
-        // Connection handle
-        let conn = msg.conn
-
-        // Full connection info
-        let info = msg.info
-
-        // Previous state.  (Current state is in m_info.m_eState)
-        let oldState = msg.oldState
-
-        // Parse information to know what was changed
-
-        // Check if a client has connected
-        if info.listenSocket != .invalid && oldState == .none && info.state == .connecting {
-            // Connection from a new client
-            let rc = steam.networkingSockets.acceptConnection(conn: conn)
+        if msg.info.listenSocket != .invalid && msg.oldState == .none && msg.info.state == .connecting {
+            let rc = steam.networkingSockets.acceptConnection(conn: msg.conn)
             if rc != .ok {
                 OutputDebugString("ServerConnection AcceptConnection failed: \(rc)")
-                steam.networkingSockets.closeConnection(peer: conn, reason: 0 /*XXX*/, debug: "Failed to accept connection", enableLinger: false)
+                steam.networkingSockets.closeConnection(peer: msg.conn, reason: 0 /*XXX*/, debug: "Failed to accept connection", enableLinger: false)
                 return
             }
-            steam.networkingSockets.setConnectionPollGroup(conn: conn, pollGroup: pollGroup!)
+            steam.networkingSockets.setConnectionPollGroup(conn: msg.conn, pollGroup: pollGroup!)
 
-            connect(client: .netConnection(conn))
-        } else if (oldState == .connecting || oldState == .connected) && info.state == .closedByPeer {
-            // Handle disconnecting a client
-
-            let token = ClientToken.netConnection(conn)
-            if let client = clients.removeValue(forKey: token) {
-                switch client.state {
-                case .pending:
-                    // Have not told server about this client
-                    break
-                case .authInProgress:
-                    // Have told the server we're working on this one, and waiting for auth from steam
-                    callbackAuthFailed(token)
-                case .connected:
-                    // Server knows all about this one
-                    callbackDisconnected(token)
-                }
-
-                steam.networkingSockets.closeConnection(peer: conn, reason: 0 /*ClientDisconnect*/, debug: "", enableLinger: false)
-
-                if let steamID = client.steamID {
-                    steam.gameServer.endAuthSession(steamID: steamID)
-                }
-            }
+            connect(client: .netConnection(msg.conn))
+        } else if (msg.oldState == .connecting || msg.oldState == .connected) &&
+                    msg.info.state == .closedByPeer {
+            disconnect(client: .netConnection(msg.conn))
         }
     }
 
+    /// Handle connection from a new client
     private func connect(client token: ClientToken) {
         precondition(clients[token] == nil, "Duplicate connection")
         clients[token] = Client(now: tickSource.currentTickCount)
@@ -155,11 +124,46 @@ final class SpaceWarServerConnection {
         send(msg: msg, to: token, sendFlags: .reliable)
     }
 
+    /// Handle disconnecting a client
+    private func disconnect(client token: ClientToken) {
+        guard let client = clients.removeValue(forKey: token) else {
+            OutputDebugString("ServerConnection odd disconnect for unknown \(token)")
+            return
+        }
+        OutputDebugString("ServerConnection disconnect \(token) from \(client.state)")
+
+        switch client.state {
+        case .pending:
+            // Have not told server about this client
+            break
+        case .authInProgress:
+            // Have told the server we're working on this one, and waiting for auth from steam
+            callbackAuthFailed(token)
+        case .connected:
+            // Server knows all about this one
+            callbackDisconnected(token)
+        }
+
+        if case let .netConnection(conn) = token {
+            steam.networkingSockets.closeConnection(peer: conn, reason: 0 /*ClientDisconnect*/, debug: "", enableLinger: false)
+        }
+
+        if let steamID = client.steamID {
+            steam.gameServer.endAuthSession(steamID: steamID)
+        }
+    }
+
+    // MARK: Inbound messages
+
     func receiveMessages(handler: (ClientToken, Msg, Int, UnsafeMutableRawPointer) -> Void) {
         // First deal with FAKE_NET connection requests
         if FAKE_NET_USE && steamID.isValid {
             while let connectMsg = FakeNet.acceptConnection(at: steamID) {
-                connect(client: .steamID(connectMsg.from))
+                if connectMsg.connectNotDisconnect {
+                    connect(client: .steamID(connectMsg.from))
+                } else {
+                    disconnect(client: .steamID(connectMsg.from))
+                }
             }
         }
     }

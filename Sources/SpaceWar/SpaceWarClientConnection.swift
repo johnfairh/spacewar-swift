@@ -107,7 +107,7 @@ final class SpaceWarClientConnection {
             netConnection = steam.networkingSockets.connectP2P(identityRemote: identity, remoteVirtualPort: 0, options: [])
         } else {
             FakeNet.allocateEndpoint(for: steam.user.getSteamID())
-            FakeNet.connect(to: steamID, from: steam.user.getSteamID())
+            FakeNet.connect(client: steam.user.getSteamID(), server: steamID)
         }
 
         serverPing = nil
@@ -185,13 +185,17 @@ final class SpaceWarClientConnection {
         }
 
         state = .notConnected
-        if let netConnection {
-            steam.networkingSockets.closeConnection(peer: netConnection,
-                                                    reason: DisconnectReason.clientDisconnect,
-                                                    debug: "", enableLinger: false)
-            self.netConnection = nil
+        if !FAKE_NET_USE {
+            if let netConnection {
+                steam.networkingSockets.closeConnection(peer: netConnection,
+                                                        reason: DisconnectReason.clientDisconnect,
+                                                        debug: "", enableLinger: false)
+                self.netConnection = nil
+            }
+        } else if let serverSteamID {
+            FakeNet.disconnect(client: steam.user.getSteamID(), server: serverSteamID)
+            FakeNet.freeEndpoint(for: steam.user.getSteamID())
         }
-        FakeNet.freeEndpoint(for: steam.user.getSteamID())
         serverSteamID = nil
 
         serverIP = nil
