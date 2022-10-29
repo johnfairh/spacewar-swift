@@ -15,11 +15,13 @@ struct FakeConnectMsg {
 }
 
 struct FakeClientMsg {
+    let sender: SteamID
     let data: UnsafeMutableRawPointer
     let size: Int
 
     /// Take a copy of a byte-buffer
-    init(data: UnsafeRawPointer, size: Int) {
+    init(sender: SteamID, data: UnsafeRawPointer, size: Int) {
+        self.sender = sender
         self.data = .allocate(byteCount: size, alignment: MemoryLayout<UInt64>.alignment)
         self.data.copyMemory(from: data, byteCount: size)
         self.size = size
@@ -30,7 +32,7 @@ struct FakeClientMsg {
     }
 }
 
-final class FakeMsgQueue<M> {
+final class FakeMsgQueue<M>: CustomStringConvertible {
     private var queue = Array<M>()
     init() {}
 
@@ -41,15 +43,42 @@ final class FakeMsgQueue<M> {
     func recv() -> M? {
         queue.isEmpty ? nil : queue.removeFirst()
     }
+
+    var description: String {
+        "\(queue.count)"
+    }
 }
 
-struct FakeMsgEndpoint {
+final class FakeMsgEndpoint: CustomStringConvertible {
     var connections = FakeMsgQueue<FakeConnectMsg>()
     var messages = FakeMsgQueue<FakeClientMsg>()
+
+    var description: String {
+        "[c:\(connections) m: \(messages)]"
+    }
 }
 
 class FakeNet {
     private static var endpoints: [SteamID : FakeMsgEndpoint] = [:]
+
+    static var enableReporting = 0
+
+    static func reportHook() {
+        if enableReporting > 0 {
+            enableReporting -= 1
+            report()
+        }
+    }
+
+    static func report(_ count: Int? = nil) {
+        print("FakeEndpoints:")
+        endpoints.forEach { kv in
+            print(" \(kv.key): \(kv.value)")
+        }
+        if let count {
+            enableReporting = count
+        }
+    }
 
     static func allocateEndpoint(for steamID: SteamID) {
         precondition(endpoints[steamID] == nil, "Endpoint already exists for \(steamID)")
@@ -61,12 +90,15 @@ class FakeNet {
     }
 
     static func recv(at steamID: SteamID) -> FakeClientMsg? {
+        reportHook()
         precondition(endpoints[steamID] != nil, "Can't receive, no endpoint")
         return endpoints[steamID]?.messages.recv()
     }
 
-    static func send(to steamID: SteamID, msg: FakeClientMsg) {
-        endpoints[steamID]?.messages.send(msg: msg)
+    static func send(from: SteamID, to: SteamID, data: UnsafeRawPointer, size: Int) {
+        reportHook()
+        precondition(endpoints[to] != nil, "FakeSend to endpoint that doesn't exist \(to)")
+        endpoints[to]?.messages.send(msg: FakeClientMsg(sender: from, data: data, size: size))
     }
 
     private static var listeners: Set<SteamID> = []
@@ -105,23 +137,43 @@ class FakeNet {
 
 // MARK: Steam shims
 
+/// Trial abstraction over real/fake-net
+enum FakeNetToken: Hashable {
+    case steamID(SteamID)
+    case netConnection(HSteamNetConnection)
+}
+
 /// Common protocol to abstract fake_net and real messages on the receive side
 protocol SteamMsgProtocol {
     var size: Int { get }
     var data: UnsafeMutableRawPointer { get }
     func release()
+    var sender: SteamID { get }
+    var token: FakeNetToken { get }
 }
 
-extension FakeClientMsg : SteamMsgProtocol {}
-extension SteamNetworkingMessage : SteamMsgProtocol {}
+extension FakeClientMsg : SteamMsgProtocol {
+    var token: FakeNetToken {
+        .steamID(sender)
+    }
+}
+
+extension SteamNetworkingMessage : SteamMsgProtocol {
+    var sender: SteamID {
+        peerIdentity.steamID
+    }
+
+    var token: FakeNetToken {
+        .netConnection(conn)
+    }
+}
 
 /// Versions of send/receive that are `FAKE_NET` aware
 extension SteamNetworkingSockets {
     /// `FAKE_NET_USE`-aware send-msg function
-    func sendMessageToConnection(conn: HSteamNetConnection?, steamID: SteamID, data: UnsafeRawPointer, dataSize: Int, sendFlags: SteamNetworkingSendFlags) -> (rc: Result, messageNumber: Int) {
+    func sendMessageToConnection(conn: HSteamNetConnection?, from: SteamID, to: SteamID, data: UnsafeRawPointer, dataSize: Int, sendFlags: SteamNetworkingSendFlags) -> (rc: Result, messageNumber: Int) {
         if FAKE_NET_USE {
-            let msg = FakeClientMsg(data: data, size: dataSize)
-            FakeNet.send(to: steamID, msg: msg)
+            FakeNet.send(from: from, to: to, data: data, size: dataSize)
             return (.ok, 0)
         } else {
             guard let conn else {

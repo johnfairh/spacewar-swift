@@ -6,11 +6,7 @@
 import Steamworks
 import MetalEngine
 
-/// Trial abstraction over real/fake-net
-enum ClientToken: Hashable {
-    case steamID(SteamID)
-    case netConnection(HSteamNetConnection)
-}
+typealias ClientToken = FakeNetToken
 
 /// Component of SpaceWarServer to manage a set of connected clients, abstracting
 /// network access and `FAKE_NET` stuff.
@@ -155,6 +151,16 @@ final class SpaceWarServerConnection {
 
     // MARK: Inbound messages
 
+    func receive(msg: Msg, message: SteamMsgProtocol) -> Bool {
+        switch msg {
+        case .clientBeginAuthentication:
+            OutputDebugString("ServerConnection ClientBeginAuth \(message.token)")
+            return true // handled it
+        default:
+            return false // keep looking
+        }
+    }
+
     func receiveMessages(handler: (ClientToken, Msg, Int, UnsafeMutableRawPointer) -> Void) {
         // First deal with FAKE_NET connection requests
         if FAKE_NET_USE && steamID.isValid {
@@ -166,6 +172,39 @@ final class SpaceWarServerConnection {
                 }
             }
         }
+
+        func handle(message: SteamMsgProtocol) {
+            defer { message.release() }
+
+            guard message.size > MemoryLayout<UInt32>.size else {
+                OutputDebugString("ServerConnection got garbage on client socket, too short")
+                return
+            }
+
+            guard let msg = Unpack.msgDword(message.data) else {
+                OutputDebugString("ServerConnection got garbage on client socket, bad msg cookie")
+                return
+            }
+
+            clients[message.token]?.lastDataTime = tickSource.currentTickCount
+
+            if receive(msg: msg, message: message) {
+                // we handled it, don't pass to client
+                return
+            }
+
+            handler(message.token, msg, message.size, message.data)
+        }
+
+        // Poll all connected sockets for messages
+
+        if !FAKE_NET_USE {
+            let rc = steam.networkingSockets.receiveMessagesOnPollGroup(pollGroup: pollGroup!, maxMessages: 128)
+            rc.messages.forEach { handle(message: $0) }
+        } else if steamID.isValid {
+            let rc = steam.networkingSockets.receiveMessagesOnConnection(conn: nil, steamID: steamID, maxMessages: 128)
+            rc.messages.forEach { handle(message:$0) }
+        }
     }
 
     // MARK: Utilities
@@ -176,7 +215,7 @@ final class SpaceWarServerConnection {
         msg.inWireFormat() { ptr, size in
             switch client {
             case .steamID(let steamID):
-                FakeNet.send(to: steamID, msg: .init(data: ptr, size: size))
+                FakeNet.send(from: self.steamID, to: steamID, data: ptr, size: size)
             case .netConnection(let conn):
                 let res = steam.networkingSockets.sendMessageToConnection(conn: conn, data: ptr, dataSize: size, sendFlags: sendFlags)
                 if res.rc != .ok {

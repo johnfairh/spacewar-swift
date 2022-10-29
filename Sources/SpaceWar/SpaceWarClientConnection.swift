@@ -31,6 +31,7 @@ import MetalEngine
 final class SpaceWarClientConnection {
     let steam: SteamAPI
     let tickSource: TickSource
+    let mySteamID: SteamID
 
     /// State machine, for debug and some use
     enum State {
@@ -67,6 +68,7 @@ final class SpaceWarClientConnection {
     init(steam: SteamAPI, tickSource: TickSource) {
         self.steam = steam
         self.tickSource = tickSource
+        self.mySteamID = steam.user.getSteamID()
         self.state = .notConnected
         self.connectionStartTime = 0
         self.lastNetworkDataReceivedTime = 0
@@ -106,8 +108,8 @@ final class SpaceWarClientConnection {
             let identity = SteamNetworkingIdentity(steamID)
             netConnection = steam.networkingSockets.connectP2P(identityRemote: identity, remoteVirtualPort: 0, options: [])
         } else {
-            FakeNet.allocateEndpoint(for: steam.user.getSteamID())
-            FakeNet.connect(client: steam.user.getSteamID(), server: steamID)
+            FakeNet.allocateEndpoint(for: mySteamID)
+            FakeNet.connect(client: mySteamID, server: steamID)
         }
 
         serverPing = nil
@@ -193,8 +195,8 @@ final class SpaceWarClientConnection {
                 self.netConnection = nil
             }
         } else if let serverSteamID {
-            FakeNet.disconnect(client: steam.user.getSteamID(), server: serverSteamID)
-            FakeNet.freeEndpoint(for: steam.user.getSteamID())
+            FakeNet.disconnect(client: mySteamID, server: serverSteamID)
+            FakeNet.freeEndpoint(for: mySteamID)
         }
         serverSteamID = nil
 
@@ -329,7 +331,7 @@ final class SpaceWarClientConnection {
                 preconditionFailure("No server steam ID in sendmsg")
                 // XXX might need to return false here, timing windows in disconnect vs. voice/p2pauth
             }
-            let (res, _) = steam.networkingSockets.sendMessageToConnection(conn: netConnection, steamID: serverSteamID, data: ptr, dataSize: size, sendFlags: sendFlags)
+            let (res, _) = steam.networkingSockets.sendMessageToConnection(conn: netConnection, from: mySteamID, to: serverSteamID, data: ptr, dataSize: size, sendFlags: sendFlags)
 
             switch res {
             case .ok, .ignored:
@@ -362,16 +364,16 @@ final class SpaceWarClientConnection {
         }
         let rc = steam.networkingSockets.receiveMessagesOnConnection(
             conn: netConnection,
-            steamID: steam.user.getSteamID(),
+            steamID: mySteamID,
             maxMessages: 32)
 
         rc.messages.forEach { message in
             lastNetworkDataReceivedTime = tickSource.currentTickCount
+            defer { message.release() }
 
             // make sure we're connected [uh... whatever]
             if state == .notConnected {
                 OutputDebugString("Ignoring message in weird state \(state)")
-                message.release()
                 return
             }
             guard message.size > MemoryLayout<UInt32>.size else {
@@ -390,8 +392,6 @@ final class SpaceWarClientConnection {
             }
 
             handler(msg, message.size, message.data)
-
-            message.release()
         }
     }
 
