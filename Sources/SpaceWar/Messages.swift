@@ -176,6 +176,7 @@ extension MsgServerPassAuthentication_t: ConstructableFrom {
 // MARK: MsgServerUpdateWorld
 
 struct ServerShipUpdateData {
+    init() {}
     init(_ from: ServerShipUpdateData_t) {
     }
 }
@@ -205,30 +206,19 @@ struct MsgServerUpdateWorld: SpaceWarMsg {
     init(gameState: SpaceWarServer.State, playerWhoWonGame: PlayerIndex) {
         self.currentGameState = gameState
         self.playerWhoWonGame = playerWhoWonGame
-        self.playersActive = .init()
-        self.playerScores = .init()
-        self.shipData = .init()
-        self.playerSteamIDs = .init()
+        self.playersActive = .init(repeating: false, count: Misc.MAX_PLAYERS_PER_SERVER)
+        self.playerScores = .init(repeating: 0, count: Misc.MAX_PLAYERS_PER_SERVER)
+        self.shipData = .init(repeating: .init(), count: Misc.MAX_PLAYERS_PER_SERVER)
+        self.playerSteamIDs = .init(repeating: .nil, count: Misc.MAX_PLAYERS_PER_SERVER)
     }
 
     init(from: MsgServerUpdateWorld_t) {
         currentGameState = .init(rawValue: UInt32(bigEndian: from.d.currentGameState))!
         playerWhoWonGame = PlayerIndex(bigEndian: Int(from.d.playerWhoWonGame))
-        playersActive = Array(tuple: from.d.playersActive) { $0 != 0 }
-        playerScores = Array(tuple: from.d.playerScores) { .init(bigEndian: $0) }
-        shipData = Array(tuple: from.d.shipData) { ServerShipUpdateData($0) }
-        playerSteamIDs = Array(tuple: from.d.playerSteamIDs) { .init(UInt64(bigEndian: $0)) }
-    }
-}
-
-// holy fuck
-extension Array {
-    init<X>(tuple: (X, X, X, X), map: (X) -> Element) {
-        self.init()
-        self.append(map(tuple.0))
-        self.append(map(tuple.1))
-        self.append(map(tuple.2))
-        self.append(map(tuple.3))
+        playersActive = .four(from.d.playersActive_ptr ) { $0 != 0 }
+        playerScores = .four(from.d.playerScores_ptr) { .init(bigEndian: $0) }
+        shipData = .four(from.d.shipData_ptr) { ServerShipUpdateData($0) }
+        playerSteamIDs = .four(from.d.playerSteamIDs_ptr) { .init(UInt64(bigEndian: $0)) }
     }
 }
 
@@ -236,9 +226,26 @@ extension MsgServerUpdateWorld_t: ConstructableFrom {
     init(from: MsgServerUpdateWorld) {
         self.init()
         messageType = Msg.serverUpdateWorld.rawValue.bigEndian
+        d.currentGameState = from.currentGameState.rawValue.bigEndian
+        d.playerWhoWonGame = UInt32(from.playerWhoWonGame).bigEndian
+        d.playersActive = from.playersActive.asFour { $0 ? 1 : 0 }
+        d.playerScores = from.playerScores.asFour { $0.bigEndian }
+        d.shipData = from.shipData.asFour { _ in .init() }
+        d.playerSteamIDs = from.playerSteamIDs.asFour { $0.asUInt64.bigEndian }
     }
 }
 
+// holy fuck
+extension Array {
+    static func four<X>(_ p: UnsafeMutablePointer<X>, map: (X) -> Element) -> Array<Element>{
+        let bp = UnsafeMutableBufferPointer(start: p, count: 4)
+        return bp.map(map)
+    }
+
+    func asFour<X>(map: (Element) -> X) -> (X, X, X, X) {
+        (map(self[0]), map(self[1]), map(self[2]), map(self[3]))
+    }
+}
 
 // MARK: MsgServerExiting
 

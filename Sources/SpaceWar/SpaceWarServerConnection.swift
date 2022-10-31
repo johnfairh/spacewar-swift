@@ -264,6 +264,16 @@ final class SpaceWarServerConnection {
         }
     }
 
+    /// Send a message to all connected clients
+    func sendToAll(msg: any SpaceWarMsg, sendFlags: SteamNetworkingSendFlags) {
+        clients.forEach { kv in
+            guard kv.value.state == .connected else {
+                return
+            }
+            send(msg: msg, to: kv.key, sendFlags: sendFlags)
+        }
+    }
+
     /// Send a message to each connected client *except* one (who presumably just sent the message to us for propagation)
     func sendToAll(msg: any SpaceWarMsg, except: ClientToken, sendFlags: SteamNetworkingSendFlags) {
         clients.forEach { kv in

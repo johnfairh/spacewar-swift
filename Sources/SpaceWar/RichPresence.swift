@@ -114,7 +114,7 @@ extension SteamFriends {
     }
 
     /// Status, translated, to the steam UI, see richpresenceloc.vdf - this version for use when in a game
-    func setRichPresence(gameStatus: RichPresence.GameStatus, score: Int) {
+    func setRichPresence(gameStatus: RichPresence.GameStatus, score: UInt32) {
         setRichPresence(key: "gamestatus", value: gameStatus.rawValue)
         setRichPresence(key: "score", value: String(score))
         setRichPresence(key: "steam_display", value: "#StatusWithScore")

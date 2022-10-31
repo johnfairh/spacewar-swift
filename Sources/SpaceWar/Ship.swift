@@ -31,7 +31,7 @@ final class Ship: SpaceWarEntity {
     private var shipDecoration: Decoration?
 
     /// If server then not local; if !server then can be local OR another client's model
-    var isLocalPlayer: Bool { true } /* XXX */
+    var isLocalPlayer: Bool
 
     /// Is the ship dead?
     var isDisabled: Bool
@@ -44,6 +44,7 @@ final class Ship: SpaceWarEntity {
         self.isServerInstance = isServerInstance
         shipDecoration = nil
         isDisabled = false
+        isLocalPlayer = false
         //      m_bExploding = false;
         //      m_ulLastThrustStartedTickCount = 0;
         //      m_dwVKLeft = 0;
@@ -55,7 +56,6 @@ final class Ship: SpaceWarEntity {
         //      m_ulLastPhotonTickCount = 0;
         //      m_bForwardThrustersActive = false;
         //      m_bReverseThrustersActive = false;
-        //      m_bIsLocalPlayer = false;
         //      m_ulLastClientUpdateTick = 0;
         //      m_nShipDecoration = 0;
         //      m_nShipPower = 0;

@@ -57,10 +57,13 @@ typedef struct {
     uint64 steamID;
 } MsgClientBeginAuthentication_t;
 
-__attribute__((swift_name("getter:MsgClientBeginAuthentication_t.token_ptr(self:)")))
-static inline uint8 * _Nonnull MsgClientBeginAuthentication_GetToken(const MsgClientBeginAuthentication_t * _Nonnull msg) {
-    return msg->token;
+#define ARRAY_GETTER(TYPE,FIELD,FIELDTYPE) \
+__attribute__((swift_name("getter:" #TYPE "." #FIELD "_ptr(self:)"))) \
+static inline FIELDTYPE * _Nonnull TYPE ## _Get ## FIELD (const TYPE * _Nonnull t) { \
+    return t->FIELD; \
 }
+
+ARRAY_GETTER(MsgClientBeginAuthentication_t, token, uint8)
 
 static inline void MsgClientBeginAuthentication_SetToken(MsgClientBeginAuthentication_t * _Nonnull msg, const uint8 * _Nonnull token, uint32 tokenLen) {
     memcpy(msg->token, token, tokenLen);
@@ -97,6 +100,11 @@ typedef struct {
   // array of players steamids for each slot, serialized to uint64
   uint64 playerSteamIDs[MAX_PLAYERS_PER_SERVER];
 } ServerSpaceWarUpdateData_t;
+
+ARRAY_GETTER(ServerSpaceWarUpdateData_t, playersActive, bool)
+ARRAY_GETTER(ServerSpaceWarUpdateData_t, playerScores, uint32)
+ARRAY_GETTER(ServerSpaceWarUpdateData_t, shipData, ServerShipUpdateData_t)
+ARRAY_GETTER(ServerSpaceWarUpdateData_t, playerSteamIDs, uint64)
 
 typedef struct {
     uint32 messageType;

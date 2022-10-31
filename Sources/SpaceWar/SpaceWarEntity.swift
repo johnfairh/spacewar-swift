@@ -25,7 +25,8 @@ class SpaceWarEntity: VectorEntity {
 
             // let distanceToSun = min(simd_distance(posSun, pos), 1) // JF: guard div0...
             // let distancePower = pow(distanceToSun, 2) // gravity power falls off exponentially
-            let distancePower = min(simd_distance_squared(posSun, pos), 1)
+            let distancePower = max(simd_distance_squared(posSun, pos), 1)
+
             let factor = min(5200000.0 / distancePower, SpaceWarEntity.MIN_GRAVITY) // arbitrary value for power of gravity
 
             let direction = simd_normalize(pos - posSun)

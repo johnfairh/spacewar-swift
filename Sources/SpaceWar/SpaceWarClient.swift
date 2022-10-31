@@ -51,7 +51,7 @@ final class SpaceWarClient {
         /// Steam IDs of the players
         var playerSteamIDs: [SteamID]
         /// Current scores,
-        var playerScores: [Int]
+        var playerScores: [UInt32]
         /// Current ship objects
         var ships: [Ship?]
 
@@ -66,6 +66,7 @@ final class SpaceWarClient {
 
     /// The actual game state
     private var gameState: GameState
+    let sun: Sun
 
     init(engine: Engine2D, steam: SteamAPI) {
         self.engine = engine
@@ -77,12 +78,10 @@ final class SpaceWarClient {
         self.server = nil
 
         self.gameState = GameState()
+        self.sun = Sun(engine: engine)
 
         //    // Initialize pause menu
         //    m_pQuitMenu = new CQuitMenu( pGameEngine );
-        //
-        //    // Initialize sun
-        //    m_pSun = new CSun( pGameEngine );
         //
         //    m_nNumWorkshopItems = 0;
         //    for (uint32 i = 0; i < MAX_WORKSHOP_ITEMS; ++i)
@@ -238,12 +237,8 @@ final class SpaceWarClient {
             // XXX inventory SteamInventory()->SendItemDropHeartbeat();
 
             // Update all the entities...
-//            sun.runFrame()
-//            for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
-//            {
-//                if ( m_rgpShips[i] )
-//                    m_rgpShips[i]->RunFrame();
-//            }
+            sun.runFrame()
+            gameState.ships.forEach { $0?.runFrame() }
 //
 //            for (uint32 i = 0; i < MAX_WORKSHOP_ITEMS; ++i)
 //            {
@@ -263,12 +258,8 @@ final class SpaceWarClient {
 
         case .draw, .winner, .waitingForPlayers:
             // Update all the entities (this is client side interpolation)...
-//            m_pSun->RunFrame();
-//            for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
-//            {
-//                if ( m_rgpShips[i] )
-//                    m_rgpShips[i]->RunFrame();
-//            }
+            sun.runFrame()
+            gameState.ships.forEach { $0?.runFrame() }
 //
 //            DrawHUDText();
 //            DrawWinnerDrawOrWaitingText();
@@ -281,13 +272,9 @@ final class SpaceWarClient {
 
         case .quitMenu:
             // Update all the entities (this is client side interpolation)...
-//            m_pSun->RunFrame();
-//            for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
-//            {
-//                if ( m_rgpShips[i] )
-//                    m_rgpShips[i]->RunFrame();
-//            }
-//
+            sun.runFrame()
+            gameState.ships.forEach { $0?.runFrame() }
+
 //            // Now draw the menu
 //            m_pQuitMenu->RunFrame();
 
@@ -297,7 +284,7 @@ final class SpaceWarClient {
         }
 
         // Send an update on our local ship to the server
-        if clientConnection.isConnected /* XXX , let ship = ships[playerShipIndex] */{
+        if clientConnection.isConnected, let ship = gameState.ships[gameState.playerShipIndex] {
         //        MsgClientSendLocalUpdate_t msg;
         //        msg.SetShipPosition( m_uPlayerShipIndex );
         //
@@ -317,23 +304,14 @@ final class SpaceWarClient {
         // If we've started a local server run it
         server?.runFrame()
 
-        //    // Accumulate stats
-        //    for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
-        //    {
-        //        if ( m_rgpShips[i] )
-        //            m_rgpShips[i]->AccumulateStats( m_pStatsAndAchievements );
-        //    }
-        //   ships.forEach { $0?.accumulateStats(to: statsAndAchievements) }
+        // Accumulate stats
+        //   XXX gameState.ships.forEach { $0?.accumulateStats(to: statsAndAchievements) }
 
         // Finally Render everything that might have been updated by the server
         switch state.state {
         case .draw, .winner, .active:
-//            m_pSun->Render();
-//            for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
-//            {
-//                if ( m_rgpShips[i] )
-//                    m_rgpShips[i]->Render();
-//            }
+            sun.render()
+            gameState.ships.forEach { $0?.render() }
 //
 //            for (uint32 i = 0; i < MAX_WORKSHOP_ITEMS; ++i)
 //            {
@@ -371,19 +349,14 @@ final class SpaceWarClient {
                 // tell steam china duration control system that we are in a match and not to be interrupted
                 _ = steam.user.setDurationControlOnlineState(newState: .onlineHighPri)
 
-            //        case k_EMsgServerUpdateWorld:
-            //        {
-            //            if (cubMsgSize != sizeof(MsgServerUpdateWorld_t))
-            //            {
-            //                OutputDebugString("Bad server world update msg\n");
-            //                break;
-            //            }
-            //
-            //            MsgServerUpdateWorld_t* pMsg = (MsgServerUpdateWorld_t*)message->GetData();
-            //            OnReceiveServerUpdate(pMsg->AccessUpdateData());
-            //        }
-            //        break;
-            //
+            case .serverUpdateWorld:
+                guard size == MsgServerUpdateWorld.networkSize else {
+                    OutputDebugString("SpaceWarClient bad message size MsgServerUpdateWorld \(size)")
+                    return
+                }
+
+                onReceiveServerUpdate(msg: MsgServerUpdateWorld(data: data))
+
             //        case k_EMsgVoiceChatData:
             //            // This is really bad exmaple code that just assumes the message is the right size
             //            // Don't ship code like this.
@@ -412,7 +385,7 @@ final class SpaceWarClient {
         var winning = false
         var winners = 0
         var highScore = gameState.playerScores[0]
-        var myScore = 0
+        var myScore = UInt32.min
 
         for i in 0..<Misc.MAX_PLAYERS_PER_SERVER {
             if gameState.playerScores[i] > highScore {
@@ -455,126 +428,69 @@ final class SpaceWarClient {
         return ship.isLocalPlayer
     }
 
-// MARK: C++ Client Game Networking
+    // MARK: Server/Client data update
 
-////-----------------------------------------------------------------------------
-//// Purpose: Handles receiving a state update from the game server
-////-----------------------------------------------------------------------------
-//void CSpaceWarClient::OnReceiveServerUpdate( ServerSpaceWarUpdateData_t *pUpdateData )
-//{
-//    // Update our client state based on what the server tells us
-//
-//    switch( pUpdateData->GetServerGameState() )
-//    {
-//    case k_EServerWaitingForPlayers:
-//        if ( m_eGameState == k_EClientGameQuitMenu )
-//            break;
-//        else if (m_eGameState == k_EClientGameMenu )
-//            break;
-//        else if ( m_eGameState == k_EClientGameExiting )
-//            break;
-//
-//        SetGameState( k_EClientGameWaitingForPlayers );
-//        break;
-//    case k_EServerActive:
-//        if ( m_eGameState == k_EClientGameQuitMenu )
-//            break;
-//        else if (m_eGameState == k_EClientGameMenu )
-//            break;
-//        else if ( m_eGameState == k_EClientGameExiting )
-//            break;
-//
-//        SetGameState( k_EClientGameActive );
-//        break;
-//    case k_EServerDraw:
-//        if ( m_eGameState == k_EClientGameQuitMenu )
-//            break;
-//        else if ( m_eGameState == k_EClientGameMenu )
-//            break;
-//        else if ( m_eGameState == k_EClientGameExiting )
-//            break;
-//
-//        SetGameState( k_EClientGameDraw );
-//        break;
-//    case k_EServerWinner:
-//        if ( m_eGameState == k_EClientGameQuitMenu )
-//            break;
-//        else if ( m_eGameState == k_EClientGameMenu )
-//            break;
-//        else if ( m_eGameState == k_EClientGameExiting )
-//            break;
-//
-//        SetGameState( k_EClientGameWinner );
-//        break;
-//    case k_EServerExiting:
-//        if ( m_eGameState == k_EClientGameExiting )
-//            break;
-//
-//        SetGameState( k_EClientGameMenu );
-//        break;
-//    }
-//
-//    // Update scores
-//    for( int i=0; i < MAX_PLAYERS_PER_SERVER; ++i )
-//    {
-//        m_rguPlayerScores[i] = pUpdateData->GetPlayerScore(i);
-//    }
-//
-//    // Update who won last
-//    m_uPlayerWhoWonGame = pUpdateData->GetPlayerWhoWon();
-//
-//    // Update p2p authentication as we learn about the peers
-//    p2pAuthedGame.onReceive(serverUpdate: updateData, isOwner: server != nil, gameState: gameState)
-//
-//    // update all players that are active
-//    if ( m_pVoiceChat )
-//        m_pVoiceChat->MarkAllPlayersInactive();
-//
-//    // Update the players
-//    for( uint32 i=0; i < MAX_PLAYERS_PER_SERVER; ++i )
-//    {
-//        // Update steamid array with data from server
-//        m_rgSteamIDPlayers[i].SetFromUint64( pUpdateData->GetPlayerSteamID( i ) );
-//
-//        if ( pUpdateData->GetPlayerActive( i ) )
-//        {
-//            // Check if we have a ship created locally for this player slot, if not create it
-//            if ( !m_rgpShips[i] )
-//            {
-//                ServerShipUpdateData_t *pShipData = pUpdateData->AccessShipUpdateData( i );
-//                m_rgpShips[i] = new CShip( m_pGameEngine, false, pShipData->GetXPosition(), pShipData->GetYPosition(), g_rgPlayerColors[i] );
-//                if ( i == m_uPlayerShipIndex )
-//                {
-//                    // If this is our local ship, then setup key bindings appropriately
-//                    m_rgpShips[i]->SetVKBindingLeft( 0x41 ); // A key
-//                    m_rgpShips[i]->SetVKBindingRight( 0x44 ); // D key
-//                    m_rgpShips[i]->SetVKBindingForwardThrusters( 0x57 ); // W key
-//                    m_rgpShips[i]->SetVKBindingReverseThrusters( 0x53 ); // S key
-//                    m_rgpShips[i]->SetVKBindingFire( VK_SPACE );
-//                }
-//            }
-//
-//            if ( i == m_uPlayerShipIndex )
-//                m_rgpShips[i]->SetIsLocalPlayer( true );
-//            else
-//                m_rgpShips[i]->SetIsLocalPlayer( false );
-//
-//            m_rgpShips[i]->OnReceiveServerUpdate( pUpdateData->AccessShipUpdateData( i ) );
-//
-//            if ( m_pVoiceChat )
-//                m_pVoiceChat->MarkPlayerAsActive( m_rgSteamIDPlayers[i] );
-//        }
-//        else
-//        {
-//            // Make sure we don't have a ship locally for this slot
-//            if ( m_rgpShips[i] )
-//            {
-//                delete m_rgpShips[i];
-//                m_rgpShips[i] = NULL;
-//            }
-//        }
-//    }
-//}
+    /// Handles receiving a state update from the game server
+    func onReceiveServerUpdate(msg: MsgServerUpdateWorld) {
+        // Update our client state based on what the server tells us
+
+        if state.state != .quitMenu /* XXX && state.state != .exiting */ {
+            switch msg.currentGameState {
+            case .waitingForPlayers: state.set(.waitingForPlayers)
+            case .active: state.set(.active)
+            case .draw: state.set(.draw)
+            case .winner: state.set(.winner)
+            }
+        }
+
+        // Update scores
+        gameState.playerScores = msg.playerScores
+        // Update who won last
+        gameState.playerWhoWonGame = msg.playerWhoWonGame
+
+        // Update p2p authentication as we learn about the peers
+        //      XXX p2pAuthedGame.onReceive(serverUpdate: updateData, isOwner: server != nil, gameState: gameState)
+
+        // update all players that are active
+        //        XXX m_pVoiceChat->MarkAllPlayersInactive();
+
+        // Update steamid array with data from server
+        gameState.playerSteamIDs = msg.playerSteamIDs
+
+        // Update the players
+        for i in 0..<Misc.MAX_PLAYERS_PER_SERVER {
+            guard msg.playersActive[i] else {
+                // Make sure we don't have a ship locally for this slot
+                gameState.ships[i] = nil
+                return
+            }
+
+            // Check if we have a ship created locally for this player slot, if not create it
+            if gameState.ships[i] == nil {
+                let shipData = msg.shipData[i]
+                gameState.ships[i] = Ship(engine: engine,
+                                          isServerInstance: false,
+                                          pos: .zero /* XXX*/,
+                                          color: Misc.PlayerColors[i])
+
+                if i == gameState.playerShipIndex {
+                    OutputDebugString("SpaceWarClient - Creating our local ship")
+                    // If this is our local ship, then setup key bindings appropriately
+                    //                    m_rgpShips[i]->SetVKBindingLeft( 0x41 ); // A key
+                    //                    m_rgpShips[i]->SetVKBindingRight( 0x44 ); // D key
+                    //                    m_rgpShips[i]->SetVKBindingForwardThrusters( 0x57 ); // W key
+                    //                    m_rgpShips[i]->SetVKBindingReverseThrusters( 0x53 ); // S key
+                    //                    m_rgpShips[i]->SetVKBindingFire( VK_SPACE );
+                }
+            }
+
+            gameState.ships[i]!.isLocalPlayer = (i == gameState.playerShipIndex)
+
+            //          ships[i].onReceiveServerUpdate(data: msg.shipData[i])
+            //
+            //          m_pVoiceChat->MarkPlayerAsActive(steamID: playerSteamIDs[i])
+        }
+    }
 }
 
 extension SteamAPI {

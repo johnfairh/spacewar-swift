@@ -40,7 +40,7 @@ final class SpaceWarServer {
     /// Active players
     final class Player {
         var ship: Ship
-        var score: Int
+        var score: UInt32
         let client: ClientToken
         let steamID: SteamID
         init(ship: Ship, client: ClientToken, steamID: SteamID) {
@@ -453,6 +453,7 @@ final class SpaceWarServer {
     //      }
 
     // MARK: Game state send/receive
+
     /// Purpose: Receives update data from a client
 //    func onReceiveClientUpdateData(shipIndex: PlayerIndex, updateData: ClientSpaceWarUpdateData) {
 //        if let player = players[shipIndex] {
@@ -467,32 +468,20 @@ final class SpaceWarServer {
             return
         }
 
-    //      MsgServerUpdateWorld_t msg;
-    //
-    //      msg.AccessUpdateData()->SetServerGameState( m_eGameState );
-    //      for( int i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
-    //      {
-    //        msg.AccessUpdateData()->SetPlayerActive( i, m_rgClientData[i].m_bActive );
-    //        msg.AccessUpdateData()->SetPlayerScore( i, m_rguPlayerScores[i]  );
-    //        msg.AccessUpdateData()->SetPlayerSteamID( i, m_rgClientData[i].m_SteamIDUser.ConvertToUint64() );
-    //
-    //        if ( m_rgpShips[i] )
-    //        {
-    //          m_rgpShips[i]->BuildServerUpdate( msg.AccessUpdateData()->AccessShipUpdateData( i ) );
-    //        }
-    //      }
-    //
-    //      msg.AccessUpdateData()->SetPlayerWhoWon( m_uPlayerWhoWonGame );
-    //
-    //      for( int i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
-    //      {
-    //        if ( !m_rgClientData[i].m_bActive )
-    //          continue;
-    //
-    //        BSendDataToClient( i, (char*)&msg, sizeof( msg ) );
-    //      }
-    }
+        var msg = MsgServerUpdateWorld(gameState: state.state, playerWhoWonGame: playerWhoWonGame)
 
+        players.enumerated()
+            .filter { $0.1 != nil}
+            .forEach { index, player in
+                msg.playersActive[index] = true
+                msg.playerScores[index] = player!.score
+                msg.playerSteamIDs[index] = player!.steamID
+
+// XXX                msg.shipData[index] = player!.ship.buildServerUpdate()
+            }
+
+        serverConnection.sendToAll(msg: msg, sendFlags: .unreliable)
+    }
 
     // MARK: Utilities
 
@@ -581,7 +570,7 @@ final class SpaceWarServer {
         // XXX serverConnection.kickPlayer(client: player.client)
     }
 
-    /// Purpose: Called once we are connected to Steam to tell it about our details
+    /// Called every frame to tell Steam about the game & players
     private func sendUpdatedServerDetailsToSteam() {
         //
         // Set state variables, relevant to any master server updates or client pings
@@ -611,8 +600,6 @@ final class SpaceWarServer {
         //SteamMasterServerUpdater()->SetKeyValue( "rule2_setting", "value2" );
     }
 
-    //    // Last time we sent clients an update
-    //    uint64 m_ulLastServerUpdateTick;
     //    // Sun instance
     //    CSun *m_pSun;
 }
