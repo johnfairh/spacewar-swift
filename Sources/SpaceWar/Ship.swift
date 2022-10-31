@@ -31,7 +31,10 @@ final class Ship: SpaceWarEntity {
     private var shipDecoration: Decoration?
 
     /// If server then not local; if !server then can be local OR another client's model
-    var isLocalPlayer: Bool { true }
+    var isLocalPlayer: Bool { true } /* XXX */
+
+    /// Is the ship dead?
+    var isDisabled: Bool
 
     init(engine: Engine2D, isServerInstance: Bool, pos: SIMD2<Float>, color: Color2D) {
         forwardThrusters = ForwardThrusters(engine: engine)
@@ -40,7 +43,7 @@ final class Ship: SpaceWarEntity {
         shipColor = color
         self.isServerInstance = isServerInstance
         shipDecoration = nil
-        //      m_bDisabled = false;
+        isDisabled = false
         //      m_bExploding = false;
         //      m_ulLastThrustStartedTickCount = 0;
         //      m_dwVKLeft = 0;
@@ -779,8 +782,10 @@ final class Ship: SpaceWarEntity {
     //    // Set whether the ship is disabled
     //    void SetDisabled( bool bDisabled ) { m_bDisabled = bDisabled; }
     //
-    //    // Set the initial rotation for the ship
-    //    void SetInitialRotation( float flRotation ) { SetAccumulatedRotation( flRotation ); }
+    /// Set the initial rotation for the ship
+    func setInitialRotation(_ rotation: Float) {
+        accumulatedRotation = rotation
+    }
     //
     //    // Setters for key bindings
     //    void SetVKBindingLeft( DWORD dwVKLeft ) { m_dwVKLeft = dwVKLeft; }

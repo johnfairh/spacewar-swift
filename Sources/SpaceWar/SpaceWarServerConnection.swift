@@ -20,8 +20,8 @@ final class SpaceWarServerConnection {
     var callbackPermitAuth: (ClientToken) -> Bool = { _ in true }
     /// Server callback to notify a previously authing client has failed
     var callbackAuthFailed: (ClientToken) -> Void = { _ in }
-    /// Server callback to notify a client is authenticated and ready to go - return player position
-    var callbackAuthSuccess: (ClientToken, SteamID) -> UInt32 = { _, _ in 0 }
+    /// Server callback to notify a client is authenticated and ready to go - return player index
+    var callbackAuthSuccess: (ClientToken, SteamID) -> PlayerIndex = { _, _ in 0 }
     ///  Server callback to notify a previously 'authsuccess' client has disconnected
     var callbackDisconnected: (ClientToken) -> Void = { _ in }
 
@@ -240,7 +240,7 @@ final class SpaceWarServerConnection {
         OutputDebugString("ServerConnection authInProgress -> connected \(token)")
         client.state = .connected
 
-        send(msg: MsgServerPassAuthentication(playerPosition: position), to: token, sendFlags: .reliable)
+        send(msg: MsgServerPassAuthentication(playerPosition: UInt32(position)), to: token, sendFlags: .reliable)
     }
 
     // MARK: Networking send/receive
