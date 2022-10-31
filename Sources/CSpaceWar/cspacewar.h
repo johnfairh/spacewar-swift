@@ -13,6 +13,8 @@ typedef unsigned char uint8;
 
 #pragma pack( push, 1 )
 
+// MARK: Signalling
+
 /// Msg from the server to the client which is sent right after communications are established
 typedef struct {
     uint32 messageType;
@@ -64,6 +66,42 @@ static inline void MsgClientBeginAuthentication_SetToken(MsgClientBeginAuthentic
     memcpy(msg->token, token, tokenLen);
     // can't set len -- endian
 }
+
+// MARK: Game, Server -> Client
+
+// This is the data that gets sent per ship in each update, see below for the full update data
+typedef struct {
+    uint32 pad;
+} ServerShipUpdateData_t;
+
+/// This is the data that gets sent from the server to each client for each update
+#define MAX_PLAYERS_PER_SERVER 4
+
+/// Msg from the server to clients when updating the world state
+typedef struct {
+  // What state the game is in
+  uint32 currentGameState;
+
+  // Who just won the game? -- only valid when m_eCurrentGameState == k_EGameWinner
+  uint32 playerWhoWonGame;
+
+  // which player slots are in use
+  bool playersActive[MAX_PLAYERS_PER_SERVER];
+
+  // what are the scores for each player?
+  uint32 playerScores[MAX_PLAYERS_PER_SERVER];
+
+  // array of ship data
+  ServerShipUpdateData_t shipData[MAX_PLAYERS_PER_SERVER];
+
+  // array of players steamids for each slot, serialized to uint64
+  uint64 playerSteamIDs[MAX_PLAYERS_PER_SERVER];
+} ServerSpaceWarUpdateData_t;
+
+typedef struct {
+    uint32 messageType;
+    ServerSpaceWarUpdateData_t d;
+} MsgServerUpdateWorld_t;
 
 #pragma pack( pop )
 

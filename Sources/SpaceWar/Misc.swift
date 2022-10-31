@@ -37,7 +37,7 @@ enum Misc {
     static let MILLISECONDS_CONNECTION_TIMEOUT = UInt(8000) /* XXX yawn UInt(30000) */
 
     /// How many times a second does the server send world updates to clients
-    static let SERVER_UPDATE_SEND_RATE = 60
+    static let SERVER_UPDATE_SEND_RATE = UInt(60)
 
     /// How many times a second do we send our updated client state to the server
     static let CLIENT_UPDATE_SEND_RATE = 30

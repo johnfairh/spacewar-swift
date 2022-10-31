@@ -23,8 +23,8 @@ final class SpaceWarServer {
         steam.gameServer.getSteamID()
     }
 
-    /// Internal state
-    enum State {
+    /// Internal state -- watch out, this is serialized to clients over the network
+    enum State: UInt32 {
       case waitingForPlayers
       case active
       case draw
@@ -64,6 +64,9 @@ final class SpaceWarServer {
     private var playerScores: [Int]
     /// Who won the most recent game
     private var playerWhoWonGame: PlayerIndex
+
+    /// Server tick scheduler
+    private var serverTick: Debounced
 
     // MARK: Initialization
 
@@ -120,7 +123,8 @@ final class SpaceWarServer {
         playerScores = .init(repeating: 0, count: Misc.MAX_PLAYERS_PER_SERVER)
         playerWhoWonGame = 0
 
-        //              m_ulLastServerUpdateTick = 0;
+        serverTick = Debounced(debounce: 1000 / Misc.SERVER_UPDATE_SEND_RATE, sample: { true })
+
     //
     //      // Initialize sun
     //      m_pSun = new CSun( pGameEngine );
@@ -187,7 +191,7 @@ final class SpaceWarServer {
         steam.runCallbacks()
 
         // Update our server details
-        // XXX     SendUpdatedServerDetailsToSteam();
+        sendUpdatedServerDetailsToSteam()
 
         // Timeout stale player connections
         serverConnection.testClientLivenessTimeouts()
@@ -230,7 +234,7 @@ final class SpaceWarServer {
         }
 
         // Send client updates (will internal limit itself to the tick rate desired)
-        // XXX SendUpdateDataToAllClients();
+        sendUpdateDataToAllClients()
     }
 
     // MARK: Game and player database
@@ -458,12 +462,11 @@ final class SpaceWarServer {
 
     /// Send world update to all clients
     func sendUpdateDataToAllClients() {
-    //      // Limit the rate at which we update, even if our internal frame rate is higher
-    //      if ( m_pGameEngine->GetGameTickCount() - m_ulLastServerUpdateTick < 1000.0f/SERVER_UPDATE_SEND_RATE )
-    //        return;
-    //
-    //      m_ulLastServerUpdateTick = m_pGameEngine->GetGameTickCount();
-    //
+        // Limit the rate at which we update, even if our internal frame rate is higher
+        guard serverTick.test(now: engine.gameTickCount) else {
+            return
+        }
+
     //      MsgServerUpdateWorld_t msg;
     //
     //      msg.AccessUpdateData()->SetServerGameState( m_eGameState );
@@ -578,67 +581,36 @@ final class SpaceWarServer {
         // XXX serverConnection.kickPlayer(client: player.client)
     }
 
-    //    // Function to tell Steam about our servers details
-    //    void SendUpdatedServerDetailsToSteam();
-    //    //-----------------------------------------------------------------------------
-    //    // Purpose: Called once we are connected to Steam to tell it about our details
-    //    //-----------------------------------------------------------------------------
-    //    void CSpaceWarServer::SendUpdatedServerDetailsToSteam()
-    //    {
-    //
-    //      // Tell the Steam authentication servers about our game
-    //      char rgchServerName[128];
-    //      if ( SpaceWarClient() )
-    //      {
-    //        // If a client is running (should always be since we don't support a dedicated server)
-    //        // then we'll form the name based off of it
-    //        sprintf_safe( rgchServerName, "%s's game", SpaceWarClient()->GetLocalPlayerName() );
-    //      }
-    //      else
-    //      {
-    //        sprintf_safe( rgchServerName, "%s", "Spacewar!" );
-    //      }
-    //      m_sServerName = rgchServerName;
-    //
-    //      //
-    //      // Set state variables, relevant to any master server updates or client pings
-    //      //
-    //
-    //      // These server state variables may be changed at any time.  Note that there is no lnoger a mechanism
-    //      // to send the player count.  The player count is maintained by steam and you should use the player
-    //      // creation/authentication functions to maintain your player count.
-    //      SteamGameServer()->SetMaxPlayerCount( 4 );
-    //      SteamGameServer()->SetPasswordProtected( false );
-    //      SteamGameServer()->SetServerName( m_sServerName.c_str() );
-    //      SteamGameServer()->SetBotPlayerCount( 0 ); // optional, defaults to zero
-    //      SteamGameServer()->SetMapName( "MilkyWay" );
-    //
-    //    #ifdef USE_GS_AUTH_API
-    //
-    //      // Update all the players names/scores
-    //      for( uint32 i=0; i < MAX_PLAYERS_PER_SERVER; ++i )
-    //      {
-    //        if ( m_rgClientData[i].m_bActive && m_rgpShips[i] )
-    //        {
-    //          SteamGameServer()->BUpdateUserData( m_rgClientData[i].m_SteamIDUser, m_rgpShips[i]->GetPlayerName(), m_rguPlayerScores[i] );
-    //        }
-    //      }
-    //    #endif
-    //
-    //      // game type is a special string you can use for your game to differentiate different game play types occurring on the same maps
-    //      // When users search for this parameter they do a sub-string search of this string
-    //      // (i.e if you report "abc" and a client requests "ab" they return your server)
-    //      //SteamGameServer()->SetGameType( "dm" );
-    //
-    //      // update any rule values we publish
-    //      //SteamMasterServerUpdater()->SetKeyValue( "rule1_setting", "value" );
-    //      //SteamMasterServerUpdater()->SetKeyValue( "rule2_setting", "value2" );
-    //    }
+    /// Purpose: Called once we are connected to Steam to tell it about our details
+    private func sendUpdatedServerDetailsToSteam() {
+        //
+        // Set state variables, relevant to any master server updates or client pings
+        //
 
-    //
-    //    // server name
-    //    std::string m_sServerName;
-    //
+        // These server state variables may be changed at any time.  Note that there is no lnoger a mechanism
+        // to send the player count.  The player count is maintained by steam and you should use the player
+        // creation/authentication functions to maintain your player count.
+        steam.gameServer.setMaxPlayerCount(playersMax: Misc.MAX_PLAYERS_PER_SERVER)
+        steam.gameServer.setPasswordProtected(passwordProtected: false)
+        steam.gameServer.setServerName(serverName: serverConnection.serverName)
+        steam.gameServer.setBotPlayerCount(botplayers: 0) // optional, defaults to zero
+        steam.gameServer.setMapName(mapName: "MilkyWay")
+
+        // Update all the players names/scores
+//        activePlayers.forEach { player in
+//            steam.gameServer.updateUserData(user: player.steamID, playerName: player.ship.playerName, score: player.score)
+// XXX  }
+        // game type is a special string you can use for your game to differentiate different game play
+        // types occurring on the same maps
+        // When users search for this parameter they do a sub-string search of this string
+        // (i.e if you report "abc" and a client requests "ab" they return your server)
+        //SteamGameServer()->SetGameType( "dm" );
+
+        // update any rule values we publish
+        //SteamMasterServerUpdater()->SetKeyValue( "rule1_setting", "value" );
+        //SteamMasterServerUpdater()->SetKeyValue( "rule2_setting", "value2" );
+    }
+
     //    // Last time we sent clients an update
     //    uint64 m_ulLastServerUpdateTick;
     //    // Sun instance

@@ -125,7 +125,6 @@ extension MsgServerSendInfo_t: ConstructableFrom {
         messageType = Msg.serverSendInfo.rawValue.bigEndian
         steamIDServer = from.steamIDServer.asUInt64.bigEndian
         isVACSecure = from.isVACSecure ? 1 : 0
-//        self.setServerName(from.serverName)
         withUnsafeMutablePointer(to: &self) { p in
             MsgServerSendInfo_SetServerName(p, from.serverName)
         }
@@ -173,6 +172,73 @@ extension MsgServerPassAuthentication_t: ConstructableFrom {
         playerPosition = from.playerPosition.bigEndian
     }
 }
+
+// MARK: MsgServerUpdateWorld
+
+struct ServerShipUpdateData {
+    init(_ from: ServerShipUpdateData_t) {
+    }
+}
+
+/// Msg from the server to the client when refusing a connection
+struct MsgServerUpdateWorld: SpaceWarMsg {
+    typealias CType = MsgServerUpdateWorld_t
+
+    /// Current state of the server state machine (!)
+    let currentGameState: SpaceWarServer.State
+
+    /// Who just won the game? -- only valid when m_eCurrentGameState == k_EGameWinner
+    let playerWhoWonGame: PlayerIndex
+
+    /// Which player slots are in use
+    var playersActive: [Bool]
+
+    /// What are the scores for each player?
+    var playerScores: [UInt32]
+
+    /// Detailed player data
+    var shipData: [ServerShipUpdateData]
+
+    /// Array of players steamids for each slot
+    var playerSteamIDs: [SteamID]
+
+    init(gameState: SpaceWarServer.State, playerWhoWonGame: PlayerIndex) {
+        self.currentGameState = gameState
+        self.playerWhoWonGame = playerWhoWonGame
+        self.playersActive = .init()
+        self.playerScores = .init()
+        self.shipData = .init()
+        self.playerSteamIDs = .init()
+    }
+
+    init(from: MsgServerUpdateWorld_t) {
+        currentGameState = .init(rawValue: UInt32(bigEndian: from.d.currentGameState))!
+        playerWhoWonGame = PlayerIndex(bigEndian: Int(from.d.playerWhoWonGame))
+        playersActive = Array(tuple: from.d.playersActive) { $0 != 0 }
+        playerScores = Array(tuple: from.d.playerScores) { .init(bigEndian: $0) }
+        shipData = Array(tuple: from.d.shipData) { ServerShipUpdateData($0) }
+        playerSteamIDs = Array(tuple: from.d.playerSteamIDs) { .init(UInt64(bigEndian: $0)) }
+    }
+}
+
+// holy fuck
+extension Array {
+    init<X>(tuple: (X, X, X, X), map: (X) -> Element) {
+        self.init()
+        self.append(map(tuple.0))
+        self.append(map(tuple.1))
+        self.append(map(tuple.2))
+        self.append(map(tuple.3))
+    }
+}
+
+extension MsgServerUpdateWorld_t: ConstructableFrom {
+    init(from: MsgServerUpdateWorld) {
+        self.init()
+        messageType = Msg.serverUpdateWorld.rawValue.bigEndian
+    }
+}
+
 
 // MARK: MsgServerExiting
 
