@@ -159,6 +159,15 @@ final class SpaceWarServerConnection {
         }
     }
 
+    func testClientLivenessTimeouts() {
+        clients.forEach { kv in
+            if tickSource.currentTickCount.isLongerThan(Misc.SERVER_TIMEOUT_MILLISECONDS, since: kv.value.lastDataTime) {
+                OutputDebugString("ServerConnection client timeout \(kv.key)")
+                disconnect(client: kv.key) /* XXX reason k_EDRClientKicked*/
+            }
+        }
+    }
+
     // MARK: Authentication
 
     /// Received a beginauthentication message from someone
@@ -190,7 +199,6 @@ final class SpaceWarServerConnection {
 
         // If we get here there is room, add the player as pending auth
         client.state = .authInProgress
-        client.lastDataTime = tickSource.currentTickCount
         client.steamID = message.sender
 
         // Authenticate the user with the Steam back-end servers

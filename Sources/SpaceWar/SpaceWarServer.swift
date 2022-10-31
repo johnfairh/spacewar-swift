@@ -34,10 +34,20 @@ final class SpaceWarServer {
         steam.gameServer.getSteamID()
     }
 
+    /// Internal state
+    enum State {
+      case waitingForPlayers
+      case active
+      case draw
+      case winner
+    }
+    private var state: MonitoredState<State>
+
     // MARK: Initialization
 
     init(engine: Engine2D) {
         self.engine = engine
+        self.state = .init(tickSource: engine, initial: .waitingForPlayers, name: "Server")
 
         // Initialize the SteamGameServer interface, we tell it some info about us, and we request support
         // for both Authentication (making sure users own games) and secure mode, VAC running in our game
@@ -84,7 +94,6 @@ final class SpaceWarServer {
         steam.gameServer.setAdvertiseServerActive(active: true)
 
     //      m_uPlayerCount = 0;
-    //      m_eGameState = k_EServerWaitingForPlayers;
     //
     //      for( uint32 i = 0; i < MAX_PLAYERS_PER_SERVER; ++i )
     //      {
@@ -94,12 +103,10 @@ final class SpaceWarServer {
     //
     //      // No one has won
     //      m_uPlayerWhoWonGame = 0;
-    //      m_ulStateTransitionTime = m_pGameEngine->GetGameTickCount();
     //      m_ulLastServerUpdateTick = 0;
     //
     //      // zero the client connection data
     //      memset( &m_rgClientData, 0, sizeof( m_rgClientData ) );
-    //      memset( &m_rgPendingClientData, 0, sizeof( m_rgPendingClientData ) );
     //
     //      // Initialize sun
     //      m_pSun = new CSun( pGameEngine );
@@ -143,9 +150,6 @@ final class SpaceWarServer {
                 self.isConnectedToSteam = true
                 self.serverConnection.steamID = self.steam.gameServer.getSteamID()
                 // log on is not finished until OnPolicyResponse() is called
-                
-                // Tell Steam about our server details
-                // XXX     SendUpdatedServerDetailsToSteam();
             }
         }
 
@@ -179,112 +183,68 @@ final class SpaceWarServer {
         // Run any Steam Game Server API callbacks
         steam.runCallbacks()
 
-        //      // Update our server details
-        //      SendUpdatedServerDetailsToSteam();
-        //
-        //      // Timeout stale player connections, also update player count data
-        //      uint32 uPlayerCount = 0;
-        //      for( uint32 i=0; i < MAX_PLAYERS_PER_SERVER; ++i )
-        //      {
-        //        // If there is no ship, skip
-        //        if ( !m_rgClientData[i].m_bActive )
-        //          continue;
-        //
-        //        if ( m_pGameEngine->GetGameTickCount() - m_rgClientData[i].m_ulTickCountLastData > SERVER_TIMEOUT_MILLISECONDS )
-        //        {
-        //          OutputDebugString( "Timing out player connection\n" );
-        //          RemovePlayerFromServer( i, k_EDRClientKicked );
-        //        }
-        //        else
-        //        {
-        //          ++uPlayerCount;
-        //        }
-        //      }
-        //      m_uPlayerCount = uPlayerCount;
-        //
-        //      switch ( m_eGameState )
-        //      {
-        //      case k_EServerWaitingForPlayers:
-        //        // Wait a few seconds (so everyone can join if a lobby just started this server)
-        //        if ( m_pGameEngine->GetGameTickCount() - m_ulStateTransitionTime >= MILLISECONDS_BETWEEN_ROUNDS )
-        //        {
-        //          // Just keep waiting until at least one ship is active
-        //          for( uint32 i = 0; i < MAX_PLAYERS_PER_SERVER; ++i )
-        //          {
-        //            if ( m_rgClientData[i].m_bActive )
-        //            {
-        //              // Transition to active
-        //              OutputDebugString( "Server going active after waiting for players\n" );
-        //              SetGameState( k_EServerActive );
-        //            }
-        //          }
-        //        }
-        //        break;
-        //      case k_EServerDraw:
-        //      case k_EServerWinner:
-        //        // Update all the entities...
-        //        m_pSun->RunFrame();
-        //        for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
-        //        {
-        //          if ( m_rgpShips[i] )
-        //            m_rgpShips[i]->RunFrame();
-        //        }
-        //
-        //        // NOTE: no collision detection, because the round is really over, objects are now invulnerable
-        //
-        //        // After 5 seconds start the next round
-        //          if ( m_pGameEngine->GetGameTickCount() - m_ulStateTransitionTime >= MILLISECONDS_BETWEEN_ROUNDS )
-        //          {
-        //            ResetPlayerShips();
-        //            SetGameState( k_EServerActive );
-        //          }
-        //
-        //          break;
-        //
-        //        case k_EServerActive:
-        //          // Update all the entities...
-        //          m_pSun->RunFrame();
-        //          for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
-        //          {
-        //            if ( m_rgpShips[i] )
-        //              m_rgpShips[i]->RunFrame();
-        //          }
-        //
-        //          // Check for collisions which could lead to a winner this round
-        //          CheckForCollisions();
-        //
-        //          break;
-        //        case k_EServerExiting:
-        //          break;
-        //        default:
-        //          OutputDebugString( "Unhandled game state in CSpaceWarServer::RunFrame\n" );
-        //        }
-        //
-        //        // Send client updates (will internal limit itself to the tick rate desired)
-        //        SendUpdateDataToAllClients();
-        //      }
+        // Update our server details
+        // XXX     SendUpdatedServerDetailsToSteam();
+
+        // Timeout stale player connections
+        serverConnection.testClientLivenessTimeouts()
+
+        switch state.state {
+        case .waitingForPlayers:
+            // Initial server state: we never come back to here after starting, just loop between
+            // 'active' and 'draw'.
+            //
+            // Wait a few seconds (so everyone can join if a lobby just started this server)
+            if engine.currentTickCount.isLongerThan(Misc.MILLISECONDS_BETWEEN_ROUNDS, since: state.transitionTime) {
+            //          // Just keep waiting until at least one ship is active
+            //if activePlayerCount > 0 {
+            //              state.set(.active)
+            //            }
+            }
+            break
+
+        case .active:
+            //          // Update all the entities...
+            //          m_pSun->RunFrame();
+            //          for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
+            //          {
+            //            if ( m_rgpShips[i] )
+            //              m_rgpShips[i]->RunFrame();
+            //          }
+            //
+            //          // Check for collisions which could lead to a winner this round
+            //          CheckForCollisions();
+            //
+            break
+
+        case .draw, .winner:
+            //        // Update all the entities...
+            //        m_pSun->RunFrame();
+            //        for( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
+            //        {
+            //          if ( m_rgpShips[i] )
+            //            m_rgpShips[i]->RunFrame();
+            //        }
+            //
+            //        // NOTE: no collision detection, because the round is really over, objects are now invulnerable
+            //
+            //        // After 5 seconds start the next round
+            //          if ( m_pGameEngine->GetGameTickCount() - m_ulStateTransitionTime >= MILLISECONDS_BETWEEN_ROUNDS )
+            //          {
+            //            ResetPlayerShips();
+            //            SetGameState( k_EServerActive );
+            //          }
+            //
+            break
+        }
+
+        // Send client updates (will internal limit itself to the tick rate desired)
+        // XXX SendUpdateDataToAllClients();
     }
 
-    //  // Set game state
-    //  void SetGameState( EServerGameState eState );
-    //    //-----------------------------------------------------------------------------
-    //    // Purpose: Used to transition game state
-    //    //-----------------------------------------------------------------------------
-    //    void CSpaceWarServer::SetGameState( EServerGameState eState )
-    //    {
-    //      if ( m_eGameState == eState )
-    //        return;
-    //
-    //      // If we were in waiting for players and are now going active clear old scores
-    //      if ( m_eGameState == k_EServerWaitingForPlayers && eState == k_EServerActive )
-    //      {
-    //        ResetScores();
-    //        ResetPlayerShips();
-    //      }
-    //
-    //      m_ulStateTransitionTime = m_pGameEngine->GetGameTickCount();
-    //      m_eGameState = eState;
-    //    }
+    // MARK: Game and player database
+
+    // MARK: Utilities
 
     /// Receives incoming network data and dispatches it
     func receiveNetworkData() {

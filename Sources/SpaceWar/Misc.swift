@@ -16,13 +16,13 @@ enum Misc {
     static let SPACEWAR_MASTER_SERVER_UPDATER_PORT = UInt16(27016)
 
     /// How long to wait for a client to send an update before we drop its connection server side
-    static let SERVER_TIMEOUT_MILLISECONDS = 5000
+    static let SERVER_TIMEOUT_MILLISECONDS = UInt(5000)
 
     /// Maximum number of players who can join a server and play simultaneously
     static let MAX_PLAYERS_PER_SERVER = 4
 
     /// Time to pause wait after a round ends before starting a new one
-    static let MILLISECONDS_BETWEEN_ROUNDS = 4000
+    static let MILLISECONDS_BETWEEN_ROUNDS = UInt(4000)
 
     /// How long photon beams live before expiring
     static let PHOTON_BEAM_LIFETIME_IN_TICKS = 1750
@@ -58,15 +58,6 @@ enum Misc {
     ]
 }
 
-/// Enum for possible game states on the server
-enum ServerGameState {
-  case waitingForPlayers
-  case active
-  case draw
-  case winner
-  case exiting
-}
-
 /// Helper to debounce events eg. to avoid one 'esc' press jumping through layers of menus
 struct Debounced {
     let sample: () -> Bool
@@ -99,7 +90,7 @@ final class MonitoredState<ActualState: Equatable> {
     let tickSource: TickSource
     let name: String
 
-    init(tickSource: TickSource, initial: ActualState, name: String = "") {
+    init(tickSource: TickSource, initial: ActualState, name: String) {
         self.tickSource = tickSource
         self.name = name
         self.state = initial
