@@ -13,6 +13,7 @@ typealias ClientToken = FakeNetToken
 final class SpaceWarServerConnection {
     let steam: SteamGameServerAPI
     let tickSource: TickSource
+    let serverName: String
     let listenSocket: HSteamListenSocket?
     let pollGroup: HSteamNetPollGroup?
 
@@ -48,9 +49,10 @@ final class SpaceWarServerConnection {
 
     // MARK: Init/Deinit
 
-    init(steam: SteamGameServerAPI, tickSource: TickSource) {
+    init(steam: SteamGameServerAPI, tickSource: TickSource, serverName: String) {
         self.steam = steam
         self.tickSource = tickSource
+        self.serverName = serverName
 
         clients = [:]
 
@@ -125,7 +127,7 @@ final class SpaceWarServerConnection {
         // Send them the server info as a reliable message
         let msg = MsgServerSendInfo(steamID: steamID,
                                     isVACSecure: steam.gameServer.secure(),
-                                    serverName: "WHAT IS MY NAME" /* XXX*/)
+                                    serverName: serverName)
         send(msg: msg, to: token, sendFlags: .reliable)
     }
 
@@ -200,6 +202,7 @@ final class SpaceWarServerConnection {
         // If we get here there is room, add the player as pending auth
         client.state = .authInProgress
         client.steamID = message.sender
+        OutputDebugString("ServerConnection pending -> authInProgress \(message.sender)")
 
         // Authenticate the user with the Steam back-end servers
         let res = steam.gameServer.beginAuthSession(authTicket: beginAuthMsg.token, steamID: message.sender)
@@ -207,7 +210,6 @@ final class SpaceWarServerConnection {
             OutputDebugString("ServerConnection BeginAuthSession failed \(res) \(message.sender)")
             disconnect(client: message.token) /* XXX reason */
         }
-        OutputDebugString("ServerConnection pending -> authInProgress \(message.sender)")
     }
 
     /// Callback after `beginAuthSession` to give the steam server's pass/fail.  Also called asynchronously if the

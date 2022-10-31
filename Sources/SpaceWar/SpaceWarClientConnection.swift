@@ -293,7 +293,7 @@ final class SpaceWarClientConnection {
     /// Receive basic server info from the server after we initiate a connection, start authentication
     private func receive(serverInfo: MsgServerSendInfo) {
         precondition(state == .connectingP2P, "ClientConnection not expecting ServerSendInfo")
-        OutputDebugString("ClientConnection \(state) -> connectedPendingAuthentication")
+        OutputDebugString("ClientConnection \(state) -> connectedPendingAuthentication \(serverInfo.serverName)")
         state = .connectedPendingAuthentication
 
         serverSteamID = serverInfo.steamIDServer

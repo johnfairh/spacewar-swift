@@ -207,7 +207,7 @@ final class SpaceWarClient {
 
         case .startServer:
             if server == nil {
-                server = SpaceWarServer(engine: engine)
+                server = SpaceWarServer(engine: engine, name: steam.localServerName)
             }
 
             if let server, server.isConnectedToSteam {
@@ -575,4 +575,11 @@ final class SpaceWarClient {
 //        }
 //    }
 //}
+}
+
+extension SteamAPI {
+    /// String used for game servers spun up by this session
+    var localServerName: String {
+        "\(friends.getPersonaName())'s game"
+    }
 }

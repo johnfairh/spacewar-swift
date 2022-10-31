@@ -67,7 +67,7 @@ final class SpaceWarServer {
 
     // MARK: Initialization
 
-    init(engine: Engine2D) {
+    init(engine: Engine2D, name: String) {
         self.engine = engine
         self.state = .init(tickSource: engine, initial: .waitingForPlayers, name: "Server")
 
@@ -125,7 +125,7 @@ final class SpaceWarServer {
     //      // Initialize sun
     //      m_pSun = new CSun( pGameEngine );
 
-        serverConnection = SpaceWarServerConnection(steam: steam, tickSource: engine)
+        serverConnection = SpaceWarServerConnection(steam: steam, tickSource: engine, serverName: name)
         isConnectedToSteam = false
 
         initSteamConnectionHooks()
