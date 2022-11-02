@@ -455,11 +455,14 @@ final class SpaceWarServer {
     // MARK: Game state send/receive
 
     /// Purpose: Receives update data from a client
-//    func onReceiveClientUpdateData(shipIndex: PlayerIndex, updateData: ClientSpaceWarUpdateData) {
-//        if let player = players[shipIndex] {
-//            player.ship.onReceiveClientUpdate(data: updateData)
-//        }
-//    }
+    func onReceiveClientUpdateData(client: ClientToken, msg: MsgClientSendLocalUpdate) {
+        guard let player = players[msg.shipPosition],
+              player.client == client else {
+            OutputDebugString("Confused by client update, out of sync - \(client)")
+            return
+        }
+        player.ship.onReceiveClientUpdate(data: msg.update)
+    }
 
     /// Send world update to all clients
     func sendUpdateDataToAllClients() {
@@ -476,8 +479,7 @@ final class SpaceWarServer {
                 msg.playersActive[index] = true
                 msg.playerScores[index] = player!.score
                 msg.playerSteamIDs[index] = player!.steamID
-
-// XXX                msg.shipData[index] = player!.ship.buildServerUpdate()
+                msg.shipData[index] = player!.ship.buildServerUpdate()
             }
 
         serverConnection.sendToAll(msg: msg, sendFlags: .unreliable)
@@ -489,33 +491,12 @@ final class SpaceWarServer {
     func receiveNetworkData() {
         serverConnection.receiveMessages() { client, msg, size, data in
             switch msg {
-                //        case k_EMsgClientSendLocalUpdate:
-                //        {
-                //          if (message->GetSize() != sizeof(MsgClientSendLocalUpdate_t))
-                //          {
-                //            OutputDebugString("Bad client update msg\n");
-                //            message->Release();
-                //            message = nullptr;
-                //            continue;
-                //          }
-                //
-                //          // Find the connection that should exist for this users address
-                //          bool bFound = false;
-                //          for (uint32 i = 0; i < MAX_PLAYERS_PER_SERVER; ++i)
-                //          {
-                //            if (m_rgClientData[i].m_hConn == connection)
-                //            {
-                //              bFound = true;
-                //              MsgClientSendLocalUpdate_t* pMsg = (MsgClientSendLocalUpdate_t*)message->GetData();
-                //              OnReceiveClientUpdateData(i, pMsg->AccessUpdateData());
-                //              break;
-                //            }
-                //          }
-                //          if (!bFound)
-                //            OutputDebugString("Got a client data update, but couldn't find a matching client\n");
-                //        }
-                //        break;
-                //
+            case .clientSendLocalUpdate:
+                if size != MsgClientSendLocalUpdate.networkSize {
+                    OutputDebugString("Bad client update msg, too short \(size)")
+                    return
+                }
+                onReceiveClientUpdateData(client: client, msg: MsgClientSendLocalUpdate(data: data))
                 //        case k_EMsgVoiceChatData:
                 //        {
                 //          // Received voice chat messages, broadcast to all other players

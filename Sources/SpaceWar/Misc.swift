@@ -40,7 +40,7 @@ enum Misc {
     static let SERVER_UPDATE_SEND_RATE = UInt(60)
 
     /// How many times a second do we send our updated client state to the server
-    static let CLIENT_UPDATE_SEND_RATE = 30
+    static let CLIENT_UPDATE_SEND_RATE = UInt(30)
 
     /// How fast does the server internally run at?
     static let MAX_CLIENT_AND_SERVER_FPS = 86

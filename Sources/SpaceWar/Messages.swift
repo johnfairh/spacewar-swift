@@ -364,7 +364,7 @@ extension ServerShipUpdateData_t {
     }
 }
 
-/// Msg from the server to the client when refusing a connection
+/// Msg from the server to clients when updating the world state
 struct MsgServerUpdateWorld: SpaceWarMsg {
     typealias CType = MsgServerUpdateWorld_t
 
@@ -467,5 +467,111 @@ extension MsgClientBeginAuthentication_t: ConstructableFrom {
         }
         tokenLen = UInt32(from.token.count).bigEndian
         steamID = 0
+    }
+}
+
+// MARK: MsgClientSendLocalUpdate
+
+struct ClientSpaceWarUpdateData {
+    var firePressed: Bool
+    var turnLeftPressed: Bool
+    var turnRightPressed: Bool
+    var forwardThrustersPressed: Bool
+    var reverseThrustersPressed: Bool
+    var shipDecoration: Int
+    var shipWeapon: Int
+    var shipPower: Int
+    var shieldStrength: Int
+    var playerName: String
+    var thrusterLevel: Float
+    var turnSpeed: Float
+
+    init(firePressed: Bool = false,
+         turnLeftPressed: Bool = false,
+         turnRightPressed: Bool = false,
+         forwardThrustersPressed: Bool = false,
+         reverseThrustersPressed: Bool = false,
+         shipDecoration: Int = 0,
+         shipWeapon: Int = 0,
+         shipPower: Int = 0,
+         shieldStrength: Int = 0,
+         playerName: String = "",
+         thrusterLevel: Float = 0,
+         turnSpeed: Float = 0) {
+        self.firePressed = firePressed
+        self.turnLeftPressed = turnLeftPressed
+        self.turnRightPressed = turnRightPressed
+        self.forwardThrustersPressed = forwardThrustersPressed
+        self.reverseThrustersPressed = reverseThrustersPressed
+        self.shipDecoration = shipDecoration
+        self.shipWeapon = shipWeapon
+        self.shipPower = shipPower
+        self.shieldStrength = shieldStrength
+        self.playerName = playerName
+        self.thrusterLevel = thrusterLevel
+        self.turnSpeed = turnSpeed
+    }
+
+    init(from: ClientSpaceWarUpdateData_t) {
+        firePressed = Bool(bigEndian: from.firePressed)
+        turnLeftPressed = Bool(bigEndian: from.turnLeftPressed)
+        turnRightPressed = Bool(bigEndian: from.turnRightPressed)
+        forwardThrustersPressed = Bool(bigEndian: from.forwardThrustersPressed)
+        reverseThrustersPressed = Bool(bigEndian: from.reverseThrustersPressed)
+        shipDecoration = Int(Int32(bigEndian: from.shipDecoration))
+        shipWeapon = Int(Int32(bigEndian: from.shipWeapon))
+        shipPower = Int(Int32(bigEndian: from.shipPower))
+        shieldStrength = Int(Int32(bigEndian: from.shieldStrength))
+        playerName = String(cString: from.playerName_ptr)
+        thrusterLevel = Float(bigEndian: from.thrusterLevel)
+        turnSpeed = Float(bigEndian: from.turnSpeed)
+    }
+}
+
+extension ClientSpaceWarUpdateData_t {
+    init(from: ClientSpaceWarUpdateData) {
+        self.init()
+        firePressed = from.firePressed.bigEndian
+        turnLeftPressed = from.turnLeftPressed.bigEndian
+        turnRightPressed = from.turnRightPressed.bigEndian
+        forwardThrustersPressed = from.forwardThrustersPressed.bigEndian
+        reverseThrustersPressed = from.reverseThrustersPressed.bigEndian
+        shipDecoration = Int32(from.shipDecoration.bigEndian)
+        shipWeapon = Int32(from.shipWeapon.bigEndian)
+        shipPower = Int32(from.shipPower.bigEndian)
+        shieldStrength = Int32(from.shieldStrength.bigEndian)
+        ClientSpaceWarUpdateData_SetPlayerName(&self, from.playerName)
+        thrusterLevel = from.thrusterLevel.bigEndian
+        turnSpeed = from.turnSpeed.bigEndian
+    }
+}
+
+/// Msg from client to server when sending state update
+/// Msg from the server to clients when updating the world state
+struct MsgClientSendLocalUpdate: SpaceWarMsg {
+    typealias CType = MsgClientSendLocalUpdate_t
+
+    let shipPosition: PlayerIndex
+    let update: ClientSpaceWarUpdateData
+
+    /// Client - sender - init
+    init(shipPosition: PlayerIndex, update: ClientSpaceWarUpdateData) {
+        self.shipPosition = shipPosition
+        self.update = update
+    }
+
+    /// Server - receiver - init
+    init(from: MsgClientSendLocalUpdate_t) {
+        self.shipPosition = PlayerIndex(UInt32(bigEndian: from.shipPosition))
+        self.update = ClientSpaceWarUpdateData(from: from.d)
+    }
+}
+
+extension MsgClientSendLocalUpdate_t: ConstructableFrom {
+    init(from: MsgClientSendLocalUpdate) {
+        self.init()
+        messageType = Msg.clientSendLocalUpdate.rawValue.bigEndian
+        shipPosition = UInt32(from.shipPosition).bigEndian
+        d = ClientSpaceWarUpdateData_t(from: from.update)
     }
 }

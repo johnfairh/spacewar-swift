@@ -284,16 +284,16 @@ final class SpaceWarClient {
         }
 
         // Send an update on our local ship to the server
-        if clientConnection.isConnected, let ship = gameState.ships[gameState.playerShipIndex] {
-        //        MsgClientSendLocalUpdate_t msg;
-        //        msg.SetShipPosition( m_uPlayerShipIndex );
-        //
-        //        // Send update as unreliable message.  This means that if network packets drop,
-        //        // the networking system will not attempt retransmission, and our message may not arrive.
-        //        // That's OK, because we would rather just send a new, update message, instead of
-        //        // retransmitting the old one.
-        //        if ( m_rgpShips[ m_uPlayerShipIndex ]->BGetClientUpdateData( msg.AccessUpdateData() ) )
-        //            BSendServerData( &msg, sizeof( msg ), k_nSteamNetworkingSend_Unreliable );
+        if clientConnection.isConnected,
+           let ship = gameState.ships[gameState.playerShipIndex],
+           let update = ship.getClientUpdateData() {
+            let msg = MsgClientSendLocalUpdate(shipPosition: gameState.playerShipIndex, update: update)
+
+            // Send update as unreliable message.  This means that if network packets drop,
+            // the networking system will not attempt retransmission, and our message may not arrive.
+            // That's OK, because we would rather just send a new, update message, instead of
+            // retransmitting the old one.
+            clientConnection.sendServerData(msg: msg, sendFlags: .unreliable)
         }
 
         if !p2pAuthedGame.runFrame(server: server) {
@@ -470,7 +470,7 @@ final class SpaceWarClient {
                 let shipData = msg.shipData[i]
                 gameState.ships[i] = Ship(engine: engine,
                                           isServerInstance: false,
-                                          pos: .zero /* XXX*/,
+                                          pos: shipData.position * engine.viewportSize,
                                           color: Misc.PlayerColors[i])
 
                 if i == gameState.playerShipIndex {
@@ -485,10 +485,9 @@ final class SpaceWarClient {
             }
 
             gameState.ships[i]!.isLocalPlayer = (i == gameState.playerShipIndex)
+            gameState.ships[i]!.onReceiveServerUpdate(data: msg.shipData[i])
 
-            //          ships[i].onReceiveServerUpdate(data: msg.shipData[i])
-            //
-            //          m_pVoiceChat->MarkPlayerAsActive(steamID: playerSteamIDs[i])
+            //  XXX        m_pVoiceChat->MarkPlayerAsActive(steamID: playerSteamIDs[i])
         }
     }
 }

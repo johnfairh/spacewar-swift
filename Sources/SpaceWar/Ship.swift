@@ -21,11 +21,11 @@ final class Ship: SpaceWarEntity {
     let isServerInstance: Bool
 
     /// Decorations from inventory - better names very possible...
-    enum Decoration {
-        case one
-        case two
-        case three
-        case four
+    enum Decoration: Int {
+        case one = 1
+        case two = 2
+        case three = 3
+        case four = 4
     }
     /// Decoration for this ship
     private var shipDecoration: Decoration?
@@ -35,6 +35,13 @@ final class Ship: SpaceWarEntity {
 
     /// Is the ship dead?
     var isDisabled: Bool
+
+    /// Server update scheduler
+    private var clientUpdateTick: Debounced
+
+    /// This will get populated only if we are the local instance, and then
+    /// sent to the server in response to each server update
+    private var spaceWarClientUpdateData: ClientSpaceWarUpdateData
 
     init(engine: Engine2D, isServerInstance: Bool, pos: SIMD2<Float>, color: Color2D) {
         forwardThrusters = ForwardThrusters(engine: engine)
@@ -56,7 +63,6 @@ final class Ship: SpaceWarEntity {
         //      m_ulLastPhotonTickCount = 0;
         //      m_bForwardThrustersActive = false;
         //      m_bReverseThrustersActive = false;
-        //      m_ulLastClientUpdateTick = 0;
         //      m_nShipDecoration = 0;
         //      m_nShipPower = 0;
         //      m_nShipWeapon = 0;
@@ -65,13 +71,13 @@ final class Ship: SpaceWarEntity {
         //      m_ulExplosionTickCount = 0;
         //      m_bTriggerEffectEnabled = false;
         //
-        //      memset( &m_SpaceWarClientUpdateData, 0, sizeof( m_SpaceWarClientUpdateData ) );
+        spaceWarClientUpdateData = ClientSpaceWarUpdateData()
         //
         //      for( int i=0; i < MAX_PHOTON_BEAMS_PER_SHIP; ++i )
         //      {
         //        m_rgPhotonBeams[i] = NULL;
         //      }
-        //
+        clientUpdateTick = Debounced(debounce: 1000 / Misc.CLIENT_UPDATE_SEND_RATE) { true }
         super.init(engine: engine, collisionRadius: 11, affectedByGravity: true)
 
         buildGeometry()
@@ -90,6 +96,11 @@ final class Ship: SpaceWarEntity {
         //if triggerEffectEnabled {
         // XXX SteamInput m_pGameEngine->SetTriggerEffect(false)
         //}
+    }
+
+    /// Set the initial rotation for the ship
+    func setInitialRotation(_ rotation: Float) {
+        accumulatedRotation = rotation
     }
 
     /// Set geometry according to decoration
@@ -560,30 +571,32 @@ final class Ship: SpaceWarEntity {
     //
     //        CSpaceWarEntity::Render(actualColor);
     //      }
-    //
-    //
-    //
-    //  // Update ship with data from server
-    //  void OnReceiveServerUpdate( ServerShipUpdateData_t *pUpdateData );
-    //    //-----------------------------------------------------------------------------
-    //    // Purpose: Update entity with updated data from the server
-    //    //-----------------------------------------------------------------------------
-    //    void CShip::OnReceiveServerUpdate( ServerShipUpdateData_t *pUpdateData )
-    //    {
-    //        if ( m_bIsServerInstance )
-    //        {
-    //            OutputDebugString( "Should not be receiving server updates on the server itself\n" );
-    //            return;
-    //        }
-    //
-    //        SetDisabled( pUpdateData->GetDisabled() );
-    //
-    //        SetExploding( pUpdateData->GetExploding() );
-    //
-    //        SetPosition( pUpdateData->GetXPosition()*m_pGameEngine->GetViewportWidth(), pUpdateData->GetYPosition()*m_pGameEngine->GetViewportHeight() );
-    //        SetVelocity( pUpdateData->GetXVelocity(), pUpdateData->GetYVelocity() );
-    //        SetAccumulatedRotation( pUpdateData->GetRotation() );
-    //
+
+    // MARK: Client/Server data exchange
+
+    /// 1 - SERVER: BuildServerUpdate() --- get most recent server truth and send to clients
+    /// 2 - CLIENT: OnReceiveServerUpdate() --- update local state including local physics calcs from server truth
+    /// 3 - CLIENT: RunFrame() --- sample user input and store in 'client update', do physics
+    /// 4 - CLIENT: GetClientUpdateData() --- transfer 'client update' and current physics to server
+    /// 5 - SERVER: OnReceiveClientUpdate() --- store 'client update'
+    /// 6 - SERVER: RunFrame() --- use 'client update' to calculate new physics, input, update truth
+
+
+    /// Update entity with updated data from the server
+    func onReceiveServerUpdate(data: ServerShipUpdateData) {
+        guard !isServerInstance else {
+            OutputDebugString("Should not be receiving server updates on the server itself");
+            return
+        }
+
+        isDisabled = data.isDisabled
+    // XXX       SetExploding( pUpdateData->GetExploding() );
+
+
+        pos = data.position * engine.viewportSize
+        velocity = data.velocity
+        accumulatedRotation = data.currentRotation
+
     //        m_nShipPower = pUpdateData->GetPower();
     //        m_nShipWeapon = pUpdateData->GetWeapon();
     //        if ( m_nShipDecoration != pUpdateData->GetDecoration() )
@@ -626,88 +639,74 @@ final class Ship: SpaceWarEntity {
     //                }
     //            }
     //        }
-    //    }
-    //
-    //  // Update the ship with data from a client
-    //  void OnReceiveClientUpdate( ClientSpaceWarUpdateData_t *pUpdateData );
-    //    //-----------------------------------------------------------------------------
-    //    // Purpose: Update entity with updated data from the client
-    //    //-----------------------------------------------------------------------------
-    //    void CShip::OnReceiveClientUpdate( ClientSpaceWarUpdateData_t *pUpdateData )
-    //    {
-    //      if ( !m_bIsServerInstance )
-    //      {
-    //        OutputDebugString( "Should not be receiving client updates on non-server instances\n" );
-    //        return;
-    //      }
-    //
-    //      m_nShipDecoration = pUpdateData->GetDecoration();
-    //      m_nShipPower = pUpdateData->GetPower();
-    //      m_nShipWeapon = pUpdateData->GetWeapon();
-    //      m_nShipShieldStrength = pUpdateData->GetShieldStrength();
-    //
-    //      memcpy( &m_SpaceWarClientUpdateData, pUpdateData, sizeof( ClientSpaceWarUpdateData_t ) );
-    //    }
-    //
-    //
-    //  // Get the update data for this ship client side (copying into memory passed in)
-    //  bool BGetClientUpdateData( ClientSpaceWarUpdateData_t *pUpdatedata );
-    //    //-----------------------------------------------------------------------------
-    //    // Purpose: Tell the server about any updates we have had client-side
-    //    //-----------------------------------------------------------------------------
-    //    bool CShip::BGetClientUpdateData( ClientSpaceWarUpdateData_t *pUpdateData  )
-    //    {
-    //      // Limit the rate at which we send updates, even if our internal frame rate is higher
-    //      if ( m_pGameEngine->GetGameTickCount() - m_ulLastClientUpdateTick < 1000.0f/CLIENT_UPDATE_SEND_RATE )
-    //        return false;
-    //
-    //      m_ulLastClientUpdateTick = m_pGameEngine->GetGameTickCount();
-    //
-    //      // Update playername before sending
-    //      if ( m_bIsLocalPlayer )
-    //      {
-    //        m_SpaceWarClientUpdateData.SetPlayerName( SteamFriends()->GetFriendPersonaName( SteamUser()->GetSteamID() ) );
-    //        m_SpaceWarClientUpdateData.SetDecoration( m_nShipDecoration );
-    //        m_SpaceWarClientUpdateData.SetWeapon( m_nShipWeapon );
-    //        m_SpaceWarClientUpdateData.SetPower( m_nShipPower );
-    //        m_SpaceWarClientUpdateData.SetShieldStrength( m_nShipShieldStrength );
-    //      }
-    //
-    //      memcpy( pUpdateData, &m_SpaceWarClientUpdateData, sizeof( ClientSpaceWarUpdateData_t ) );
-    //      memset( &m_SpaceWarClientUpdateData, 0, sizeof( m_SpaceWarClientUpdateData ) );
-    //
-    //      return true;
-    //    }
-    //
-    //
-    //  // Build update data for the ship to send to clients
-    //  void BuildServerUpdate( ServerShipUpdateData_t *pUpdateData );
-    //    //-----------------------------------------------------------------------------
-    //    // Purpose: Build the update data to send from server to clients
-    //    //-----------------------------------------------------------------------------
-    //    void CShip::BuildServerUpdate( ServerShipUpdateData_t *pUpdateData )
-    //    {
-    //      pUpdateData->SetDisabled( BIsDisabled() );
-    //      pUpdateData->SetExploding( BIsExploding() );
-    //      pUpdateData->SetXAcceleration( GetXAccelerationLastFrame() );
-    //      pUpdateData->SetYAcceleration( GetYAccelerationLastFrame() );
-    //      pUpdateData->SetXPosition( GetXPos()/(float)m_pGameEngine->GetViewportWidth() );
-    //      pUpdateData->SetYPosition( GetYPos()/(float)m_pGameEngine->GetViewportHeight() );
-    //      pUpdateData->SetXVelocity( GetXVelocity() );
-    //      pUpdateData->SetYVelocity( GetYVelocity() );
-    //      pUpdateData->SetRotation( GetAccumulatedRotation() );
-    //      pUpdateData->SetRotationDeltaLastFrame( GetRotationDeltaLastFrame() );
-    //      pUpdateData->SetForwardThrustersActive( m_bForwardThrustersActive );
-    //      pUpdateData->SetReverseThrustersActive( m_bReverseThrustersActive );
-    //      pUpdateData->SetDecoration( m_nShipDecoration );
-    //      pUpdateData->SetWeapon( m_nShipWeapon );
-    //      pUpdateData->SetPower( m_nShipPower );
-    //      pUpdateData->SetShieldStrength( m_nShipShieldStrength );
-    //
-    //      BuildServerPhotonBeamUpdate( pUpdateData );
-    //    }
-    //
-    //
+    }
+
+    /// Update the server model of the ship with data from a client
+    func onReceiveClientUpdate(data: ClientSpaceWarUpdateData) {
+        guard isServerInstance else {
+            OutputDebugString("Should not be receiving client updates on non-server instances")
+            return
+        }
+
+        shipDecoration = Decoration(rawValue: data.shipDecoration)
+        // XXX     m_nShipPower = pUpdateData->GetPower();
+        //      m_nShipWeapon = pUpdateData->GetWeapon();
+        //      m_nShipShieldStrength = pUpdateData->GetShieldStrength();
+
+        spaceWarClientUpdateData = data
+    }
+
+    /// Get our current client-input state to pass to the server -- return `nil` if no tick due
+    func getClientUpdateData() -> ClientSpaceWarUpdateData? {
+        // Limit the rate at which we send updates, even if our internal frame rate is higher
+        guard clientUpdateTick.test(now: engine.gameTickCount) else {
+            return nil
+        }
+
+        // Update playername before sending
+        if isLocalPlayer {
+            spaceWarClientUpdateData.playerName = "Walaspi" // XXX steam.friends.getPersonaName()
+            spaceWarClientUpdateData.shipDecoration = shipDecoration?.rawValue ?? 0
+//  XXX          spaceWarClientUpdateData.shipWeapon = shipWeapon
+//            spaceWarClientUpdateData.shipPower = shipPower
+//            spaceWarClientUpdateData.shieldStrength = shipShieldStrength
+        }
+
+        defer { spaceWarClientUpdateData = .init() }
+        return spaceWarClientUpdateData
+    }
+
+    /// Build the update data to send from server to clients
+    func buildServerUpdate() -> ServerShipUpdateData {
+        ServerShipUpdateData(currentRotation: accumulatedRotation,
+                             rotationDeltaLastFrame: rotationDeltaLastFrame,
+                             acceleration: accelerationLastFrame,
+                             velocity: velocity,
+                             position: .init(pos.x / engine.viewportSize.x,
+                                             pos.y / engine.viewportSize.y),
+//                             isExploding: <#T##Bool#>,
+                             isDisabled: isDisabled
+//                             areForwardThrustersActive: <#T##Bool#>,
+//                             areReverseThrustersActive: <#T##Bool#>,
+//                             decoration: <#T##Int#>,
+//                             weapon: <#T##Int#>,
+//                             shipPower: <#T##Int#>,
+//                             shieldStrength: <#T##Int#>,
+//                             photonBeamData: <#T##[ServerPhotonBeamUpdateData]#>,
+//                             thrusterLevel: <#T##Float#>,
+//                             turnSpeed: <#T##Float#>
+        )
+        //      pUpdateData->SetExploding( BIsExploding() );
+        //      pUpdateData->SetForwardThrustersActive( m_bForwardThrustersActive );
+        //      pUpdateData->SetReverseThrustersActive( m_bReverseThrustersActive );
+        //      pUpdateData->SetDecoration( m_nShipDecoration );
+        //      pUpdateData->SetWeapon( m_nShipWeapon );
+        //      pUpdateData->SetPower( m_nShipPower );
+        //      pUpdateData->SetShieldStrength( m_nShipShieldStrength );
+        //
+        //      BuildServerPhotonBeamUpdate( pUpdateData );
+    }
+
     //  // Build update data for photon beams to send to clients
     //  void BuildServerPhotonBeamUpdate( ServerShipUpdateData_t *pUpdateData );
     //    //-----------------------------------------------------------------------------
@@ -777,15 +776,6 @@ final class Ship: SpaceWarEntity {
     //
     //      UpdateVibrationEffects();
     //    }
-
-
-    //    // Set whether the ship is disabled
-    //    void SetDisabled( bool bDisabled ) { m_bDisabled = bDisabled; }
-    //
-    /// Set the initial rotation for the ship
-    func setInitialRotation(_ rotation: Float) {
-        accumulatedRotation = rotation
-    }
     //
     //    // Setters for key bindings
     //    void SetVKBindingLeft( DWORD dwVKLeft ) { m_dwVKLeft = dwVKLeft; }
@@ -839,14 +829,6 @@ final class Ship: SpaceWarEntity {
     //
     //    // Check if the ship is currently exploding
     //    bool BIsExploding() { return m_bExploding; }
-    //
-    //    // Check if the ship is currently disabled
-    //    bool BIsDisabled() { return m_bDisabled; }
-    //
-    //    // Set whether this ship instance is for the local player
-    //    // (meaning it should pay attention to key input and such)
-    //    void SetIsLocalPlayer( bool bValue ) { m_bIsLocalPlayer = bValue; }
-    //    bool BIsLocalPlayer() { return m_bIsLocalPlayer; }
     //
     //    // Accumulate stats for this ship
     //    void AccumulateStats( CStatsAndAchievements *pStats );
@@ -905,9 +887,6 @@ final class Ship: SpaceWarEntity {
     //
     //private:
     //
-    //  // Last time we sent an update on our local data to the server
-    //  uint64 m_ulLastClientUpdateTick;
-    //
     //  // Last time we detected the thrust key go down
     //  uint64 m_ulLastThrustStartedTickCount;
     //
@@ -919,9 +898,6 @@ final class Ship: SpaceWarEntity {
     //
     //  // Current trigger effect state
     //  bool m_bTriggerEffectEnabled;
-    //
-    //  // is this ship our local ship, or a remote player?
-    //  bool m_bIsLocalPlayer;
     //
     //  // is the ship exploding?
     //  bool m_bExploding;
@@ -958,10 +934,6 @@ final class Ship: SpaceWarEntity {
     //
     //    // Track whether to draw the thrusters next render call
     //    bool m_bReverseThrustersActive;
-    //
-    //    // This will get populated only if we are the local instance, and then
-    //    // sent to the server in response to each server update
-    //    ClientSpaceWarUpdateData_t m_SpaceWarClientUpdateData;
     //
     //    // key bindings
     //    DWORD m_dwVKLeft;

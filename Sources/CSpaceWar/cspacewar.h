@@ -175,6 +175,49 @@ typedef struct {
     ServerSpaceWarUpdateData_t d;
 } MsgServerUpdateWorld_t;
 
+// MARK: Game, Client -> Server
+
+typedef struct {
+    // Key's which are done
+    bool firePressed;
+    bool turnLeftPressed;
+    bool turnRightPressed;
+    bool forwardThrustersPressed;
+    bool reverseThrustersPressed;
+
+    // Decoration for this ship
+    int32 shipDecoration;
+
+    // Weapon for this ship
+    int32 shipWeapon;
+
+    // Power for this ship
+    int32 shipPower;
+
+    int32 shieldStrength;
+
+    // Name of the player (needed server side to tell master server about)
+    // bugbug jmccaskey - Really lame to send this every update instead of event driven...
+    char playerName[64];
+
+    // Thrust and rotation speed can be anlog when using a Steam Controller
+    netfloat thrusterLevel;
+    netfloat turnSpeed;
+} ClientSpaceWarUpdateData_t;
+
+ARRAY_GETTER(ClientSpaceWarUpdateData_t, playerName, const char)
+
+__attribute__((swift_name("ClientSpaceWarUpdateData_t.setPlayerName(self:_:")))
+static inline void ClientSpaceWarUpdateData_SetPlayerName(ClientSpaceWarUpdateData_t * _Nonnull msg, const char * _Nonnull name) {
+    strlcpy(msg->playerName, name, sizeof(msg->playerName));
+}
+
+typedef struct {
+    uint32 messageType;
+    uint32 shipPosition;
+    ClientSpaceWarUpdateData_t d;
+} MsgClientSendLocalUpdate_t;
+
 #pragma pack( pop )
 
 #endif
