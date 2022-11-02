@@ -10,6 +10,7 @@ typedef long long int64;
 typedef unsigned long long uint64;
 typedef unsigned char bool;
 typedef unsigned char uint8;
+typedef uint32 netfloat; // network rep of single-prec floating-point
 
 #pragma pack( push, 1 )
 
@@ -72,10 +73,73 @@ static inline void MsgClientBeginAuthentication_SetToken(MsgClientBeginAuthentic
 
 // MARK: Game, Server -> Client
 
+typedef struct {
+    // Does the photon beam exist right now?
+    bool isActive;
+
+    // The current rotation
+    netfloat currentRotation;
+
+    // The current velocity
+    netfloat xVelocity;
+    netfloat yVelocity;
+
+    // The current position
+    netfloat xPosition;
+    netfloat yPosition;
+} ServerPhotonBeamUpdateData_t;
+
+#define MAX_PHOTON_BEAMS_PER_SHIP 7
+
 // This is the data that gets sent per ship in each update, see below for the full update data
 typedef struct {
-    uint32 pad;
+    // The current rotation of the ship
+    netfloat currentRotation;
+
+    // The delta in rotation for the last frame (client side interpolation will use this)
+    netfloat rotationDeltaLastFrame;
+
+    // The current thrust for the ship
+    netfloat xAcceleration;
+    netfloat yAcceleration;
+
+    // The current velocity for the ship
+    netfloat xVelocity;
+    netfloat yVelocity;
+
+    // The current position for the ship
+    netfloat xPosition;
+    netfloat yPosition;
+
+    // Is the ship exploding?
+    bool exploding;
+
+    // Is the ship disabled?
+    bool disabled;
+
+    // Are the thrusters to be drawn?
+    bool forwardThrustersActive;
+    bool reverseThrustersActive;
+
+    // Decoration for this ship
+    int32 shipDecoration;
+
+    // Weapon for this ship
+    int32 shipWeapon;
+
+    // Power for this ship
+    int32 shipPower;
+    int32 shieldStrength;
+
+    // Photon beam positions and data
+    ServerPhotonBeamUpdateData_t photonBeamData[MAX_PHOTON_BEAMS_PER_SHIP];
+
+    // Thrust and rotation speed can be anlog when using a Steam Controller
+    netfloat thrusterLevel;
+    netfloat turnSpeed;
 } ServerShipUpdateData_t;
+
+ARRAY_GETTER(ServerShipUpdateData_t, photonBeamData, ServerPhotonBeamUpdateData_t)
 
 /// This is the data that gets sent from the server to each client for each update
 #define MAX_PLAYERS_PER_SERVER 4

@@ -50,7 +50,7 @@ enum Msg: UInt32 {
     case voiceChatData = 702
 }
 
-// MARK: Message Common Protocols
+// MARK: Message Protocols & Utils
 
 protocol ConstructableFrom {
     associatedtype From
@@ -92,6 +92,60 @@ enum Unpack {
     }
 }
 
+/// Float values wire format - bitpattern, big-endianly
+typealias FloatBE = UInt32
+
+/// Utils to convert between `Float` and `FloatBE`
+extension Float {
+    init(bigEndian: FloatBE) {
+        self.init(bitPattern: UInt32(bigEndian: bigEndian))
+    }
+
+    var bigEndian: FloatBE {
+        self.bitPattern.bigEndian
+    }
+}
+
+/// Util to convert from `FloatBE` pairs to `SIMD2`
+extension SIMD2<Float> {
+    init(bigEndian: (FloatBE, FloatBE)) {
+        self.init(Float(bigEndian: bigEndian.0), Float(bigEndian: bigEndian.1))
+    }
+}
+
+/// Utils to convert Swift `Bool` to 1-byte network format
+extension Bool {
+    init(bigEndian: UInt8) {
+        self.init(bigEndian != 0)
+    }
+
+    var bigEndian: UInt8 {
+        self ? 1 : 0
+    }
+}
+
+/// Fixed-size array tuple bullshit. holy fuck.
+extension Array {
+    static func four<X>(_ p: UnsafeMutablePointer<X>, map: (X) -> Element) -> Array<Element>{
+        let bp = UnsafeMutableBufferPointer(start: p, count: 4)
+        return bp.map(map)
+    }
+
+    static func seven<X>(_ p: UnsafeMutablePointer<X>, map: (X) -> Element) -> Array<Element>{
+        let bp = UnsafeMutableBufferPointer(start: p, count: 7)
+        return bp.map(map)
+    }
+
+    func asFour<X>(map: (Element) -> X) -> (X, X, X, X) {
+        (map(self[0]), map(self[1]), map(self[2]), map(self[3]))
+    }
+
+    func asSeven<X>(map: (Element) -> X) -> (X, X, X, X, X, X, X) {
+        (map(self[0]), map(self[1]), map(self[2]), map(self[3]),
+         map(self[4]), map(self[5]), map(self[6]))
+    }
+}
+
 // MARK: MsgServerSendInfo
 
 /// Msg from the server to the client which is sent right after communications are established
@@ -113,7 +167,7 @@ struct MsgServerSendInfo: SpaceWarMsg {
     /// Client - receiver - init
     init(from: MsgServerSendInfo_t) {
         steamIDServer = SteamID(UInt64(bigEndian: from.steamIDServer))
-        isVACSecure = from.isVACSecure == 1
+        isVACSecure = .init(bigEndian: from.isVACSecure)
         serverName = String(cString: from.serverName_ptr)
     }
 }
@@ -124,7 +178,7 @@ extension MsgServerSendInfo_t: ConstructableFrom {
         self.init()
         messageType = Msg.serverSendInfo.rawValue.bigEndian
         steamIDServer = from.steamIDServer.asUInt64.bigEndian
-        isVACSecure = from.isVACSecure ? 1 : 0
+        isVACSecure = from.isVACSecure.bigEndian
         withUnsafeMutablePointer(to: &self) { p in
             MsgServerSendInfo_SetServerName(p, from.serverName)
         }
@@ -175,9 +229,138 @@ extension MsgServerPassAuthentication_t: ConstructableFrom {
 
 // MARK: MsgServerUpdateWorld
 
+/// Data sent per photon beam from the server to update clients photon beam positions
+struct ServerPhotonBeamUpdateData {
+    let isActive: Bool
+    let currentRotation: Float
+    let velocity: SIMD2<Float>
+    let position: SIMD2<Float>
+
+    internal init(isActive: Bool = false,
+                  currentRotation: Float = 0,
+                  velocity: SIMD2<Float> = .zero,
+                  position: SIMD2<Float> = .zero) {
+        self.isActive = isActive
+        self.currentRotation = currentRotation
+        self.velocity = velocity
+        self.position = position
+    }
+
+    init(_ from: ServerPhotonBeamUpdateData_t) {
+        self.isActive = .init(bigEndian: from.isActive)
+        self.currentRotation = Float(bigEndian: from.currentRotation)
+        self.velocity = .init(bigEndian: (from.xVelocity, from.yVelocity))
+        self.position = .init(bigEndian: (from.xPosition, from.yPosition))
+    }
+}
+
+extension ServerPhotonBeamUpdateData_t {
+    init(from: ServerPhotonBeamUpdateData) {
+        self.init()
+        isActive = from.isActive.bigEndian
+        currentRotation = from.currentRotation.bigEndian
+        xVelocity = from.velocity.x.bigEndian
+        yVelocity = from.velocity.y.bigEndian
+        xPosition = from.position.x.bigEndian
+        yPosition = from.position.y.bigEndian
+    }
+}
+
+/// This is the data that gets sent per ship in each update, see below for the full update data
 struct ServerShipUpdateData {
-    init() {}
+    let currentRotation: Float
+    let rotationDeltaLastFrame: Float
+    let acceleration: SIMD2<Float>
+    let velocity: SIMD2<Float>
+    let position: SIMD2<Float>
+    let isExploding: Bool
+    let isDisabled: Bool
+    let areForwardThrustersActive: Bool
+    let areReverseThrustersActive: Bool
+    let decoration: Int
+    let weapon: Int
+    let shipPower: Int
+    let shieldStrength: Int
+    let photonBeamData: [ServerPhotonBeamUpdateData]
+    let thrusterLevel: Float
+    let turnSpeed: Float
+
+    init(currentRotation: Float = 0,
+         rotationDeltaLastFrame: Float = 0,
+         acceleration: SIMD2<Float> = .zero,
+         velocity: SIMD2<Float> = .zero,
+         position: SIMD2<Float> = .zero,
+         isExploding: Bool = false,
+         isDisabled: Bool = false,
+         areForwardThrustersActive: Bool = false,
+         areReverseThrustersActive: Bool = false,
+         decoration: Int = 0,
+         weapon: Int = 0,
+         shipPower: Int = 0,
+         shieldStrength: Int = 0,
+         photonBeamData: [ServerPhotonBeamUpdateData] = .init(repeating: .init(), count: Misc.MAX_PHOTON_BEAMS_PER_SHIP),
+         thrusterLevel: Float = 0,
+         turnSpeed: Float = 0) {
+        self.currentRotation = currentRotation
+        self.rotationDeltaLastFrame = rotationDeltaLastFrame
+        self.acceleration = acceleration
+        self.velocity = velocity
+        self.position = position
+        self.isExploding = isExploding
+        self.isDisabled = isDisabled
+        self.areForwardThrustersActive = areForwardThrustersActive
+        self.areReverseThrustersActive = areReverseThrustersActive
+        self.decoration = decoration
+        self.weapon = weapon
+        self.shipPower = shipPower
+        self.shieldStrength = shieldStrength
+        self.photonBeamData = photonBeamData
+        self.thrusterLevel = thrusterLevel
+        self.turnSpeed = turnSpeed
+    }
+
     init(_ from: ServerShipUpdateData_t) {
+        currentRotation = Float(bigEndian: from.currentRotation)
+        rotationDeltaLastFrame = Float(bigEndian: from.rotationDeltaLastFrame)
+        acceleration = .init(bigEndian: (from.xAcceleration, from.yAcceleration))
+        velocity = .init(bigEndian: (from.xVelocity, from.yVelocity))
+        position = .init(bigEndian: (from.xPosition, from.yPosition))
+        isExploding = .init(bigEndian: from.exploding)
+        isDisabled = .init(bigEndian: from.disabled)
+        areForwardThrustersActive = .init(bigEndian: from.forwardThrustersActive)
+        areReverseThrustersActive = .init(bigEndian: from.reverseThrustersActive)
+        decoration = Int(Int32(bigEndian: from.shipDecoration))
+        weapon = Int(Int32(bigEndian: from.shipWeapon))
+        shipPower = Int(Int32(bigEndian: from.shipPower))
+        shieldStrength = Int(Int32(bigEndian: from.shieldStrength))
+        photonBeamData = .seven(from.photonBeamData_ptr) { ServerPhotonBeamUpdateData($0) }
+        thrusterLevel = Float(bigEndian: from.thrusterLevel)
+        turnSpeed = Float(bigEndian: from.turnSpeed)
+    }
+}
+
+extension ServerShipUpdateData_t {
+    init(from: ServerShipUpdateData) {
+        self.init()
+        currentRotation = from.currentRotation.bigEndian
+        rotationDeltaLastFrame = from.rotationDeltaLastFrame.bigEndian
+        xAcceleration = from.acceleration.x.bigEndian
+        yAcceleration = from.acceleration.y.bigEndian
+        xVelocity = from.velocity.x.bigEndian
+        yVelocity = from.velocity.y.bigEndian
+        xPosition = from.position.x.bigEndian
+        yPosition = from.position.y.bigEndian
+        exploding = from.isExploding.bigEndian
+        disabled = from.isDisabled.bigEndian
+        forwardThrustersActive = from.areForwardThrustersActive.bigEndian
+        reverseThrustersActive = from.areReverseThrustersActive.bigEndian
+        shipDecoration = Int32(from.decoration).bigEndian
+        shipWeapon = Int32(from.weapon).bigEndian
+        shipPower = Int32(from.shipPower).bigEndian
+        shieldStrength = Int32(from.shieldStrength).bigEndian
+        photonBeamData = from.photonBeamData.asSeven() { .init(from: $0) }
+        thrusterLevel = from.thrusterLevel.bigEndian
+        turnSpeed = from.turnSpeed.bigEndian
     }
 }
 
@@ -215,7 +398,7 @@ struct MsgServerUpdateWorld: SpaceWarMsg {
     init(from: MsgServerUpdateWorld_t) {
         currentGameState = .init(rawValue: UInt32(bigEndian: from.d.currentGameState))!
         playerWhoWonGame = PlayerIndex(bigEndian: Int(from.d.playerWhoWonGame))
-        playersActive = .four(from.d.playersActive_ptr ) { $0 != 0 }
+        playersActive = .four(from.d.playersActive_ptr ) { .init(bigEndian: $0) }
         playerScores = .four(from.d.playerScores_ptr) { .init(bigEndian: $0) }
         shipData = .four(from.d.shipData_ptr) { ServerShipUpdateData($0) }
         playerSteamIDs = .four(from.d.playerSteamIDs_ptr) { .init(UInt64(bigEndian: $0)) }
@@ -228,22 +411,10 @@ extension MsgServerUpdateWorld_t: ConstructableFrom {
         messageType = Msg.serverUpdateWorld.rawValue.bigEndian
         d.currentGameState = from.currentGameState.rawValue.bigEndian
         d.playerWhoWonGame = UInt32(from.playerWhoWonGame).bigEndian
-        d.playersActive = from.playersActive.asFour { $0 ? 1 : 0 }
+        d.playersActive = from.playersActive.asFour { $0.bigEndian }
         d.playerScores = from.playerScores.asFour { $0.bigEndian }
-        d.shipData = from.shipData.asFour { _ in .init() }
+        d.shipData = from.shipData.asFour { .init(from: $0) }
         d.playerSteamIDs = from.playerSteamIDs.asFour { $0.asUInt64.bigEndian }
-    }
-}
-
-// holy fuck
-extension Array {
-    static func four<X>(_ p: UnsafeMutablePointer<X>, map: (X) -> Element) -> Array<Element>{
-        let bp = UnsafeMutableBufferPointer(start: p, count: 4)
-        return bp.map(map)
-    }
-
-    func asFour<X>(map: (Element) -> X) -> (X, X, X, X) {
-        (map(self[0]), map(self[1]), map(self[2]), map(self[3]))
     }
 }
 
