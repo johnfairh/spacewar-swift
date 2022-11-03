@@ -86,6 +86,7 @@ final class SpaceWarServerConnection {
     }
 
     deinit {
+        OutputDebugString("ServerConnection deinit")
         if let listenSocket {
             steam.networkingSockets.closeListenSocket(socket: listenSocket)
         }

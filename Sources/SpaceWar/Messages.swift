@@ -12,6 +12,9 @@
 /// laboriously shuffle data in and out of them.
 ///
 /// All of a sudden I yearn for text-based interchange formats.
+///
+/// Having done this it's much clearer that this causes unnecessary copies and we should go with
+/// the original design of one struct with network-endian storage and a better-typed interface.
 
 import Steamworks
 import Foundation
@@ -573,5 +576,91 @@ extension MsgClientSendLocalUpdate_t: ConstructableFrom {
         messageType = Msg.clientSendLocalUpdate.rawValue.bigEndian
         shipPosition = UInt32(from.shipPosition).bigEndian
         d = ClientSpaceWarUpdateData_t(from: from.update)
+    }
+}
+
+// MARK: MsgP2PSendingTicket
+
+/// Message sent from one peer to another, so peers authenticate directly with each other.
+/// (In this example, the server is responsible for relaying the messages, but peers
+/// are directly authenticating each other.)
+struct MsgP2PSendingTicket: SpaceWarMsg {
+    typealias CType = MsgP2PSendingTicket_t
+
+    fileprivate let token: [UInt8]
+    let buffer: UnsafeBufferPointer<UInt8>?
+    var steamID: SteamID
+
+    /// Client - sender - init
+    init(token: [UInt8], steamID: SteamID) {
+        self.token = token
+        self.buffer = nil
+        self.steamID = steamID
+    }
+
+    /// Server - receiver - init
+    init(from: MsgP2PSendingTicket_t) {
+        token = []
+        buffer = UnsafeBufferPointer(start: from.token_ptr, count: Int(from.tokenLen))
+        steamID = SteamID(UInt64(bigEndian: from.steamID))
+    }
+}
+
+extension MsgP2PSendingTicket_t: ConstructableFrom {
+    init(from: MsgP2PSendingTicket) {
+        self.init()
+        self.messageType = Msg.P2PSendingTicket.rawValue.bigEndian
+        self.steamID = from.steamID.asUInt64.bigEndian
+        if let buf = from.buffer {
+            precondition(buf.count <= 1024)
+            self.tokenLen = UInt32(buf.count).bigEndian
+            self.token_ptr.assign(from: buf.baseAddress!, count: buf.count)
+        } else {
+            self.tokenLen = UInt32(from.token.count).bigEndian
+            self.token_ptr.assign(from: from.token, count: from.token.count)
+        }
+    }
+}
+
+// MARK: MsgVoiceChatData
+
+/// Voice chat data.  This is relayed through the server
+struct MsgVoiceChatData: SpaceWarMsg {
+    typealias CType = MsgVoiceChatData_t
+
+    fileprivate let data: [UInt8]
+    let buffer: UnsafeBufferPointer<UInt8>?
+    var steamID: SteamID
+
+    /// Client - sender - init
+    init(data: [UInt8]) {
+        self.data = data
+        self.buffer = nil
+        self.steamID = .nil // not set on client side
+    }
+
+    /// Server - first receiver & client - second receiver - init
+    init(from: MsgVoiceChatData_t) {
+        data = []
+        buffer = UnsafeBufferPointer(start: from.data_ptr, count: Int(from.dataLength))
+        steamID = SteamID(UInt64(bigEndian: from.fromSteamID))
+    }
+}
+
+extension MsgVoiceChatData_t: ConstructableFrom {
+    init(from: MsgVoiceChatData) {
+        self.init()
+        self.messageType = Msg.voiceChatData.rawValue.bigEndian
+        self.fromSteamID = from.steamID.asUInt64.bigEndian
+        if let buf = from.buffer {
+            // got msg from a client, forwarding it...
+            precondition(buf.count <= 1024) /* ahem */
+            self.dataLength = UInt32(buf.count).bigEndian
+            self.data_ptr.assign(from: buf.baseAddress!, count: buf.count)
+        } else {
+            // created msg here, converting from swift
+            self.dataLength = UInt32(from.data.count).bigEndian
+            self.data_ptr.assign(from: from.data, count: from.data.count)
+        }
     }
 }

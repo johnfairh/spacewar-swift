@@ -71,6 +71,26 @@ static inline void MsgClientBeginAuthentication_SetToken(MsgClientBeginAuthentic
     // can't set len -- endian
 }
 
+// MARK: Sub-protocols
+
+typedef struct {
+  uint32 messageType;
+  uint32 tokenLen;
+  char   token[1024];
+  uint64 steamID;
+} MsgP2PSendingTicket_t;
+
+ARRAY_GETTER(MsgP2PSendingTicket_t, token, uint8)
+
+typedef struct {
+    uint32 messageType;
+    uint32 dataLength;
+    uint64 fromSteamID;
+    uint8  data[1024];
+} MsgVoiceChatData_t;
+
+ARRAY_GETTER(MsgVoiceChatData_t, data, uint8)
+
 // MARK: Game, Server -> Client
 
 typedef struct {

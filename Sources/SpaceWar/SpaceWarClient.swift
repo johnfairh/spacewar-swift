@@ -38,8 +38,12 @@ final class SpaceWarClient {
     /// Component to manage peer-to-peer authentication
     private let p2pAuthedGame: P2PAuthedGame
 
-    /// A local server we mayt be running
+    /// A local server we may be running
     private var server: SpaceWarServer?
+
+    /// Pause menu
+    private var quitMenu: QuitMenu!
+    private var quitChoice: QuitMenuItem?
 
     /// Describe the actual game state from our point of view.  Data model is pretty shakey, valid
     /// parts strongly linked to game state...
@@ -76,13 +80,12 @@ final class SpaceWarClient {
         self.clientLayout = SpaceWarClientLayout(steam: steam, engine: engine)
         self.p2pAuthedGame = P2PAuthedGame(steam: steam, tickSource: engine, connection: clientConnection)
         self.server = nil
-
         self.gameState = GameState()
         self.sun = Sun(engine: engine)
 
-        //    // Initialize pause menu
-        //    m_pQuitMenu = new CQuitMenu( pGameEngine );
-        //
+        self.quitMenu = QuitMenu(engine: engine) {
+            self.quitChoice = $0
+        }
         //    m_nNumWorkshopItems = 0;
         //    for (uint32 i = 0; i < MAX_WORKSHOP_ITEMS; ++i)
         //    {
@@ -148,13 +151,15 @@ final class SpaceWarClient {
         case .connectionFailure:
             disconnect() // leave game_status rich presence where it was before I guess
 
+        case .quitMenu:
+            quitChoice = nil
+            fallthrough
+
         default:
             steam.friends.setRichPresence(gameStatus: .waitingForMatch)
         }
 
         steam.friends.setRichPresence(status: state.state.richPresenceStatus)
-
-        // update network-related rich presence state and steam_player_group
         clientConnection.updateRichPresence()
 
         //    // Let the stats handler check the state (so it can detect wins, losses, etc...)
@@ -194,9 +199,7 @@ final class SpaceWarClient {
             onStateChanged()
         }
 
-        if let serverName = clientConnection.serverName {
-            //    m_pQuitMenu->SetHeading( serverName ); XXX
-        }
+        clientConnection.serverName.map { quitMenu.heading = $0 }
 
         var frameRc = FrameRc.game
 
@@ -275,16 +278,25 @@ final class SpaceWarClient {
             sun.runFrame()
             gameState.ships.forEach { $0?.runFrame() }
 
-//            // Now draw the menu
-//            m_pQuitMenu->RunFrame();
+            // Now draw the menu
+            quitMenu.runFrame()
 
             // Make sure the Steam Controller is in the correct mode.
 //  XXX SteamInput          m_pGameEngine->SetSteamControllerActionSet( eControllerActionSet_MenuControls );
-            break;
+            if escapePressed {
+                state.set(.active) // hmm
+            }
+            if let quitChoice {
+                switch quitChoice {
+                case .mainMenu: frameRc = .mainMenu
+                case .quit: frameRc = .quit
+                case .resume: state.set(.active) // hmm
+                }
+            }
         }
 
         // Send an update on our local ship to the server
-        if clientConnection.isConnected,
+        if clientConnection.isFullyConnected,
            let ship = gameState.ships[gameState.playerShipIndex],
            let update = ship.getClientUpdateData() {
             let msg = MsgClientSendLocalUpdate(shipPosition: gameState.playerShipIndex, update: update)

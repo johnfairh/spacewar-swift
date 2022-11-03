@@ -139,6 +139,7 @@ final class SpaceWarServer {
 
     /// Destructor
     deinit {
+        OutputDebugString("SpaceWarServer deinit")
         activePlayers.forEach {
             // Tell this client we are exiting
             self.serverConnection.send(msg: MsgServerExiting(), to: $0.client, sendFlags: .unreliable)

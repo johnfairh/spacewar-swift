@@ -49,9 +49,9 @@ final class SpaceWarClientConnection {
     /// Hiding this for now, with some predicates...
     private var state: State
 
-    /// Are we connected to a server?
-    var isConnected: Bool {
-        state == .connectedPendingAuthentication || state == .connectedAndAuthenticated
+    /// Are we connected to a server and ready for game stuff
+    var isFullyConnected: Bool {
+        state == .connectedAndAuthenticated
     }
 
     /// Can we receive messages?

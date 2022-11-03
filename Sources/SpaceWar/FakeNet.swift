@@ -97,7 +97,7 @@ class FakeNet {
 
     static func send(from: SteamID, to: SteamID, data: UnsafeRawPointer, size: Int) {
         reportHook()
-        precondition(endpoints[to] != nil, "FakeSend to endpoint that doesn't exist \(to)")
+        // debug       precondition(endpoints[to] != nil, "FakeSend to endpoint that doesn't exist \(to)")
         endpoints[to]?.messages.send(msg: FakeClientMsg(sender: from, data: data, size: size))
     }
 
