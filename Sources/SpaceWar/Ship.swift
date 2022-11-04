@@ -48,6 +48,19 @@ final class Ship: SpaceWarEntity {
     /// sent to the server in response to each server update
     private var spaceWarClientUpdateData: ClientSpaceWarUpdateData
 
+    /// Get the name for this ship (only really works server side)
+    var playerName: String {
+        spaceWarClientUpdateData.playerName
+    }
+
+    /// Key bindings - set by client...
+
+    var vkLeft: VirtualKey?
+    var vkRight: VirtualKey?
+    var vkForwardThrusters: VirtualKey?
+    var vkReverseThrusters: VirtualKey?
+    var vkFire: VirtualKey?
+
     init(engine: Engine2D, isServerInstance: Bool, pos: SIMD2<Float>, color: Color2D) {
         forwardThrusters = ForwardThrusters(engine: engine)
         reverseThrusters = ReverseThrusters(engine: engine)
@@ -60,12 +73,7 @@ final class Ship: SpaceWarEntity {
         isLocalPlayer = false
         isExploding = false
         //      m_ulLastThrustStartedTickCount = 0;
-        //      m_dwVKLeft = 0;
-        //      m_dwVKRight = 0;
         //      m_nFade = 255;
-        //      m_dwVKForwardThrusters = 0;
-        //      m_dwVKReverseThrusters = 0;
-        //      m_dwVKFire = 0;
         //      m_ulLastPhotonTickCount = 0;
         //      m_bForwardThrustersActive = false;
         //      m_bReverseThrustersActive = false;
@@ -141,9 +149,8 @@ final class Ship: SpaceWarEntity {
         }
     }
 
+    // MARK: RunFrame
 
-    //  // Run a frame
-    //  void RunFrame();
     //    //-----------------------------------------------------------------------------
     //    // Purpose: Run a frame for the ship
     //    //-----------------------------------------------------------------------------
@@ -466,8 +473,9 @@ final class Ship: SpaceWarEntity {
     //          m_ForwardThrusters.RunFrame();
     //          m_ReverseThrusters.RunFrame();
     //        }
-    //
-    //
+
+    // MARK: Render
+
     //  // Render a frame
     //  void Render();
     //
@@ -585,7 +593,6 @@ final class Ship: SpaceWarEntity {
     /// 4 - CLIENT: GetClientUpdateData() --- transfer 'client update' and current physics to server
     /// 5 - SERVER: OnReceiveClientUpdate() --- store 'client update'
     /// 6 - SERVER: RunFrame() --- use 'client update' to calculate new physics, input, update truth
-
 
     /// Update entity with updated data from the server
     func onReceiveServerUpdate(data: ServerShipUpdateData) {
@@ -732,7 +739,8 @@ final class Ship: SpaceWarEntity {
     //        }
     //      }
     //    }
-    //
+
+    // MARK: Explosion and Debris
 
     /// Set whether the ship is exploding
     func setExploding(_ exploding: Bool) {
@@ -772,12 +780,33 @@ final class Ship: SpaceWarEntity {
     //      UpdateVibrationEffects();
         }
 
-    //    // Setters for key bindings
-    //    void SetVKBindingLeft( DWORD dwVKLeft ) { m_dwVKLeft = dwVKLeft; }
-    //    void SetVKBindingRight( DWORD dwVKRight ) { m_dwVKRight = dwVKRight; }
-    //    void SetVKBindingForwardThrusters( DWORD dwVKForward ) { m_dwVKForwardThrusters = dwVKForward; }
-    //    void SetVKBindingReverseThrusters( DWORD dwVKReverse ) { m_dwVKReverseThrusters = dwVKReverse; }
-    //    void SetVKBindingFire( DWORD dwVKFire ) { m_dwVKFire = dwVKFire; }
+    //    // Update the vibration effects for the ship
+    //    void UpdateVibrationEffects();
+    //    void CShip::UpdateVibrationEffects()
+    //    {
+    //      if ( m_ulExplosionTickCount > 0 )
+    //      {
+    //        float flVibration = MIN( ((float)(m_pGameEngine->GetGameTickCount() - m_ulExplosionTickCount) / 1000.0f), 1.0f );
+    //        if ( flVibration == 1.0f )
+    //        {
+    //          m_pGameEngine->TriggerControllerVibration( 0, 0 );
+    //          m_ulExplosionTickCount = 0;
+    //        }
+    //        else
+    //        {
+    //          m_pGameEngine->TriggerControllerVibration( (unsigned short)( ( 1.0f - flVibration ) * 48000.0f), (unsigned short)( ( 1.0f - flVibration ) * 24000.0f) );
+    //        }
+    //      }
+    //
+    //      bool bTriggerEffectEnabled = !BIsDisabled() && !BIsExploding();
+    //      if ( bTriggerEffectEnabled != m_bTriggerEffectEnabled )
+    //      {
+    //        m_pGameEngine->SetTriggerEffect( bTriggerEffectEnabled );
+    //        m_bTriggerEffectEnabled = bTriggerEffectEnabled;
+    //      }
+    //    }
+
+    // MARK: Photon Beams
 
     /// Check for photons which have hit the entity and destroy the photons
     func destroyPhotons(collidingWith target: VectorEntity) {
@@ -828,43 +857,6 @@ final class Ship: SpaceWarEntity {
     //    }
     //
     //
-    //    // Get the name for this ship (only really works server side)
-    //    const char* GetPlayerName();
-    //    //-----------------------------------------------------------------------------
-    //    // Purpose: Get the name for this ship (only really works server side)
-    //    //-----------------------------------------------------------------------------
-    //    const char* CShip::GetPlayerName()
-    //    {
-    //      return m_SpaceWarClientUpdateData.GetPlayerName();
-    //    }
-    //
-    //    // Update the vibration effects for the ship
-    //    void UpdateVibrationEffects();
-    //    void CShip::UpdateVibrationEffects()
-    //    {
-    //      if ( m_ulExplosionTickCount > 0 )
-    //      {
-    //        float flVibration = MIN( ((float)(m_pGameEngine->GetGameTickCount() - m_ulExplosionTickCount) / 1000.0f), 1.0f );
-    //        if ( flVibration == 1.0f )
-    //        {
-    //          m_pGameEngine->TriggerControllerVibration( 0, 0 );
-    //          m_ulExplosionTickCount = 0;
-    //        }
-    //        else
-    //        {
-    //          m_pGameEngine->TriggerControllerVibration( (unsigned short)( ( 1.0f - flVibration ) * 48000.0f), (unsigned short)( ( 1.0f - flVibration ) * 24000.0f) );
-    //        }
-    //      }
-    //
-    //      bool bTriggerEffectEnabled = !BIsDisabled() && !BIsExploding();
-    //      if ( bTriggerEffectEnabled != m_bTriggerEffectEnabled )
-    //      {
-    //        m_pGameEngine->SetTriggerEffect( bTriggerEffectEnabled );
-    //        m_bTriggerEffectEnabled = bTriggerEffectEnabled;
-    //      }
-    //    }
-    //
-    //
     //private:
     //
     //  // Last time we detected the thrust key go down
@@ -878,12 +870,6 @@ final class Ship: SpaceWarEntity {
     //
     //  // Current trigger effect state
     //  bool m_bTriggerEffectEnabled;
-    //
-    //  // is the ship exploding?
-    //  bool m_bExploding;
-    //
-    //  // is the ship disabled for now?
-    //  bool m_bDisabled;
     //
     //  // cloak fade out
     //  int m_nFade;
@@ -911,13 +897,6 @@ final class Ship: SpaceWarEntity {
     //
     //    // Track whether to draw the thrusters next render call
     //    bool m_bReverseThrustersActive;
-    //
-    //    // key bindings
-    //    DWORD m_dwVKLeft;
-    //    DWORD m_dwVKRight;
-    //    DWORD m_dwVKForwardThrusters;
-    //    DWORD m_dwVKReverseThrusters;
-    //    DWORD m_dwVKFire;
 }
 
 // MARK: Forward Thrusters

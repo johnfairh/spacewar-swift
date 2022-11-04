@@ -72,10 +72,10 @@ final class SpaceWarMain {
         starField = StarField(engine: engine)
 
         // Initialize main menu
-        mainMenu = MainMenu(engine: engine) { [weak self] in
+        mainMenu = MainMenu(engine: engine, onSelection: { [weak self] in
             OutputDebugString("Main menu selection: \($0)")
             self?.setGameState(.menuItem($0))
-        }
+        })
 
         //    // All the non-game screens
         //    m_pServerBrowser = new CServerBrowser( m_pGameEngine );

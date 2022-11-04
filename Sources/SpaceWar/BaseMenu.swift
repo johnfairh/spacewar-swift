@@ -24,6 +24,7 @@ class BaseMenu<ItemData: Equatable & MenuItemNamed> {
 
     private var items: [(String, ItemData)] // XXX tbd whether this text does need storing separately
     private var selectedItem: Int
+    private(set) var selectedMenuItem: ItemData?
     private var pushedSelection: ItemData?
     var heading: String
 
@@ -40,6 +41,12 @@ class BaseMenu<ItemData: Equatable & MenuItemNamed> {
         if Menu.font == nil {
             Menu.font = engine.createFont(style: .proportional, weight: .bold, height: Menu.FONT_HEIGHT)
         }
+    }
+
+    // Clear current selection, reset to top (otherwise selection persists on re-present)
+    func resetSelection() {
+        selectedItem = 0
+        selectedMenuItem = nil
     }
 
     // Clear all menu entries
@@ -88,7 +95,8 @@ class BaseMenu<ItemData: Equatable & MenuItemNamed> {
             if currentTickCount - 220 > Menu.lastReturnKeyTick {
                 Menu.lastReturnKeyTick = currentTickCount
                 if selectedItem < items.count {
-                    onSelection(items[selectedItem].1)
+                    selectedMenuItem = items[selectedItem].1
+                    onSelection(selectedMenuItem!)
                 }
             }
             // Check if we need to change the selected menu item
@@ -197,7 +205,7 @@ final class StaticMenu<MenuItemEnum> : BaseMenu<MenuItemEnum> where MenuItemEnum
         }
     }
 
-    init(engine: Engine2D, filter: @escaping (MenuItemEnum) -> Bool = { _ in true }, onSelection: @escaping (MenuItemEnum) -> Void) {
+    init(engine: Engine2D, filter: @escaping (MenuItemEnum) -> Bool = { _ in true }, onSelection: @escaping (MenuItemEnum) -> Void = {_ in }) {
         self.filter = filter
         super.init(engine: engine, onSelection: onSelection)
         populate()

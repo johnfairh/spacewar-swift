@@ -42,8 +42,7 @@ final class SpaceWarClient {
     private var server: SpaceWarServer?
 
     /// Pause menu
-    private var quitMenu: QuitMenu!
-    private var quitChoice: QuitMenuItem?
+    private let quitMenu: QuitMenu
 
     /// Describe the actual game state from our point of view.  Data model is pretty shakey, valid
     /// parts strongly linked to game state...
@@ -83,9 +82,7 @@ final class SpaceWarClient {
         self.gameState = GameState()
         self.sun = Sun(engine: engine)
 
-        self.quitMenu = QuitMenu(engine: engine) {
-            self.quitChoice = $0
-        }
+        self.quitMenu = QuitMenu(engine: engine)
         //    m_nNumWorkshopItems = 0;
         //    for (uint32 i = 0; i < MAX_WORKSHOP_ITEMS; ++i)
         //    {
@@ -152,7 +149,7 @@ final class SpaceWarClient {
             disconnect() // leave game_status rich presence where it was before I guess
 
         case .quitMenu:
-            quitChoice = nil
+            quitMenu.resetSelection()
             fallthrough
 
         default:
@@ -285,8 +282,7 @@ final class SpaceWarClient {
 //  XXX SteamInput          m_pGameEngine->SetSteamControllerActionSet( eControllerActionSet_MenuControls );
             if escapePressed {
                 state.set(.active) // hmm
-            }
-            if let quitChoice {
+            } else if let quitChoice = quitMenu.selectedMenuItem {
                 switch quitChoice {
                 case .mainMenu: frameRc = .mainMenu
                 case .quit: frameRc = .quit
@@ -480,19 +476,20 @@ final class SpaceWarClient {
             // Check if we have a ship created locally for this player slot, if not create it
             if gameState.ships[i] == nil {
                 let shipData = msg.shipData[i]
-                gameState.ships[i] = Ship(engine: engine,
-                                          isServerInstance: false,
-                                          pos: shipData.position * engine.viewportSize,
-                                          color: Misc.PlayerColors[i])
+                let ship = Ship(engine: engine,
+                                isServerInstance: false,
+                                pos: shipData.position * engine.viewportSize,
+                                color: Misc.PlayerColors[i])
+                gameState.ships[i] = ship
 
                 if i == gameState.playerShipIndex {
                     OutputDebugString("SpaceWarClient - Creating our local ship")
                     // If this is our local ship, then setup key bindings appropriately
-                    //                    m_rgpShips[i]->SetVKBindingLeft( 0x41 ); // A key
-                    //                    m_rgpShips[i]->SetVKBindingRight( 0x44 ); // D key
-                    //                    m_rgpShips[i]->SetVKBindingForwardThrusters( 0x57 ); // W key
-                    //                    m_rgpShips[i]->SetVKBindingReverseThrusters( 0x53 ); // S key
-                    //                    m_rgpShips[i]->SetVKBindingFire( VK_SPACE );
+                    ship.vkLeft = .printable("A")
+                    ship.vkRight = .printable("D")
+                    ship.vkForwardThrusters = .printable("W")
+                    ship.vkReverseThrusters = .printable("S")
+                    ship.vkFire = .printable(" ")
                 }
             }
 
