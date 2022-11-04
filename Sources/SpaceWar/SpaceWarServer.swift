@@ -43,11 +43,13 @@ final class SpaceWarServer {
         var score: UInt32
         let client: ClientToken
         let steamID: SteamID
-        init(ship: Ship, client: ClientToken, steamID: SteamID) {
+        let index: PlayerIndex
+        init(ship: Ship, client: ClientToken, steamID: SteamID, index: PlayerIndex) {
             self.ship = ship
             self.score = 0
             self.client = client
             self.steamID = steamID
+            self.index = index
         }
     }
     private var players: [Player?] // historical reasons indexed by PlayerIndex
@@ -56,6 +58,12 @@ final class SpaceWarServer {
     }
     private var activePlayerCount: Int {
         activePlayers.count
+    }
+    private func clientToIndex(_ client: ClientToken) -> PlayerIndex? {
+        players.firstIndex() { $0.map { $0.client == client } ?? false }
+    }
+    private func clientToPlayer(_ client: ClientToken) -> Player? {
+        clientToIndex(client).flatMap { players[$0] }
     }
     private var ships: some Collection<Ship?> {
         players.map { $0.map(\.ship) }
@@ -67,6 +75,9 @@ final class SpaceWarServer {
 
     /// Server tick scheduler
     private var serverTick: Debounced
+
+    /// Sun object (for collisions?)
+    private var sun: Sun
 
     // MARK: Initialization
 
@@ -124,11 +135,7 @@ final class SpaceWarServer {
         playerWhoWonGame = 0
 
         serverTick = Debounced(debounce: 1000 / Misc.SERVER_UPDATE_SEND_RATE, sample: { true })
-
-    //
-    //      // Initialize sun
-    //      m_pSun = new CSun( pGameEngine );
-
+        sun = Sun(engine: engine)
         serverConnection = SpaceWarServerConnection(steam: steam, tickSource: engine, serverName: name)
         isConnectedToSteam = false
 
@@ -212,20 +219,17 @@ final class SpaceWarServer {
             }
 
         case .active:
-            //          // Update all the entities...
-            //          m_pSun->RunFrame();
+            // Update all the entities...
+            sun.runFrame()
             activePlayers.forEach { $0.ship.runFrame() }
-            //
-            //          // Check for collisions which could lead to a winner this round
-            //          CheckForCollisions();
+            // Check for collisions which could lead to a winner this round
+            checkForCollisions()
 
         case .draw, .winner:
-            //        // Update all the entities...
-            //        m_pSun->RunFrame();
+            // Update all the entities...
+            sun.runFrame()
             activePlayers.forEach { $0.ship.runFrame() }
-            //
-            //        // NOTE: no collision detection, because the round is really over, objects are now invulnerable
-            //
+            // NOTE: no collision detection, because the round is really over, objects are now invulnerable
             // After 5 seconds start the next round
             if engine.currentTickCount.isLongerThan(Misc.MILLISECONDS_BETWEEN_ROUNDS, since: state.transitionTime) {
                 resetPlayerShips()
@@ -277,7 +281,7 @@ final class SpaceWarServer {
         // Add a new ship, make it dead immediately
         let ship = addPlayerShip(shipPosition: playerIndex)
         ship.isDisabled = true
-        players[playerIndex] = Player(ship: ship, client: client, steamID: steamID)
+        players[playerIndex] = Player(ship: ship, client: client, steamID: steamID, index: playerIndex)
         OutputDebugString("SpaceWarServer added new player")
 
         // If we just got the second player, immediately reset round as a draw.  This will prevent
@@ -292,7 +296,7 @@ final class SpaceWarServer {
 
     /// Server callback to notify a previously 'authsuccess' client has disconnected
     func connectDisconnected(client: ClientToken) {
-        guard let playerIndex = players.firstIndex(where: { $0.map { $0.client == client } ?? false }) else {
+        guard let playerIndex = clientToIndex(client) else {
             preconditionFailure("Disconnecting client not known \(client)")
         }
 
@@ -302,7 +306,6 @@ final class SpaceWarServer {
     /// Adds/initializes a new player ship at the given position
     private func addPlayerShip(shipPosition: PlayerIndex) -> Ship {
         precondition(shipPosition < Misc.MAX_PLAYERS_PER_SERVER)
-        precondition(players[shipPosition] == nil)
 
         let size = engine.viewportSize
         let offset = size * 0.12
@@ -356,102 +359,77 @@ final class SpaceWarServer {
 
     // MARK: Game Logic
 
-    //  // Checks various game objects for collisions and updates state appropriately if they have occurred
-    //  void CheckForCollisions();
-    //    //-----------------------------------------------------------------------------
-    //    // Purpose: Checks various game objects for collisions and updates state
-    //    //      appropriately if they have occurred
-    //    //-----------------------------------------------------------------------------
-    //    void CSpaceWarServer::CheckForCollisions()
-    //    {
-    //      // Make the ships check their photons for ones that have hit the sun and remove
-    //      // them before we go and check for them hitting the opponent
-    //      for ( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
-    //      {
-    //        if ( m_rgpShips[i] )
-    //          m_rgpShips[i]->DestroyPhotonsColldingWith( m_pSun );
-    //      }
-    //
-    //      // Array to track who exploded, can't set the ship exploding within the loop below,
-    //      // or it will prevent that ship from colliding with later ships in the sequence
-    //      bool rgbExplodingShips[MAX_PLAYERS_PER_SERVER];
-    //      memset( rgbExplodingShips, 0, sizeof( rgbExplodingShips ) );
-    //
-    //      // Check each ship for colliding with the sun or another ships photons
-    //      for ( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
-    //      {
-    //        // If the pointer is invalid skip the ship
-    //        if ( !m_rgpShips[i] )
-    //          continue;
-    //
-    //        if ( m_rgpShips[i]->BCollidesWith( m_pSun ) )
-    //        {
-    //          rgbExplodingShips[i] |= 1;
-    //        }
-    //
-    //        for( uint32 j=0; j<MAX_PLAYERS_PER_SERVER; ++j )
-    //        {
-    //          // Don't check against your own photons, or NULL pointers!
-    //          if ( j == i || !m_rgpShips[j] )
-    //            continue;
-    //
-    //          rgbExplodingShips[i] |= m_rgpShips[i]->BCollidesWith( m_rgpShips[j] );
-    //          if ( m_rgpShips[j]->BCheckForPhotonsCollidingWith( m_rgpShips[i] ) )
-    //          {
-    //            if ( m_rgpShips[i]->GetShieldStrength() > 200 )
-    //            {
-    //              // Shield protects from the hit
-    //              m_rgpShips[i]->SetShieldStrength( 0 );
-    //              m_rgpShips[j]->DestroyPhotonsColldingWith( m_rgpShips[i] );
-    //            }
-    //            else
-    //            {
-    //              rgbExplodingShips[i] |= 1;
-    //            }
-    //          }
-    //        }
-    //      }
-    //
-    //      for ( uint32 i=0; i<MAX_PLAYERS_PER_SERVER; ++i )
-    //      {
-    //        if ( rgbExplodingShips[i] && m_rgpShips[i] )
-    //          m_rgpShips[i]->SetExploding( true );
-    //      }
-    //
-    //        // Count how many ships are active, and how many are exploding
-    //        uint32 uActiveShips = 0;
-    //        uint32 uShipsExploding = 0;
-    //        uint32 uLastShipFoundAlive = 0;
-    //        for ( uint32 i = 0; i < MAX_PLAYERS_PER_SERVER; ++i )
-    //        {
-    //          if ( m_rgpShips[i] )
-    //          {
-    //            // Disabled ships don't count at all
-    //            if ( m_rgpShips[i]->BIsDisabled() )
-    //              continue;
-    //
-    //            ++uActiveShips;
-    //
-    //            if ( m_rgpShips[i]->BIsExploding() )
-    //              ++uShipsExploding;
-    //            else
-    //              uLastShipFoundAlive = i;
-    //          }
-    //        }
-    //
-    //        // If exploding == active, then its a draw, everyone is dead
-    //        if ( uActiveShips == uShipsExploding )
-    //        {
-    //          SetGameState( k_EServerDraw );
-    //        }
-    //        else if ( uActiveShips > 1 && uActiveShips - uShipsExploding == 1 )
-    //        {
-    //          // If only one ship is alive they win
-    //          m_uPlayerWhoWonGame = uLastShipFoundAlive;
-    //          m_rguPlayerScores[uLastShipFoundAlive]++;
-    //          SetGameState( k_EServerWinner );
-    //        }
-    //      }
+    /// Checks various game objects for collisions and updates state appropriately if they have occurred
+    private func checkForCollisions() {
+        // Make the ships check their photons for ones that have hit the sun and remove
+        // them before we go and check for them hitting the opponent
+        ships.forEach { $0?.destroyPhotons(collidingWith: sun) }
+
+        // Array to track who exploded, can't set the ship exploding within the loop below,
+        // or it will prevent that ship from colliding with later ships in the sequence
+        var explodingShips: Set<PlayerIndex> = []
+
+        // Check each ship for colliding with the sun or another ships photons
+        ships.enumerated().forEach { i, ship in
+            // If the pointer is invalid skip the ship
+            guard let ship else {
+                return
+            }
+
+            if ship.collides(with: sun) {
+                explodingShips.insert(i)
+            }
+
+            ships.enumerated().forEach { j, otherShip in
+                guard let otherShip, j != i else {
+                    // Don't check against your own photons, or NULL pointers!
+                    return
+                }
+
+                if ship.collides(with: otherShip) {
+                    explodingShips.insert(i)
+                }
+                if otherShip.checkForPhotons(collidingWith: ship) {
+                    if ship.shieldStrength > 200 {
+                        // Shield protects from the hit
+                        ship.shieldStrength = 0
+                        otherShip.destroyPhotons(collidingWith: ship)
+                    } else {
+                        explodingShips.insert(i)
+                    }
+                }
+            }
+            explodingShips.forEach {
+                players[$0]!.ship.setExploding(true)
+            }
+
+            if let gameState = lookForWinner() {
+                state.set(gameState)
+            }
+        }
+    }
+
+    func lookForWinner() -> State? {
+        let couldBeWinners = activePlayers.filter { !$0.ship.isDisabled }
+        let exploded = couldBeWinners.filter { $0.ship.isExploding }
+
+        if exploded.count == couldBeWinners.count {
+            OutputDebugString("SpaceWarServer All exploded, declaring draw")
+            return .draw
+        }
+
+        guard couldBeWinners.count > 1, // Can't be a winner on your own
+              exploded.count + 1 < couldBeWinners.count else { // still players
+            return nil
+        }
+
+        let winner = activePlayers.first(where: { !$0.ship.isExploding })!
+        OutputDebugString("SpaceWarServer One left, declaring winner \(winner.index)")
+        playerWhoWonGame = winner.index
+        playerScores[playerWhoWonGame] += 1
+        OutputDebugString("SpaceWarServer New scores: \(playerScores)")
+        return .winner
+    }
 
     // MARK: Game state send/receive
 
@@ -498,41 +476,25 @@ final class SpaceWarServer {
                     return
                 }
                 onReceiveClientUpdateData(client: client, msg: MsgClientSendLocalUpdate(data: data))
-                //        case k_EMsgVoiceChatData:
-                //        {
-                //          // Received voice chat messages, broadcast to all other players
-                //          MsgVoiceChatData_t *pMsg = (MsgVoiceChatData_t *)message->GetData();
-                //          pMsg->SetSteamID( message->m_identityPeer.GetSteamID() ); // Make sure sender steam ID is set.
-                //          SendMessageToAll( connection, pMsg, message->GetSize() );
-                //          break;
-                //        }
-                //        case k_EMsgP2PSendingTicket:
-                //        {
-                //          // Received a P2P auth ticket, forward it to the intended recipient
-                //          MsgP2PSendingTicket_t msgP2PSendingTicket;
-                //          memcpy(&msgP2PSendingTicket, message->GetData(), sizeof(MsgP2PSendingTicket_t));
-                //          CSteamID toSteamID = msgP2PSendingTicket.GetSteamID();
-                //
-                //          HSteamNetConnection toHConn = 0;
-                //          for (int j = 0; j < MAX_PLAYERS_PER_SERVER; j++)
-                //          {
-                //            if ( toSteamID == m_rgClientData[j].m_SteamIDUser )
-                //            {
-                //
-                //              // Mutate the message, replacing the destination SteamID with the sender's SteamID
-                //              msgP2PSendingTicket.SetSteamID( message->m_identityPeer.GetSteamID64() );
-                //
-                //              SteamNetworkingSockets()->SendMessageToConnection( m_rgClientData[j].m_hConn, &msgP2PSendingTicket, sizeof(msgP2PSendingTicket), k_nSteamNetworkingSend_Reliable, nullptr );
-                //              break;
-                //            }
-                //          }
-                //
-                //          if (toHConn == 0)
-                //          {
-                //            OutputDebugString("msgP2PSendingTicket received with no valid target to send to.");
-                //          }
-                //        }
-                //        break;
+
+            case .voiceChatData:
+                // Received voice chat messages, broadcast to all other players
+                var msg = MsgVoiceChatData(data: data)
+                msg.steamID = clientToPlayer(client)!.steamID // Make sure sender steam ID is set.
+                serverConnection.sendToAll(msg: msg, except: client, sendFlags: .reliable)
+
+            case .P2PSendingTicket:
+                // Received a P2P auth ticket, forward it to the intended recipient
+                var msg = MsgP2PSendingTicket(data: data)
+                let toSteamID = msg.steamID
+                guard let dstPlayer = activePlayers.first(where: { $0.steamID == toSteamID }) else {
+                    OutputDebugString("msgP2PSendingTicket received with no valid target to send to.")
+                    break
+                }
+                // Mutate the message, replacing the destination SteamID with the sender's SteamID
+                msg.steamID = clientToPlayer(client)!.steamID
+                serverConnection.send(msg: msg, to: dstPlayer.client, sendFlags: .reliable)
+
             default:
                 OutputDebugString("SpaceWarServer Unexpected message \(msg)")
             }
@@ -554,9 +516,7 @@ final class SpaceWarServer {
 
     /// Called every frame to tell Steam about the game & players
     private func sendUpdatedServerDetailsToSteam() {
-        //
         // Set state variables, relevant to any master server updates or client pings
-        //
 
         // These server state variables may be changed at any time.  Note that there is no lnoger a mechanism
         // to send the player count.  The player count is maintained by steam and you should use the player
@@ -581,7 +541,4 @@ final class SpaceWarServer {
         //SteamMasterServerUpdater()->SetKeyValue( "rule1_setting", "value" );
         //SteamMasterServerUpdater()->SetKeyValue( "rule2_setting", "value2" );
     }
-
-    //    // Sun instance
-    //    CSun *m_pSun;
 }

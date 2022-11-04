@@ -29,12 +29,17 @@ final class Ship: SpaceWarEntity {
     }
     /// Decoration for this ship
     private var shipDecoration: Decoration?
+    /// Shield strength
+    var shieldStrength: Int
 
     /// If server then not local; if !server then can be local OR another client's model
     var isLocalPlayer: Bool
 
-    /// Is the ship dead?
+    /// Is the ship part of the game?
     var isDisabled: Bool
+
+    /// Is the ship exploding?
+    private(set) var isExploding: Bool
 
     /// Server update scheduler
     private var clientUpdateTick: Debounced
@@ -50,9 +55,10 @@ final class Ship: SpaceWarEntity {
         shipColor = color
         self.isServerInstance = isServerInstance
         shipDecoration = nil
+        shieldStrength = 0
         isDisabled = false
         isLocalPlayer = false
-        //      m_bExploding = false;
+        isExploding = false
         //      m_ulLastThrustStartedTickCount = 0;
         //      m_dwVKLeft = 0;
         //      m_dwVKRight = 0;
@@ -67,7 +73,6 @@ final class Ship: SpaceWarEntity {
         //      m_nShipPower = 0;
         //      m_nShipWeapon = 0;
         //      m_hTextureWhite = 0;
-        //      m_nShipShieldStrength = 0;
         //      m_ulExplosionTickCount = 0;
         //      m_bTriggerEffectEnabled = false;
         //
@@ -590,9 +595,7 @@ final class Ship: SpaceWarEntity {
         }
 
         isDisabled = data.isDisabled
-    // XXX       SetExploding( pUpdateData->GetExploding() );
-
-
+        setExploding(data.isExploding)
         pos = data.position * engine.viewportSize
         velocity = data.velocity
         accumulatedRotation = data.currentRotation
@@ -604,10 +607,9 @@ final class Ship: SpaceWarEntity {
     //            m_nShipDecoration = pUpdateData->GetDecoration();
     //            BuildGeometry();
     //        }
-    //        if ( !m_bIsLocalPlayer || pUpdateData->GetShieldStrength() == 0 )
-    //        {
-    //            m_nShipShieldStrength = pUpdateData->GetShieldStrength();
-    //        }
+        if !isLocalPlayer || data.shieldStrength == 0 {
+            shieldStrength = data.shieldStrength
+        }
     //
     //        m_bForwardThrustersActive = pUpdateData->GetForwardThrustersActive();
     //        m_bReverseThrustersActive = pUpdateData->GetReverseThrustersActive();
@@ -651,7 +653,7 @@ final class Ship: SpaceWarEntity {
         shipDecoration = Decoration(rawValue: data.shipDecoration)
         // XXX     m_nShipPower = pUpdateData->GetPower();
         //      m_nShipWeapon = pUpdateData->GetWeapon();
-        //      m_nShipShieldStrength = pUpdateData->GetShieldStrength();
+        shieldStrength = data.shieldStrength
 
         spaceWarClientUpdateData = data
     }
@@ -669,7 +671,7 @@ final class Ship: SpaceWarEntity {
             spaceWarClientUpdateData.shipDecoration = shipDecoration?.rawValue ?? 0
 //  XXX          spaceWarClientUpdateData.shipWeapon = shipWeapon
 //            spaceWarClientUpdateData.shipPower = shipPower
-//            spaceWarClientUpdateData.shieldStrength = shipShieldStrength
+            spaceWarClientUpdateData.shieldStrength = shieldStrength
         }
 
         defer { spaceWarClientUpdateData = .init() }
@@ -684,25 +686,23 @@ final class Ship: SpaceWarEntity {
                              velocity: velocity,
                              position: .init(pos.x / engine.viewportSize.x,
                                              pos.y / engine.viewportSize.y),
-//                             isExploding: <#T##Bool#>,
-                             isDisabled: isDisabled
+                             isExploding: isExploding,
+                             isDisabled: isDisabled,
 //                             areForwardThrustersActive: <#T##Bool#>,
 //                             areReverseThrustersActive: <#T##Bool#>,
 //                             decoration: <#T##Int#>,
 //                             weapon: <#T##Int#>,
 //                             shipPower: <#T##Int#>,
-//                             shieldStrength: <#T##Int#>,
+                             shieldStrength: shieldStrength
 //                             photonBeamData: <#T##[ServerPhotonBeamUpdateData]#>,
 //                             thrusterLevel: <#T##Float#>,
 //                             turnSpeed: <#T##Float#>
         )
-        //      pUpdateData->SetExploding( BIsExploding() );
         //      pUpdateData->SetForwardThrustersActive( m_bForwardThrustersActive );
         //      pUpdateData->SetReverseThrustersActive( m_bReverseThrustersActive );
         //      pUpdateData->SetDecoration( m_nShipDecoration );
         //      pUpdateData->SetWeapon( m_nShipWeapon );
         //      pUpdateData->SetPower( m_nShipPower );
-        //      pUpdateData->SetShieldStrength( m_nShipShieldStrength );
         //
         //      BuildServerPhotonBeamUpdate( pUpdateData );
     }
@@ -733,14 +733,9 @@ final class Ship: SpaceWarEntity {
     //      }
     //    }
     //
-    //
-    //    // Set whether the ship is exploding
-    //    void SetExploding( bool bExploding );
-    //    //-----------------------------------------------------------------------------
-    //    // Purpose: Set whether the ship is exploding
-    //    //-----------------------------------------------------------------------------
-    //    void CShip::SetExploding( bool bExploding )
-    //    {
+
+    /// Set whether the ship is exploding
+    func setExploding(_ exploding: Bool) {
     //      // If we are already in the specified state, no need to do the below work
     //      if ( m_bExploding == bExploding )
     //      {
@@ -775,22 +770,17 @@ final class Ship: SpaceWarEntity {
     //      }
     //
     //      UpdateVibrationEffects();
-    //    }
-    //
+        }
+
     //    // Setters for key bindings
     //    void SetVKBindingLeft( DWORD dwVKLeft ) { m_dwVKLeft = dwVKLeft; }
     //    void SetVKBindingRight( DWORD dwVKRight ) { m_dwVKRight = dwVKRight; }
     //    void SetVKBindingForwardThrusters( DWORD dwVKForward ) { m_dwVKForwardThrusters = dwVKForward; }
     //    void SetVKBindingReverseThrusters( DWORD dwVKReverse ) { m_dwVKReverseThrusters = dwVKReverse; }
     //    void SetVKBindingFire( DWORD dwVKFire ) { m_dwVKFire = dwVKFire; }
-    //
-    //    // Check for photons which have hit the entity and destroy the photons
-    //    void DestroyPhotonsColldingWith( CVectorEntity *pTarget );
-    //    //-----------------------------------------------------------------------------
-    //    // Purpose: Check for photons which have hit the target and remove them
-    //    //-----------------------------------------------------------------------------
-    //    void CShip::DestroyPhotonsColldingWith( CVectorEntity *pTarget )
-    //    {
+
+    /// Check for photons which have hit the entity and destroy the photons
+    func destroyPhotons(collidingWith target: VectorEntity) {
     //      for( int i=0; i < MAX_PHOTON_BEAMS_PER_SHIP; ++i )
     //      {
     //        if ( !m_rgPhotonBeams[i] )
@@ -803,33 +793,27 @@ final class Ship: SpaceWarEntity {
     //          m_rgPhotonBeams[i] = NULL;
     //        }
     //      }
-    //    }
-    //
-    //    // Check whether any of the photons this ship has fired are colliding with the target
-    //    bool BCheckForPhotonsCollidingWith( CVectorEntity *pTarget );
-    //    //-----------------------------------------------------------------------------
-    //    // Purpose: Check whether any of the photons this ship has fired are colliding with the target
-    //    //-----------------------------------------------------------------------------
-    //    bool CShip::BCheckForPhotonsCollidingWith( CVectorEntity *pTarget )
-    //    {
-    //      for( int i=0; i < MAX_PHOTON_BEAMS_PER_SHIP; ++i )
-    //      {
-    //        if ( !m_rgPhotonBeams[i] )
-    //          continue;
-    //
-    //        if ( m_rgPhotonBeams[i]->BCollidesWith( pTarget ) )
-    //        {
-    //          return true;
-    //        }
-    //      }
-    //
-    //      return false;
-    //    }
-    //
-    //
-    //    // Check if the ship is currently exploding
-    //    bool BIsExploding() { return m_bExploding; }
-    //
+        }
+
+    /// Check whether any of the photons this ship has fired are colliding with the target
+    func checkForPhotons(collidingWith target: VectorEntity) -> Bool {
+        //    {
+        //      for( int i=0; i < MAX_PHOTON_BEAMS_PER_SHIP; ++i )
+        //      {
+        //        if ( !m_rgPhotonBeams[i] )
+        //          continue;
+        //
+        //        if ( m_rgPhotonBeams[i]->BCollidesWith( pTarget ) )
+        //        {
+        //          return true;
+        //        }
+        //      }
+        //
+        //      return false;
+        //    }
+        return false
+    }
+
     //    // Accumulate stats for this ship
     //    void AccumulateStats( CStatsAndAchievements *pStats );
     //    //-----------------------------------------------------------------------------
@@ -853,10 +837,6 @@ final class Ship: SpaceWarEntity {
     //    {
     //      return m_SpaceWarClientUpdateData.GetPlayerName();
     //    }
-    //
-    //
-    //    int GetShieldStrength() { return m_nShipShieldStrength;  }
-    //    void SetShieldStrength( int strength ) { m_nShipShieldStrength = strength; }
     //
     //    // Update the vibration effects for the ship
     //    void UpdateVibrationEffects();
@@ -919,9 +899,6 @@ final class Ship: SpaceWarEntity {
     //
     //  // Power for this ship
     //  int m_nShipPower;
-    //
-    //    // Power for this ship
-    //    int m_nShipShieldStrength;
     //
     //    HGAMETEXTURE m_hTextureWhite;
     //
