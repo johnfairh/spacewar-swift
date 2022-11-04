@@ -746,7 +746,7 @@ final class Ship: SpaceWarEntity {
     //      Steamworks_TestSecret();
     //
     //      // Track that we are exploding, and disable collision detection
-    //      m_bExploding = bExploding;
+        isExploding = exploding
     //      SetCollisionDetectionDisabled( m_bExploding );
     //
     //      if ( bExploding )

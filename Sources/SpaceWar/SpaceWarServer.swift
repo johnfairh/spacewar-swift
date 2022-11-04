@@ -399,13 +399,13 @@ final class SpaceWarServer {
                     }
                 }
             }
-            explodingShips.forEach {
-                players[$0]!.ship.setExploding(true)
-            }
-
-            if let gameState = lookForWinner() {
-                state.set(gameState)
-            }
+        }
+        explodingShips.forEach {
+            players[$0]!.ship.setExploding(true)
+        }
+        
+        if let gameState = lookForWinner() {
+            state.set(gameState)
         }
     }
 
