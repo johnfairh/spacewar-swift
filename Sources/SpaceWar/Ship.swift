@@ -6,16 +6,11 @@
 import MetalEngine
 import simd
 
-
-//#define MAXIMUM_SHIP_THRUST 150
-//
-//#define SHIP_DEBRIS_PIECES 6
-//
-
 final class Ship: SpaceWarEntity {
     let forwardThrusters: ForwardThrusters
     let reverseThrusters: ReverseThrusters
 
+    static let MAXIMUM_SHIP_THRUST = 150
     let shipColor: Color2D
     /// Is this ship instance running inside the server (otherwise it's a client...)
     let isServerInstance: Bool
@@ -40,6 +35,12 @@ final class Ship: SpaceWarEntity {
 
     /// Is the ship exploding?
     private(set) var isExploding: Bool
+    /// Debris to draw after an explosion
+    private var debrisList: [ShipDebris]
+    /// When we exploded
+    private var explosionTickCount: TickSource.TickCount
+    /// Current trigger effect state
+    private var isTriggerEffectEnabled: Bool
 
     /// Server update scheduler
     private var clientUpdateTick: Debounced
@@ -54,7 +55,6 @@ final class Ship: SpaceWarEntity {
     }
 
     /// Key bindings - set by client...
-
     var vkLeft: VirtualKey?
     var vkRight: VirtualKey?
     var vkForwardThrusters: VirtualKey?
@@ -72,6 +72,7 @@ final class Ship: SpaceWarEntity {
         isDisabled = false
         isLocalPlayer = false
         isExploding = false
+        debrisList = []
         //      m_ulLastThrustStartedTickCount = 0;
         //      m_nFade = 255;
         //      m_ulLastPhotonTickCount = 0;
@@ -81,9 +82,9 @@ final class Ship: SpaceWarEntity {
         //      m_nShipPower = 0;
         //      m_nShipWeapon = 0;
         //      m_hTextureWhite = 0;
-        //      m_ulExplosionTickCount = 0;
-        //      m_bTriggerEffectEnabled = false;
-        //
+        explosionTickCount = 0
+        isTriggerEffectEnabled = false
+
         spaceWarClientUpdateData = ClientSpaceWarUpdateData()
         //
         //      for( int i=0; i < MAX_PHOTON_BEAMS_PER_SHIP; ++i )
@@ -106,9 +107,9 @@ final class Ship: SpaceWarEntity {
         // XXX SteamInput m_pGameEngine->SetControllerColor( 0, 0, 0, k_ESteamControllerLEDFlag_RestoreUserDefault );
 
         // Turn off trigger effect
-        //if triggerEffectEnabled {
-        // XXX SteamInput m_pGameEngine->SetTriggerEffect(false)
-        //}
+        if isTriggerEffectEnabled {
+            // XXX SteamInput m_pGameEngine->SetTriggerEffect(false)
+        }
     }
 
     /// Set the initial rotation for the ship
@@ -151,13 +152,11 @@ final class Ship: SpaceWarEntity {
 
     // MARK: RunFrame
 
-    //    //-----------------------------------------------------------------------------
-    //    // Purpose: Run a frame for the ship
-    //    //-----------------------------------------------------------------------------
-    //    void CShip::RunFrame()
-    //    {
-    //      if ( m_bDisabled )
-    //        return;
+    /// Run a frame for the ship
+    override func runFrame() {
+        guard !isDisabled else {
+            return
+        }
     //
     //      const uint64 ulCurrentTickCount = m_pGameEngine->GetGameTickCount();
     //
@@ -185,12 +184,9 @@ final class Ship: SpaceWarEntity {
     //          m_rgPhotonBeams[i]->RunFrame();
     //      }
     //
-    //      // run all the space debris
-    //      {
-    //        std::list<CShipDebris *>::iterator iter;
-    //        for( iter = m_ListDebris.begin(); iter != m_ListDebris.end(); ++iter )
-    //          (*iter)->RunFrame();
-    //      }
+        // run all the space debris
+        debrisList.forEach { $0.runFrame() }
+
     //        if ( m_bIsLocalPlayer )
     //        {
     //          m_SpaceWarClientUpdateData.SetTurnLeftPressed( false );
@@ -467,28 +463,23 @@ final class Ship: SpaceWarEntity {
     //            }
     //          }
     //
-    //          CSpaceWarEntity::RunFrame();
+        super.runFrame()
     //
     //          // Finally, update the thrusters ( we do this after the base class call as they rely on our data being fully up-to-date)
     //          m_ForwardThrusters.RunFrame();
     //          m_ReverseThrusters.RunFrame();
-    //        }
+    }
 
     // MARK: Render
 
-    //  // Render a frame
-    //  void Render();
-    //
-    //    //-----------------------------------------------------------------------------
-    //    // Purpose: Render the ship
-    //    //-----------------------------------------------------------------------------
-    //    void CShip::Render()
-    //    {
+    /// Render the ship
+    override func render(overrideColor: Color2D? = nil) {
     //      int beamCount = 0;
     //
-    //      if ( m_bDisabled )
-    //        return;
-    //
+        guard !isDisabled else {
+            return
+        }
+
     //      // render all the photon beams we have outstanding
     //      for ( int i = 0; i < MAX_PHOTON_BEAMS_PER_SHIP; ++i )
     //      {
@@ -500,14 +491,11 @@ final class Ship: SpaceWarEntity {
     //      }
     //
     //
-    //      if ( m_bExploding )
-    //      {
-    //        // Don't draw actual ship, instead draw the pieces created in the explosion
-    //        std::list<CShipDebris *>::iterator iter;
-    //        for ( iter = m_ListDebris.begin(); iter != m_ListDebris.end(); ++iter )
-    //          ( *iter )->Render();
-    //        return;
-    //      }
+        guard !isExploding else {
+            // Don't draw actual ship, instead draw the pieces created in the explosion
+            debrisList.forEach { $0.render() }
+            return
+        }
     //
     //      // Check if we should be drawing thrusters
     //      if ( m_bForwardThrustersActive )
@@ -582,8 +570,8 @@ final class Ship: SpaceWarEntity {
     //          m_nShipShieldStrength = 0;
     //        }
     //
-    //        CSpaceWarEntity::Render(actualColor);
-    //      }
+        super.render(overrideColor: nil /* actualColor XXX */)
+    }
 
     // MARK: Client/Server data exchange
 
@@ -742,69 +730,53 @@ final class Ship: SpaceWarEntity {
 
     // MARK: Explosion and Debris
 
+    static let SHIP_DEBRIS_PIECES = 6
+
     /// Set whether the ship is exploding
     func setExploding(_ exploding: Bool) {
-    //      // If we are already in the specified state, no need to do the below work
-    //      if ( m_bExploding == bExploding )
-    //      {
-    //        UpdateVibrationEffects();
-    //        return;
-    //      }
-    //
-    //      Steamworks_TestSecret();
-    //
-    //      // Track that we are exploding, and disable collision detection
-        isExploding = exploding
-    //      SetCollisionDetectionDisabled( m_bExploding );
-    //
-    //      if ( bExploding )
-    //      {
-    //        m_ulExplosionTickCount = m_pGameEngine->GetGameTickCount();
-    //
-    //        for( int i = 0; i < SHIP_DEBRIS_PIECES; ++i )
-    //        {
-    //          CShipDebris * pDebris = new CShipDebris( m_pGameEngine, GetXPos(), GetYPos(), m_dwShipColor );
-    //          m_ListDebris.push_back( pDebris );
-    //        }
-    //      }
-    //      else
-    //      {
-    //        m_ulExplosionTickCount = 0;
-    //
-    //        std::list<CShipDebris *>::iterator iter;
-    //        for( iter = m_ListDebris.begin(); iter != m_ListDebris.end(); ++iter )
-    //          delete *iter;
-    //        m_ListDebris.clear();
-    //      }
-    //
-    //      UpdateVibrationEffects();
+        defer { updateVibrationEffects() }
+
+        // If we are already in the specified state, no need to do the below work
+        guard exploding != isExploding else {
+            return
         }
 
-    //    // Update the vibration effects for the ship
-    //    void UpdateVibrationEffects();
-    //    void CShip::UpdateVibrationEffects()
-    //    {
-    //      if ( m_ulExplosionTickCount > 0 )
-    //      {
-    //        float flVibration = MIN( ((float)(m_pGameEngine->GetGameTickCount() - m_ulExplosionTickCount) / 1000.0f), 1.0f );
-    //        if ( flVibration == 1.0f )
-    //        {
-    //          m_pGameEngine->TriggerControllerVibration( 0, 0 );
-    //          m_ulExplosionTickCount = 0;
-    //        }
-    //        else
-    //        {
-    //          m_pGameEngine->TriggerControllerVibration( (unsigned short)( ( 1.0f - flVibration ) * 48000.0f), (unsigned short)( ( 1.0f - flVibration ) * 24000.0f) );
-    //        }
-    //      }
-    //
-    //      bool bTriggerEffectEnabled = !BIsDisabled() && !BIsExploding();
-    //      if ( bTriggerEffectEnabled != m_bTriggerEffectEnabled )
-    //      {
-    //        m_pGameEngine->SetTriggerEffect( bTriggerEffectEnabled );
-    //        m_bTriggerEffectEnabled = bTriggerEffectEnabled;
-    //      }
-    //    }
+        Steamworks_TestSecret();
+
+        // Track that we are exploding, and disable collision detection
+        isExploding = exploding
+        collisionDetectionDisabled = isExploding
+
+        if exploding {
+            explosionTickCount = engine.gameTickCount
+            for _ in 0..<Self.SHIP_DEBRIS_PIECES {
+                debrisList.append(ShipDebris(engine: engine, pos: pos, debrisColor: shipColor))
+            }
+        } else {
+            explosionTickCount = 0
+            debrisList = []
+        }
+    }
+
+    /// Update the vibration effects for the ship
+    func updateVibrationEffects() {
+        if explosionTickCount > 0 {
+            let vibration = min(Float(engine.gameTickCount - explosionTickCount) / 1000.0, 1.0)
+            if vibration == 1.0 {
+                //  XXX steaminput        m_pGameEngine->TriggerControllerVibration( 0, 0 );
+                explosionTickCount = 0
+            } else {
+                // XXX steaminput
+                //          m_pGameEngine->TriggerControllerVibration( (unsigned short)( ( 1.0f - flVibration ) * 48000.0f), (unsigned short)( ( 1.0f - flVibration ) * 24000.0f) );
+            }
+        }
+
+        let triggerEffectEnabled = !isDisabled && !isExploding
+        if triggerEffectEnabled != isTriggerEffectEnabled {
+            // XXX SteamInput engine.SetTriggerEffect(triggerEffectEnabled)
+            isTriggerEffectEnabled = triggerEffectEnabled
+        }
+    }
 
     // MARK: Photon Beams
 
@@ -865,11 +837,7 @@ final class Ship: SpaceWarEntity {
     //  // Last time we fired a photon
     //  uint64 m_ulLastPhotonTickCount;
     //
-    //  // When we exploded
-    //  uint64 m_ulExplosionTickCount;
     //
-    //  // Current trigger effect state
-    //  bool m_bTriggerEffectEnabled;
     //
     //  // cloak fade out
     //  int m_nFade;
@@ -877,9 +845,7 @@ final class Ship: SpaceWarEntity {
     //  // vector of beams we have fired (in order of firing time)
     //  CPhotonBeam * m_rgPhotonBeams[MAX_PHOTON_BEAMS_PER_SHIP];
     //
-    //  // vector of debris to draw after an explosion
-    //  std::list< CShipDebris *> m_ListDebris;
-    //
+
     //  // Weapon for this ship
     //  int m_nShipWeapon;
     //
