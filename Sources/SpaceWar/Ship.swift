@@ -7,10 +7,6 @@ import MetalEngine
 import simd
 
 final class Ship: SpaceWarEntity {
-    let forwardThrusters: ForwardThrusters
-    let reverseThrusters: ReverseThrusters
-
-    static let MAXIMUM_SHIP_THRUST = 150
     let shipColor: Color2D
     /// Is this ship instance running inside the server (otherwise it's a client...)
     let isServerInstance: Bool
@@ -42,6 +38,14 @@ final class Ship: SpaceWarEntity {
     /// Current trigger effect state
     private var isTriggerEffectEnabled: Bool
 
+    /// Forward and reverse thrusters
+    let forwardThrusters: ForwardThrusters
+    let reverseThrusters: ReverseThrusters
+    private var areForwardThrustersActive: Bool
+    private var areReverseThrustersActive: Bool
+    private var lastThrustStartedTickCount: TickSource.TickCount
+    static let MAXIMUM_SHIP_THRUST = Float(150)
+
     /// Server update scheduler
     private var clientUpdateTick: Debounced
 
@@ -62,8 +66,6 @@ final class Ship: SpaceWarEntity {
     var vkFire: VirtualKey?
 
     init(engine: Engine2D, isServerInstance: Bool, pos: SIMD2<Float>, color: Color2D) {
-        forwardThrusters = ForwardThrusters(engine: engine)
-        reverseThrusters = ReverseThrusters(engine: engine)
 
         shipColor = color
         self.isServerInstance = isServerInstance
@@ -73,11 +75,14 @@ final class Ship: SpaceWarEntity {
         isLocalPlayer = false
         isExploding = false
         debrisList = []
-        //      m_ulLastThrustStartedTickCount = 0;
+
+        forwardThrusters = ForwardThrusters(engine: engine)
+        reverseThrusters = ReverseThrusters(engine: engine)
+        lastThrustStartedTickCount = 0
+        areForwardThrustersActive = false
+        areReverseThrustersActive = false
         //      m_nFade = 255;
         //      m_ulLastPhotonTickCount = 0;
-        //      m_bForwardThrustersActive = false;
-        //      m_bReverseThrustersActive = false;
         //      m_nShipDecoration = 0;
         //      m_nShipPower = 0;
         //      m_nShipWeapon = 0;
@@ -92,7 +97,7 @@ final class Ship: SpaceWarEntity {
         //        m_rgPhotonBeams[i] = NULL;
         //      }
         clientUpdateTick = Debounced(debounce: 1000 / Misc.CLIENT_UPDATE_SEND_RATE) { true }
-        super.init(engine: engine, collisionRadius: 11, affectedByGravity: true)
+        super.init(engine: engine, collisionRadius: 11, affectedByGravity: false/* true*/)
 
         buildGeometry()
 
@@ -187,23 +192,17 @@ final class Ship: SpaceWarEntity {
         // run all the space debris
         debrisList.forEach { $0.runFrame() }
 
-    //        if ( m_bIsLocalPlayer )
-    //        {
-    //          m_SpaceWarClientUpdateData.SetTurnLeftPressed( false );
-    //          m_SpaceWarClientUpdateData.SetTurnRightPressed( false );
-    //
-    //          if ( m_pGameEngine->BIsKeyDown( m_dwVKLeft )
-    //            || m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_TurnLeft ) )
-    //          {
-    //            m_SpaceWarClientUpdateData.SetTurnLeftPressed( true );
-    //          }
-    //
-    //          if ( m_pGameEngine->BIsKeyDown( m_dwVKRight )
-    //            || m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_TurnRight ) )
-    //          {
-    //            m_SpaceWarClientUpdateData.SetTurnRightPressed( true );
-    //          }
-    //
+        // Compute rotationTurn
+        if isLocalPlayer {
+            // client side
+            spaceWarClientUpdateData.turnLeftPressed =
+                engine.isKeyDown(vkLeft!) /* XXX SteamInput ||
+                engine.isControllerActionActive(eControllerDigitalAction_TurnLeft)*/
+
+            spaceWarClientUpdateData.turnRightPressed =
+                engine.isKeyDown(vkRight!) /* XXX SteamInput ||
+                engine.isControllerActionActive(eControllerDigitalAction_TurnRight)*/
+
     //          // The Steam Controller can also map an anlog axis to thrust and steer
     //          float fTurnSpeed, fUnused;
     //          m_pGameEngine->GetControllerAnalogAction( eControllerAnalogAction_AnalogControls, &fTurnSpeed, &fUnused );
@@ -218,56 +217,37 @@ final class Ship: SpaceWarEntity {
     //            m_SpaceWarClientUpdateData.SetTurnLeftPressed( true );
     //            m_SpaceWarClientUpdateData.SetTurnSpeed( fTurnSpeed );
     //          }
-    //        }
-    //        else if ( m_bIsServerInstance )
-    //        {
-    //          // Server side
-    //          const float fMaxTurnSpeed = (PI_VALUE / 2.0f) * (float)m_pGameEngine->GetGameTicksFrameDelta( ) / 400.0f;
-    //
-    //          float flRotationDelta = 0.0f;
-    //          float fTurnSpeed = m_SpaceWarClientUpdateData.GetTurnSpeed();
-    //          if ( fTurnSpeed != 0.0f )
-    //          {
-    //            flRotationDelta += fMaxTurnSpeed * fTurnSpeed;
-    //          }
-    //          else
-    //          {
-    //            if ( m_SpaceWarClientUpdateData.GetTurnLeftPressed( ) )
-    //            {
-    //              flRotationDelta += -1.0f * fMaxTurnSpeed;
-    //            }
-    //
-    //            if ( m_SpaceWarClientUpdateData.GetTurnRightPressed( ) )
-    //            {
-    //              flRotationDelta += fMaxTurnSpeed;
-    //            }
-    //          }
-    //
-    //          SetRotationDeltaNextFrame( flRotationDelta );
-    //        }
-    //        // Compute acceleration
-    //        if ( m_bIsLocalPlayer )
-    //        {
-    //          // client side
-    //          m_SpaceWarClientUpdateData.SetReverseThrustersPressed( false );
-    //          m_SpaceWarClientUpdateData.SetForwardThrustersPressed( false );
-    //
-    //          bool bForwardThrustActive = false;
-    //          if ( m_pGameEngine->BIsKeyDown( m_dwVKForwardThrusters ) ||
-    //            m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_ForwardThrust ) )
-    //          {
-    //            m_SpaceWarClientUpdateData.SetForwardThrustersPressed( true );
-    //            bForwardThrustActive = true;
-    //            //m_pGameEngine->SetControllerColor( 100, 255, 0, k_ESteamControllerLEDFlag_SetColor );
-    //          }
-    //
-    //          if ( m_pGameEngine->BIsKeyDown( m_dwVKReverseThrusters ) ||
-    //            m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_ReverseThrust ) )
-    //          {
-    //            m_SpaceWarClientUpdateData.SetReverseThrustersPressed( true );
-    //          }
-    //
-    //
+        } else if isServerInstance {
+            // Server side
+            let maxTurnSpeed = (Float.pi / 2) * (Float(engine.frameDelta) / 400.0)
+
+            var rotationDelta = Float(0)
+            if spaceWarClientUpdateData.turnSpeed != 0 {
+                rotationDelta = maxTurnSpeed + spaceWarClientUpdateData.turnSpeed
+            } else {
+                if spaceWarClientUpdateData.turnLeftPressed {
+                    rotationDelta = -1.0 * maxTurnSpeed
+                }
+                if spaceWarClientUpdateData.turnRightPressed {
+                    rotationDelta += maxTurnSpeed
+                }
+            }
+            rotationDeltaNextFrame = rotationDelta
+        }
+
+        // Compute acceleration
+        if isLocalPlayer {
+            // client side
+            spaceWarClientUpdateData.forwardThrustersPressed =
+                engine.isKeyDown(vkForwardThrusters!) /* XXX SteamInput ||
+                m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_ForwardThrust ) */
+
+            spaceWarClientUpdateData.reverseThrustersPressed =
+                engine.isKeyDown(vkReverseThrusters!) /* XXX SteamInput ||
+                m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_ReverseThrust ) */
+
+            let forwardThrustActive = spaceWarClientUpdateData.forwardThrustersPressed
+
     //          // The Steam Controller can also map an analog axis to thrust and steer
     //          float fThrusterLevel, fUnused;
     //          m_pGameEngine->GetControllerAnalogAction( eControllerAnalogAction_AnalogControls, &fUnused, &fThrusterLevel );
@@ -339,53 +319,43 @@ final class Ship: SpaceWarEntity {
     //            {
     //              m_nShipPower = 2;
     //            }
-    //          }
-    //        else if ( m_bIsServerInstance )
-    //        {
-    //          // Server side
-    //          float xThrust = 0;
-    //          float yThrust = 0;
-    //          m_bReverseThrustersActive = false;
-    //          m_bForwardThrustersActive = false;
-    //          if ( m_SpaceWarClientUpdateData.GetReverseThrustersPressed() || m_SpaceWarClientUpdateData.GetForwardThrustersPressed() )
-    //          {
-    //            float flSign = 1.0f;
-    //            if ( m_SpaceWarClientUpdateData.GetReverseThrustersPressed() )
-    //            {
-    //              m_bReverseThrustersActive = true;
-    //              flSign = -1.0f;
-    //            }
-    //            else
-    //            {
-    //              m_bForwardThrustersActive = true;
-    //            }
-    //
-    //            float fThrusterLevel = m_SpaceWarClientUpdateData.GetThrustersLevel();
-    //            if ( fThrusterLevel != 0.0f )
-    //            {
-    //              flSign = fThrusterLevel;
-    //            }
-    //
-    //            if ( m_ulLastThrustStartedTickCount == 0 )
-    //            {
-    //              m_ulLastThrustStartedTickCount = ulCurrentTickCount;
-    //              m_pGameEngine->TriggerControllerHaptics( k_ESteamControllerPad_Left, 2900, 1200, 4 );
-    //            }
-    //
-    //            // You have to hold the key for a second to reach maximum thrust
-    //            float factor = MIN( ((float)(ulCurrentTickCount - m_ulLastThrustStartedTickCount) / 500.0f) + 0.2f, 1.0f );
-    //
-    //            xThrust = flSign * (float)(MAXIMUM_SHIP_THRUST * factor * sin( GetAccumulatedRotation() ) );
-    //            yThrust = flSign * -1.0f * (float)(MAXIMUM_SHIP_THRUST * factor * cos( GetAccumulatedRotation() ) );
-    //          }
-    //          else
-    //          {
-    //            m_ulLastThrustStartedTickCount = 0;
-    //          }
-    //
-    //          SetAcceleration( xThrust, yThrust );
-    //        }
-    //
+        } else if isServerInstance {
+            // Server side
+            var thrust: SIMD2<Float> = [0, 0]
+            areReverseThrustersActive = false
+            areForwardThrustersActive = false
+
+            if spaceWarClientUpdateData.reverseThrustersPressed || spaceWarClientUpdateData.forwardThrustersPressed {
+                var sign = Float(1.0)
+                if spaceWarClientUpdateData.reverseThrustersPressed {
+                    areReverseThrustersActive = true
+                    sign = -1.0
+                } else {
+                    areForwardThrustersActive = true
+                }
+
+                //            float fThrusterLevel = m_SpaceWarClientUpdateData.GetThrustersLevel();
+                //            if ( fThrusterLevel != 0.0f ) {
+                //              flSign = fThrusterLevel;
+                //            } XXX SteamInput
+                if lastThrustStartedTickCount == 0 {
+                    lastThrustStartedTickCount = engine.currentTickCount
+                    // XXX SteamInput (wtf this is the server, makes no sense...)
+                    //              m_pGameEngine->TriggerControllerHaptics( k_ESteamControllerPad_Left, 2900, 1200, 4 );
+                }
+
+                // You have to hold the key for a second to reach maximum thrust
+                let factor = min(Float(engine.currentTickCount - lastThrustStartedTickCount) / 500.0 + 0.2, 1.0)
+
+                thrust.x = sign * Self.MAXIMUM_SHIP_THRUST * factor * sin(accumulatedRotation)
+                thrust.y = sign * -1.0 * Self.MAXIMUM_SHIP_THRUST * factor * cos(accumulatedRotation)
+            } else {
+                lastThrustStartedTickCount = 0
+            }
+
+            acceleration = thrust
+        }
+
     //        // We'll use these values in a few places below to compute positions of child objects
     //        // appropriately given our rotation
     //        float sinvalue = (float)sin( GetAccumulatedRotation() );
@@ -464,10 +434,10 @@ final class Ship: SpaceWarEntity {
     //          }
     //
         super.runFrame()
-    //
-    //          // Finally, update the thrusters ( we do this after the base class call as they rely on our data being fully up-to-date)
-    //          m_ForwardThrusters.RunFrame();
-    //          m_ReverseThrusters.RunFrame();
+
+        // Finally, update the thrusters ( we do this after the base class call as they rely on our data being fully up-to-date)
+        forwardThrusters.runFrame(ship: self)
+        reverseThrusters.runFrame(ship: self)
     }
 
     // MARK: Render
@@ -496,20 +466,20 @@ final class Ship: SpaceWarEntity {
             debrisList.forEach { $0.render() }
             return
         }
-    //
-    //      // Check if we should be drawing thrusters
-    //      if ( m_bForwardThrustersActive )
-    //      {
-    //        if ( rand() % 3 == 0 )
-    //          m_ForwardThrusters.Render();
-    //      }
-    //
-    //      if ( m_bReverseThrustersActive )
-    //      {
-    //        if ( rand() % 3 == 0 )
-    //          m_ReverseThrusters.Render();
-    //      }
-    //
+
+        // Check if we should be drawing thrusters
+        if areForwardThrustersActive {
+            if Int.random() % 3 == 0 {
+                forwardThrusters.render()
+            }
+        }
+
+        if areReverseThrustersActive {
+            if Int.random() % 3 == 0 {
+                reverseThrusters.render()
+            }
+        }
+
     //      DWORD actualColor = m_dwShipColor;
     //
     //        if ( m_nShipPower == 1 ) // Item#103 but need to check if the other guy has it sometimes?
@@ -605,10 +575,10 @@ final class Ship: SpaceWarEntity {
         if !isLocalPlayer || data.shieldStrength == 0 {
             shieldStrength = data.shieldStrength
         }
-    //
-    //        m_bForwardThrustersActive = pUpdateData->GetForwardThrustersActive();
-    //        m_bReverseThrustersActive = pUpdateData->GetReverseThrustersActive();
-    //
+
+        areForwardThrustersActive = data.areForwardThrustersActive
+        areReverseThrustersActive = data.areReverseThrustersActive
+
     //        // Update the photon beams
     //        for ( int i=0; i < MAX_PHOTON_BEAMS_PER_SHIP; ++i )
     //        {
@@ -683,8 +653,8 @@ final class Ship: SpaceWarEntity {
                                              pos.y / engine.viewportSize.y),
                              isExploding: isExploding,
                              isDisabled: isDisabled,
-//                             areForwardThrustersActive: <#T##Bool#>,
-//                             areReverseThrustersActive: <#T##Bool#>,
+                             areForwardThrustersActive: areForwardThrustersActive,
+                             areReverseThrustersActive: areReverseThrustersActive,
 //                             decoration: <#T##Int#>,
 //                             weapon: <#T##Int#>,
 //                             shipPower: <#T##Int#>,
@@ -693,8 +663,6 @@ final class Ship: SpaceWarEntity {
 //                             thrusterLevel: <#T##Float#>,
 //                             turnSpeed: <#T##Float#>
         )
-        //      pUpdateData->SetForwardThrustersActive( m_bForwardThrustersActive );
-        //      pUpdateData->SetReverseThrustersActive( m_bReverseThrustersActive );
         //      pUpdateData->SetDecoration( m_nShipDecoration );
         //      pUpdateData->SetWeapon( m_nShipWeapon );
         //      pUpdateData->SetPower( m_nShipPower );
@@ -831,13 +799,8 @@ final class Ship: SpaceWarEntity {
     //
     //private:
     //
-    //  // Last time we detected the thrust key go down
-    //  uint64 m_ulLastThrustStartedTickCount;
-    //
     //  // Last time we fired a photon
     //  uint64 m_ulLastPhotonTickCount;
-    //
-    //
     //
     //  // cloak fade out
     //  int m_nFade;
@@ -854,15 +817,9 @@ final class Ship: SpaceWarEntity {
     //
     //    HGAMETEXTURE m_hTextureWhite;
     //
-    //    // Track whether to draw the thrusters next render call
-    //    bool m_bForwardThrustersActive;
-    //
     //    // Thrust and rotation speed can be anlog when using a Steam Controller
     //    float m_fThrusterLevel;
     //    float m_fTurnSpeed;
-    //
-    //    // Track whether to draw the thrusters next render call
-    //    bool m_bReverseThrustersActive;
 }
 
 // MARK: Forward Thrusters
@@ -954,5 +911,11 @@ final class ShipDebris: SpaceWarEntity {
         // JF: Moved these around, was overwriting RDNF set in ctor...
         super.runFrame()
         rotationDeltaNextFrame = rotationPerInterval * (min(Float(engine.frameDelta), 400.0) / 400.0)
+    }
+}
+
+extension Int {
+    static func random() -> Int {
+        Int.random(in: 0..<Int.max)
     }
 }
