@@ -25,13 +25,13 @@ enum Misc {
     static let MILLISECONDS_BETWEEN_ROUNDS = UInt(4000)
 
     /// How long photon beams live before expiring
-    static let PHOTON_BEAM_LIFETIME_IN_TICKS = 1750
+    static let PHOTON_BEAM_LIFETIME_IN_TICKS = UInt(1750)
 
     /// How fast can photon beams be fired?
-    static let PHOTON_BEAM_FIRE_INTERVAL_TICKS = 250
+    static let PHOTON_BEAM_FIRE_INTERVAL_TICKS = UInt(250)
 
     /// Amount of space needed for beams per ship
-    static let MAX_PHOTON_BEAMS_PER_SHIP = PHOTON_BEAM_LIFETIME_IN_TICKS / PHOTON_BEAM_FIRE_INTERVAL_TICKS
+    static let MAX_PHOTON_BEAMS_PER_SHIP = Int(PHOTON_BEAM_LIFETIME_IN_TICKS / PHOTON_BEAM_FIRE_INTERVAL_TICKS)
 
     /// Time to timeout a connection attempt in
     static let MILLISECONDS_CONNECTION_TIMEOUT = UInt(8000) /* XXX yawn UInt(30000) */

@@ -11,9 +11,9 @@ import simd
 class SpaceWarEntity: VectorEntity {
     private let affectedByGravity: Bool
 
-    init(engine: Engine2D, collisionRadius: Float, affectedByGravity: Bool) {
+    init(engine: Engine2D, collisionRadius: Float, affectedByGravity: Bool, maximumVelocity: Float = VectorEntity.DEFAULT_MAXIMUM_VELOCITY) {
         self.affectedByGravity = affectedByGravity
-        super.init(engine: engine, collisionRadius: collisionRadius)
+        super.init(engine: engine, collisionRadius: collisionRadius, maximumVelocity: maximumVelocity)
     }
 
     static let MIN_GRAVITY = Float(15) // pixels per second per second

@@ -46,6 +46,11 @@ final class Ship: SpaceWarEntity {
     private var lastThrustStartedTickCount: TickSource.TickCount
     static let MAXIMUM_SHIP_THRUST = Float(30)
 
+    /// Photon beams
+    // vector of beams we have fired (in order of firing time)
+    private var photonBeams: [PhotonBeam?]
+    private var lastPhotonTickCount: TickSource.TickCount
+
     /// Server update scheduler
     private var clientUpdateTick: Debounced
 
@@ -81,8 +86,9 @@ final class Ship: SpaceWarEntity {
         lastThrustStartedTickCount = 0
         areForwardThrustersActive = false
         areReverseThrustersActive = false
+        photonBeams = .init(repeating: nil, count: Misc.MAX_PHOTON_BEAMS_PER_SHIP)
+        lastPhotonTickCount = 0
         //      m_nFade = 255;
-        //      m_ulLastPhotonTickCount = 0;
         //      m_nShipDecoration = 0;
         //      m_nShipPower = 0;
         //      m_nShipWeapon = 0;
@@ -91,11 +97,6 @@ final class Ship: SpaceWarEntity {
         isTriggerEffectEnabled = false
 
         spaceWarClientUpdateData = ClientSpaceWarUpdateData()
-        //
-        //      for( int i=0; i < MAX_PHOTON_BEAMS_PER_SHIP; ++i )
-        //      {
-        //        m_rgPhotonBeams[i] = NULL;
-        //      }
         clientUpdateTick = Debounced(debounce: 1000 / Misc.CLIENT_UPDATE_SEND_RATE) { true }
         super.init(engine: engine, collisionRadius: 11, affectedByGravity: true)
 
@@ -162,33 +163,19 @@ final class Ship: SpaceWarEntity {
         guard !isDisabled else {
             return
         }
-    //
-    //      const uint64 ulCurrentTickCount = m_pGameEngine->GetGameTickCount();
-    //
-    //      // Look for expired photon beams
-    //      int nNextAvailablePhotonBeamSlot = -1;  // Track next available slot for use spawning new beams below
-    //      for( int i=0; i < MAX_PHOTON_BEAMS_PER_SHIP; ++i )
-    //      {
-    //        if ( m_rgPhotonBeams[i] )
-    //        {
-    //          if ( m_rgPhotonBeams[i]->BIsBeamExpired() )
-    //          {
-    //            delete m_rgPhotonBeams[i];
-    //            m_rgPhotonBeams[i] = NULL;
-    //          }
-    //        }
-    //
-    //        if ( !m_rgPhotonBeams[i] && nNextAvailablePhotonBeamSlot == -1 )
-    //          nNextAvailablePhotonBeamSlot = i;
-    //      }
-    //
-    //      // run all the photon beams we have outstanding
-    //      for( int i=0; i < MAX_PHOTON_BEAMS_PER_SHIP; ++i )
-    //      {
-    //        if ( m_rgPhotonBeams[i] )
-    //          m_rgPhotonBeams[i]->RunFrame();
-    //      }
-    //
+
+        // Look for expired photon beams
+        for i in 0..<photonBeams.count {
+            if let beam = photonBeams[i], beam.isBeamExpired {
+                photonBeams[i] = nil
+            }
+        }
+        // Track next available slot for use spawning new beams below
+        let nextAvailablePhotonBeamSlot = photonBeams.firstIndex(where: { $0 == nil })
+
+        // run all the photon beams we have outstanding
+        photonBeams.forEach { $0?.runFrame() }
+
         // run all the space debris
         debrisList.forEach { $0.runFrame() }
 
@@ -356,83 +343,76 @@ final class Ship: SpaceWarEntity {
             acceleration = thrust
         }
 
-    //        // We'll use these values in a few places below to compute positions of child objects
-    //        // appropriately given our rotation
-    //        float sinvalue = (float)sin( GetAccumulatedRotation() );
-    //        float cosvalue = (float)cos( GetAccumulatedRotation() );
-    //
-    //        if ( m_bIsLocalPlayer )
-    //        {
-    //          // client side
-    //          if ( m_pGameEngine->BIsKeyDown( m_dwVKFire ) ||
-    //            m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_FireLasers ) )
-    //          {
-    //            m_SpaceWarClientUpdateData.SetFirePressed( true );
-    //          }
-    //        }
-    //        else if ( m_bIsServerInstance )
-    //        {
-    //          // server side
-    //          if ( nNextAvailablePhotonBeamSlot != -1 && !m_bExploding && m_SpaceWarClientUpdateData.GetFirePressed() && ulCurrentTickCount - PHOTON_BEAM_FIRE_INTERVAL_TICKS > m_ulLastPhotonTickCount )
-    //          {
-    //            m_ulLastPhotonTickCount = ulCurrentTickCount;
-    //
-    //            if ( m_nShipWeapon == 1 ) // Item#101
-    //            {
-    //              float sinvalue1 = (float)sin( GetAccumulatedRotation() - .1f );
-    //              float cosvalue1 = (float)cos( GetAccumulatedRotation() - .1f );
-    //              float sinvalue2 = (float)sin( GetAccumulatedRotation() + .1f );
-    //              float cosvalue2 = (float)cos( GetAccumulatedRotation() + .1f );
-    //
-    //              float xVelocity = GetXVelocity() + ( sinvalue1 * 275 );
-    //              float yVelocity = GetYVelocity() - ( cosvalue1 * 275 );
-    //
-    //              // Offset 12 points up from the center of the ship, compensating for rotation
-    //              float xPos = GetXPos() - sinvalue1*-12.0f;
-    //              float yPos = GetYPos() + cosvalue1*-12.0f;
-    //
-    //              m_rgPhotonBeams[nNextAvailablePhotonBeamSlot] = new CPhotonBeam( m_pGameEngine, xPos, yPos, m_dwShipColor, GetAccumulatedRotation(), xVelocity, yVelocity );
-    //
-    //              nNextAvailablePhotonBeamSlot = -1;  // Track next available slot for use spawning new beams below
-    //              for( int i=0; i < MAX_PHOTON_BEAMS_PER_SHIP; ++i )
-    //              {
-    //                if ( !m_rgPhotonBeams[i] && nNextAvailablePhotonBeamSlot == -1 )
-    //                  nNextAvailablePhotonBeamSlot = i;
-    //              }
-    //
-    //              if ( nNextAvailablePhotonBeamSlot != -1 )
-    //              {
-    //                xVelocity = GetXVelocity() + ( sinvalue2 * 275 );
-    //                yVelocity = GetYVelocity() - ( cosvalue2 * 275 );
-    //
-    //                // Offset 12 points up from the center of the ship, compensating for rotation
-    //                xPos = GetXPos() - sinvalue2*-12.0f;
-    //                yPos = GetYPos() + cosvalue2*-12.0f;
-    //
-    //                m_rgPhotonBeams[nNextAvailablePhotonBeamSlot] = new CPhotonBeam( m_pGameEngine, xPos, yPos, m_dwShipColor, GetAccumulatedRotation(), xVelocity, yVelocity );
-    //                m_pGameEngine->TriggerControllerHaptics( k_ESteamControllerPad_Right, 1000, 1500, 2 );
-    //              }
-    //            }
-    //              else
-    //              {
-    //                float speed = 275;
-    //                if ( m_nShipWeapon == 2 ) // Item#102
-    //                {
-    //                  speed = 500;
-    //                }
-    //                float xVelocity = GetXVelocity() + ( sinvalue * speed );
-    //                float yVelocity = GetYVelocity() - ( cosvalue * speed );
-    //
-    //                // Offset 12 points up from the center of the ship, compensating for rotation
-    //                float xPos = GetXPos() - sinvalue*-12.0f;
-    //                float yPos = GetYPos() + cosvalue*-12.0f;
-    //
-    //                m_rgPhotonBeams[nNextAvailablePhotonBeamSlot] = new CPhotonBeam( m_pGameEngine, xPos, yPos, m_dwShipColor, GetAccumulatedRotation(), xVelocity, yVelocity );
-    //                m_pGameEngine->TriggerControllerHaptics( k_ESteamControllerPad_Right, 1200, 2500, 3 );
-    //              }
-    //            }
-    //          }
-    //
+        // Compute fire
+        // We'll use these values in a few places below to compute positions of child objects
+        // appropriately given our rotation
+        let sinValue = sin(accumulatedRotation)
+        let cosValue = cos(accumulatedRotation)
+
+        if isLocalPlayer {
+            // client side
+            spaceWarClientUpdateData.firePressed =
+                engine.isKeyDown(vkFire!) /* XXX SteamInput ||
+                m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_FireLasers ) */
+        } else if let nextAvailablePhotonBeamSlot,
+                  isServerInstance,
+                  !isExploding,
+                  spaceWarClientUpdateData.firePressed,
+                  engine.gameTickCount.isLongerThan(Misc.PHOTON_BEAM_FIRE_INTERVAL_TICKS, since: lastPhotonTickCount) {
+
+            lastPhotonTickCount = engine.gameTickCount
+
+            //            if ( m_nShipWeapon == 1 ) // Item#101
+            //            {
+            //              float sinvalue1 = (float)sin( GetAccumulatedRotation() - .1f );
+            //              float cosvalue1 = (float)cos( GetAccumulatedRotation() - .1f );
+            //              float sinvalue2 = (float)sin( GetAccumulatedRotation() + .1f );
+            //              float cosvalue2 = (float)cos( GetAccumulatedRotation() + .1f );
+            //
+            //              float xVelocity = GetXVelocity() + ( sinvalue1 * 275 );
+            //              float yVelocity = GetYVelocity() - ( cosvalue1 * 275 );
+            //
+            //              // Offset 12 points up from the center of the ship, compensating for rotation
+            //              float xPos = GetXPos() - sinvalue1*-12.0f;
+            //              float yPos = GetYPos() + cosvalue1*-12.0f;
+            //
+            //              m_rgPhotonBeams[nNextAvailablePhotonBeamSlot] = new CPhotonBeam( m_pGameEngine, xPos, yPos, m_dwShipColor, GetAccumulatedRotation(), xVelocity, yVelocity );
+            //
+            //              nNextAvailablePhotonBeamSlot = -1;  // Track next available slot for use spawning new beams below
+            //              for( int i=0; i < MAX_PHOTON_BEAMS_PER_SHIP; ++i )
+            //              {
+            //                if ( !m_rgPhotonBeams[i] && nNextAvailablePhotonBeamSlot == -1 )
+            //                  nNextAvailablePhotonBeamSlot = i;
+            //              }
+            //
+            //              if ( nNextAvailablePhotonBeamSlot != -1 )
+            //              {
+            //                xVelocity = GetXVelocity() + ( sinvalue2 * 275 );
+            //                yVelocity = GetYVelocity() - ( cosvalue2 * 275 );
+            //
+            //                // Offset 12 points up from the center of the ship, compensating for rotation
+            //                xPos = GetXPos() - sinvalue2*-12.0f;
+            //                yPos = GetYPos() + cosvalue2*-12.0f;
+            //
+            //                m_rgPhotonBeams[nNextAvailablePhotonBeamSlot] = new CPhotonBeam( m_pGameEngine, xPos, yPos, m_dwShipColor, GetAccumulatedRotation(), xVelocity, yVelocity );
+            //                m_pGameEngine->TriggerControllerHaptics( k_ESteamControllerPad_Right, 1000, 1500, 2 );
+            //              }
+            //            }
+            //              else
+            do {
+                let speed = Float(275) /* XXX (shipWeapon == 2) ? 500 : 275 */
+                let beamVelocity = SIMD2(velocity.x + sinValue * speed,
+                                         velocity.y - cosValue * speed)
+
+                // Offset 12 points up from the center of the ship, compensating for rotation
+                let beamPos = SIMD2(pos.x - sinValue * -12,
+                                    pos.y + cosValue * -12)
+
+                photonBeams[nextAvailablePhotonBeamSlot] = PhotonBeam(engine: engine, pos: beamPos, beamColor: shipColor, initialRotation: accumulatedRotation, initialVelocity: beamVelocity)
+                /* XXX SteamInput                     m_pGameEngine->TriggerControllerHaptics( k_ESteamControllerPad_Right, 1200, 2500, 3 ); */
+            }
+        }
+
         super.runFrame()
 
         // Finally, update the thrusters ( we do this after the base class call as they rely on our data being fully up-to-date)
@@ -444,23 +424,13 @@ final class Ship: SpaceWarEntity {
 
     /// Render the ship
     override func render(overrideColor: Color2D? = nil) {
-    //      int beamCount = 0;
-    //
         guard !isDisabled else {
             return
         }
 
-    //      // render all the photon beams we have outstanding
-    //      for ( int i = 0; i < MAX_PHOTON_BEAMS_PER_SHIP; ++i )
-    //      {
-    //        if ( m_rgPhotonBeams[i] )
-    //        {
-    //          m_rgPhotonBeams[i]->Render();
-    //          beamCount++;
-    //        }
-    //      }
-    //
-    //
+        // render all the photon beams we have outstanding
+        photonBeams.forEach { $0?.render() }
+
         guard !isExploding else {
             // Don't draw actual ship, instead draw the pieces created in the explosion
             debrisList.forEach { $0.render() }
@@ -484,6 +454,7 @@ final class Ship: SpaceWarEntity {
     //
     //        if ( m_nShipPower == 1 ) // Item#103 but need to check if the other guy has it sometimes?
     //        {
+//        let beamCount = photonBeams.compactMap { $0 }.count
     //          if ( beamCount > 0 )
     //          {
     //            m_nFade = 255;
@@ -579,33 +550,21 @@ final class Ship: SpaceWarEntity {
         areForwardThrustersActive = data.areForwardThrustersActive
         areReverseThrustersActive = data.areReverseThrustersActive
 
-    //        // Update the photon beams
-    //        for ( int i=0; i < MAX_PHOTON_BEAMS_PER_SHIP; ++i )
-    //        {
-    //            ServerPhotonBeamUpdateData_t *pPhotonUpdate = pUpdateData->AccessPhotonBeamData( i );
-    //            if ( pPhotonUpdate->GetActive() )
-    //            {
-    //                if ( !m_rgPhotonBeams[i] )
-    //                {
-    //                    m_rgPhotonBeams[i] = new CPhotonBeam( m_pGameEngine,
-    //                                                          pPhotonUpdate->GetXPosition(), pPhotonUpdate->GetYPosition(),
-    //                                                          m_dwShipColor, pPhotonUpdate->GetRotation(),
-    //                                                          pPhotonUpdate->GetXVelocity(), pPhotonUpdate->GetYVelocity() );
-    //                }
-    //                else
-    //                {
-    //                    m_rgPhotonBeams[i]->OnReceiveServerUpdate( pPhotonUpdate );
-    //                }
-    //            }
-    //            else
-    //            {
-    //                if ( m_rgPhotonBeams[i] )
-    //                {
-    //                    delete m_rgPhotonBeams[i];
-    //                    m_rgPhotonBeams[i] = NULL;
-    //                }
-    //            }
-    //        }
+        for i in 0..<Misc.MAX_PHOTON_BEAMS_PER_SHIP {
+            let pdata = data.photonBeamData[i]
+            if pdata.isActive {
+                if let beam = photonBeams[i] {
+                    beam.onReceiveServerUpdate(data: pdata)
+                } else {
+                    photonBeams[i] = PhotonBeam(engine: engine, pos: pdata.position,
+                                                beamColor: shipColor,
+                                                initialRotation: pdata.currentRotation,
+                                                initialVelocity: pdata.velocity)
+                }
+            } else {
+                photonBeams[i] = nil
+            }
+        }
     }
 
     /// Update the server model of the ship with data from a client
@@ -658,43 +617,28 @@ final class Ship: SpaceWarEntity {
 //                             decoration: <#T##Int#>,
 //                             weapon: <#T##Int#>,
 //                             shipPower: <#T##Int#>,
-                             shieldStrength: shieldStrength
-//                             photonBeamData: <#T##[ServerPhotonBeamUpdateData]#>,
+                             shieldStrength: shieldStrength,
+                             photonBeamData: buildServerPhotonBeamUpdate()
 //                             thrusterLevel: <#T##Float#>,
 //                             turnSpeed: <#T##Float#>
         )
         //      pUpdateData->SetDecoration( m_nShipDecoration );
         //      pUpdateData->SetWeapon( m_nShipWeapon );
         //      pUpdateData->SetPower( m_nShipPower );
-        //
-        //      BuildServerPhotonBeamUpdate( pUpdateData );
     }
 
-    //  // Build update data for photon beams to send to clients
-    //  void BuildServerPhotonBeamUpdate( ServerShipUpdateData_t *pUpdateData );
-    //    //-----------------------------------------------------------------------------
-    //    // Purpose: Build the photon beam update data to send from the server to clients
-    //    //-----------------------------------------------------------------------------
-    //    void CShip::BuildServerPhotonBeamUpdate( ServerShipUpdateData_t *pUpdateData )
-    //    {
-    //      for( int i = 0; i < MAX_PHOTON_BEAMS_PER_SHIP; ++i )
-    //      {
-    //        ServerPhotonBeamUpdateData_t *pPhotonUpdate = pUpdateData->AccessPhotonBeamData( i );
-    //        if ( m_rgPhotonBeams[i] )
-    //        {
-    //          pPhotonUpdate->SetActive( true );
-    //          pPhotonUpdate->SetXPosition( m_rgPhotonBeams[i]->GetXPos()/(float)m_pGameEngine->GetViewportWidth() );
-    //          pPhotonUpdate->SetYPosition( m_rgPhotonBeams[i]->GetYPos()/(float)m_pGameEngine->GetViewportHeight() );
-    //          pPhotonUpdate->SetXVelocity( m_rgPhotonBeams[i]->GetXVelocity() );
-    //          pPhotonUpdate->SetYVelocity( m_rgPhotonBeams[i]->GetYVelocity() );
-    //          pPhotonUpdate->SetRotation( m_rgPhotonBeams[i]->GetAccumulatedRotation() );
-    //        }
-    //        else
-    //        {
-    //          pPhotonUpdate->SetActive( false );
-    //        }
-    //      }
-    //    }
+        /// Build the photon beam update data to send from the server to clients
+    private func buildServerPhotonBeamUpdate() -> [ServerPhotonBeamUpdateData] {
+        photonBeams.map { beam in
+            guard let beam else {
+                return ServerPhotonBeamUpdateData()
+            }
+            return ServerPhotonBeamUpdateData(isActive: true,
+                                              currentRotation: beam.accumulatedRotation,
+                                              velocity: beam.velocity,
+                                              position: beam.pos / engine.viewportSize)
+        }
+    }
 
     // MARK: Explosion and Debris
 
@@ -750,36 +694,21 @@ final class Ship: SpaceWarEntity {
 
     /// Check for photons which have hit the entity and destroy the photons
     func destroyPhotons(collidingWith target: VectorEntity) {
-    //      for( int i=0; i < MAX_PHOTON_BEAMS_PER_SHIP; ++i )
-    //      {
-    //        if ( !m_rgPhotonBeams[i] )
-    //          continue;
-    //
-    //        if ( m_rgPhotonBeams[i]->BCollidesWith( pTarget ) )
-    //        {
-    //          // Photon beam hit the entity, destroy beam
-    //          delete m_rgPhotonBeams[i];
-    //          m_rgPhotonBeams[i] = NULL;
-    //        }
-    //      }
+        for i in 0..<Misc.MAX_PHOTON_BEAMS_PER_SHIP {
+            if let beam = photonBeams[i], beam.collides(with: target) {
+                // Photon beam hit the entity, destroy beam
+                photonBeams[i] = nil
+            }
         }
+    }
 
     /// Check whether any of the photons this ship has fired are colliding with the target
     func checkForPhotons(collidingWith target: VectorEntity) -> Bool {
-        //    {
-        //      for( int i=0; i < MAX_PHOTON_BEAMS_PER_SHIP; ++i )
-        //      {
-        //        if ( !m_rgPhotonBeams[i] )
-        //          continue;
-        //
-        //        if ( m_rgPhotonBeams[i]->BCollidesWith( pTarget ) )
-        //        {
-        //          return true;
-        //        }
-        //      }
-        //
-        //      return false;
-        //    }
+        for i in 0..<Misc.MAX_PHOTON_BEAMS_PER_SHIP {
+            if let beam = photonBeams[i], beam.collides(with: target) {
+                return true
+            }
+        }
         return false
     }
 
@@ -796,19 +725,9 @@ final class Ship: SpaceWarEntity {
     //      }
     //    }
     //
-    //
-    //private:
-    //
-    //  // Last time we fired a photon
-    //  uint64 m_ulLastPhotonTickCount;
-    //
     //  // cloak fade out
     //  int m_nFade;
     //
-    //  // vector of beams we have fired (in order of firing time)
-    //  CPhotonBeam * m_rgPhotonBeams[MAX_PHOTON_BEAMS_PER_SHIP];
-    //
-
     //  // Weapon for this ship
     //  int m_nShipWeapon;
     //
@@ -911,6 +830,37 @@ final class ShipDebris: SpaceWarEntity {
         // JF: Moved these around, was overwriting RDNF set in ctor...
         super.runFrame()
         rotationDeltaNextFrame = rotationPerInterval * (min(Float(engine.frameDelta), 400.0) / 400.0)
+    }
+}
+
+// MARK: Photon Beam
+
+final class PhotonBeam: SpaceWarEntity {
+    private let tickCountToDieAt: TickSource.TickCount
+
+    init(engine: Engine2D, pos: SIMD2<Float>, beamColor: Color2D, initialRotation: Float, initialVelocity: SIMD2<Float>) {
+        // Beams only have a lifetime of 1 second
+        tickCountToDieAt = engine.gameTickCount + Misc.PHOTON_BEAM_LIFETIME_IN_TICKS
+
+        // Set a really high max velocity for photon beams
+        super.init(engine: engine, collisionRadius: 3, affectedByGravity: true, maximumVelocity: 50)
+
+        addLine( xPos0: -2.0, yPos0: -3.0, xPos1: -2.0, yPos1: 3.0, color: beamColor)
+        addLine( xPos0: 2.0, yPos0: -3.0, xPos1: 2.0, yPos1: 3.0, color: beamColor)
+        self.pos = pos
+        self.rotationDeltaNextFrame = initialRotation
+        self.velocity = initialVelocity
+    }
+
+    var isBeamExpired: Bool {
+        engine.gameTickCount > tickCountToDieAt
+    }
+
+    /// Update with data from server
+    func onReceiveServerUpdate(data: ServerPhotonBeamUpdateData) {
+        pos = data.position * engine.viewportSize
+        velocity = data.velocity
+        accumulatedRotation = data.currentRotation
     }
 }
 
