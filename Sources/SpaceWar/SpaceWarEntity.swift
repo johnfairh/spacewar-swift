@@ -16,7 +16,7 @@ class SpaceWarEntity: VectorEntity {
         super.init(engine: engine, collisionRadius: collisionRadius)
     }
 
-    static let MIN_GRAVITY = Float(150) // pixels per second per second
+    static let MIN_GRAVITY = Float(15) // pixels per second per second
 
     override func runFrame() {
         if affectedByGravity {
@@ -27,7 +27,7 @@ class SpaceWarEntity: VectorEntity {
             // let distancePower = pow(distanceToSun, 2) // gravity power falls off exponentially
             let distancePower = max(simd_distance_squared(posSun, pos), 1)
 
-            let factor = min(5200000.0 / distancePower, SpaceWarEntity.MIN_GRAVITY) // arbitrary value for power of gravity
+            let factor = min(100000.0 / distancePower, SpaceWarEntity.MIN_GRAVITY) // arbitrary value for power of gravity
 
             let direction = simd_normalize(pos - posSun)
 

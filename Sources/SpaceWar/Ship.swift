@@ -44,7 +44,7 @@ final class Ship: SpaceWarEntity {
     private var areForwardThrustersActive: Bool
     private var areReverseThrustersActive: Bool
     private var lastThrustStartedTickCount: TickSource.TickCount
-    static let MAXIMUM_SHIP_THRUST = Float(150)
+    static let MAXIMUM_SHIP_THRUST = Float(30)
 
     /// Server update scheduler
     private var clientUpdateTick: Debounced
@@ -97,7 +97,7 @@ final class Ship: SpaceWarEntity {
         //        m_rgPhotonBeams[i] = NULL;
         //      }
         clientUpdateTick = Debounced(debounce: 1000 / Misc.CLIENT_UPDATE_SEND_RATE) { true }
-        super.init(engine: engine, collisionRadius: 11, affectedByGravity: false/* true*/)
+        super.init(engine: engine, collisionRadius: 11, affectedByGravity: true)
 
         buildGeometry()
 
@@ -219,7 +219,7 @@ final class Ship: SpaceWarEntity {
     //          }
         } else if isServerInstance {
             // Server side
-            let maxTurnSpeed = (Float.pi / 2) * (Float(engine.frameDelta) / 400.0)
+            let maxTurnSpeed = (Float.pi / 2) * (Float(engine.frameDelta) / 200.0)
 
             var rotationDelta = Float(0)
             if spaceWarClientUpdateData.turnSpeed != 0 {
@@ -344,7 +344,7 @@ final class Ship: SpaceWarEntity {
                     //              m_pGameEngine->TriggerControllerHaptics( k_ESteamControllerPad_Left, 2900, 1200, 4 );
                 }
 
-                // You have to hold the key for a second to reach maximum thrust
+                // You have to hold the key for half a second to reach maximum thrust
                 let factor = min(Float(engine.currentTickCount - lastThrustStartedTickCount) / 500.0 + 0.2, 1.0)
 
                 thrust.x = sign * Self.MAXIMUM_SHIP_THRUST * factor * sin(accumulatedRotation)
