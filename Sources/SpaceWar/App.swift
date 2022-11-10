@@ -34,9 +34,9 @@ struct SpaceWarApp: App {
         WindowGroup {
             MetalEngineView(preferredFPS: Misc.MAX_CLIENT_AND_SERVER_FPS) { engine in
                 // Steam init
-                let steam = initSteam()
+                let (steam, controller) = initSteam()
 
-                let main = SpaceWarMain(engine: engine, steam: steam)
+                let main = SpaceWarMain(engine: engine, steam: steam, controller: controller)
 
                 // test a user-specific secret before entering main loop
                 Steamworks_TestSecret()
@@ -56,7 +56,7 @@ struct SpaceWarApp: App {
     static private(set) var instance: SpaceWarMain?
 
     /// Steam API initialization dance
-    private func initSteam() -> SteamAPI {
+    private func initSteam() -> (SteamAPI, Controller) {
         guard let steam = SteamAPI(appID: .spaceWar, fakeAppIdTxtFile: true) else {
             alert("Fatal Error", "Steam must be running to play this game (SteamAPI_Init() failed).");
             preconditionFailure("SteamInit failed")
@@ -97,7 +97,7 @@ struct SpaceWarApp: App {
         let rc = steam.input.setInputActionManifestFilePath(inputActionManifestAbsolutePath: steamInputManifestURL.path)
         OutputDebugString("SteamInput VDF load: \(rc)")
 
-        return steam
+        return (steam, Controller(steam: steam))
     }
 
     private func alert(_ caption: String, _ text: String) {

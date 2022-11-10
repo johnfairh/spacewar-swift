@@ -19,8 +19,9 @@ import Foundation
 ///
 /// No PS3 accommodations.
 final class SpaceWarMain {
-    private let steam: SteamAPI
     private let engine: Engine2D
+    private let steam: SteamAPI
+    private let controller: Controller
 
     // Public useful cached stuff
     let localUserSteamID: SteamID
@@ -45,9 +46,10 @@ final class SpaceWarMain {
     private var cancelInput: Debounced
     private var infrequent: Debounced
 
-    init(engine: Engine2D, steam: SteamAPI) {
+    init(engine: Engine2D, steam: SteamAPI, controller: Controller) {
         self.engine = engine
         self.steam = steam
+        self.controller = controller
 
         // On PC/OSX we always know the user has a SteamID and is logged in already.
         precondition(steam.user.loggedOn())
@@ -355,6 +357,9 @@ final class SpaceWarMain {
 
         // Run Steam client callbacks
         steam.runCallbacks()
+
+        // Update controller events
+        controller.runFrame()
 
         // Do work that runs infrequently. we do this every second
         if infrequent.test(now: engine.gameTickCount) {
