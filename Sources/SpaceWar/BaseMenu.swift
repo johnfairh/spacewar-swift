@@ -20,6 +20,7 @@ private enum Menu {
 /// General menu class that can draw itself, scroll, and report selection to a callback
 class BaseMenu<ItemData: Equatable & MenuItemNamed> {
     private let engine: Engine2D
+    private let controller: Controller
     private let onSelection: (ItemData) -> Void
 
     private var items: [(String, ItemData)] // XXX tbd whether this text does need storing separately
@@ -28,8 +29,9 @@ class BaseMenu<ItemData: Equatable & MenuItemNamed> {
     private var pushedSelection: ItemData?
     var heading: String
 
-    init(engine: Engine2D, onSelection: @escaping (ItemData) -> Void) {
+    init(engine: Engine2D, controller: Controller, onSelection: @escaping (ItemData) -> Void) {
         self.engine = engine
+        self.controller = controller
         self.onSelection = onSelection
 
         items = []
@@ -90,8 +92,7 @@ class BaseMenu<ItemData: Equatable & MenuItemNamed> {
         let currentTickCount = engine.frameTimestamp
 
         // check if the enter key is down, if it is take action
-        if engine.isKeyDown(.enter) /* || XXX SteamInput
-                                         m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_MenuSelect ) */ {
+        if engine.isKeyDown(.enter) || controller.isActionActive(.menuSelect) {
             if currentTickCount - 220 > Menu.lastReturnKeyTick {
                 Menu.lastReturnKeyTick = currentTickCount
                 if selectedItem < items.count {
@@ -100,9 +101,7 @@ class BaseMenu<ItemData: Equatable & MenuItemNamed> {
                 }
             }
             // Check if we need to change the selected menu item
-        } else if engine.isKeyDown(.down) /* || XXX SteamInput
-                                               m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_MenuDown ) */ {
-
+        } else if engine.isKeyDown(.down) || controller.isActionActive(.menuDown) {
             if currentTickCount - 140 > Menu.lastKeyDownTick {
                 Menu.lastKeyDownTick = currentTickCount
                 selectedItem += 1
@@ -110,9 +109,7 @@ class BaseMenu<ItemData: Equatable & MenuItemNamed> {
                     selectedItem = 0
                 }
             }
-        } else if engine.isKeyDown(.up) /* ||
-                                             m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_MenuUp ) */ {
-
+        } else if engine.isKeyDown(.up) || controller.isActionActive(.menuUp) {
             if currentTickCount - 140 > Menu.lastKeyUpTick {
                 Menu.lastKeyUpTick = currentTickCount
                 selectedItem -= 1
@@ -205,9 +202,9 @@ final class StaticMenu<MenuItemEnum> : BaseMenu<MenuItemEnum> where MenuItemEnum
         }
     }
 
-    init(engine: Engine2D, filter: @escaping (MenuItemEnum) -> Bool = { _ in true }, onSelection: @escaping (MenuItemEnum) -> Void = {_ in }) {
+    init(engine: Engine2D, controller: Controller, filter: @escaping (MenuItemEnum) -> Bool = { _ in true }, onSelection: @escaping (MenuItemEnum) -> Void = {_ in }) {
         self.filter = filter
-        super.init(engine: engine, onSelection: onSelection)
+        super.init(engine: engine, controller: controller, onSelection: onSelection)
         populate()
     }
 }

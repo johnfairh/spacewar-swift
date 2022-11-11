@@ -66,7 +66,7 @@ final class SpaceWarMain {
         infrequent = Debounced(debounce: 1000) { true }
 
         // The game part of spacewarclient
-        gameClient = SpaceWarClient(engine: engine, steam: steam)
+        gameClient = SpaceWarClient(engine: engine, controller: controller, steam: steam)
         // The lobby part of spacewarclient
         lobbies = Lobbies(engine: engine, steam: steam)
 
@@ -74,7 +74,7 @@ final class SpaceWarMain {
         starField = StarField(engine: engine)
 
         // Initialize main menu
-        mainMenu = MainMenu(engine: engine, onSelection: { [weak self] in
+        mainMenu = MainMenu(engine: engine, controller: controller, onSelection: { [weak self] in
             OutputDebugString("Main menu selection: \($0)")
             self?.setGameState(.menuItem($0))
         })
@@ -380,14 +380,12 @@ final class SpaceWarMain {
         switch gameState.state {
         case .connectingToSteam:
             // Make sure the Steam Controller is in the correct mode.
-            // XXX SteamInput       m_pGameEngine->SetSteamControllerActionSet( eControllerActionSet_MenuControls );
-            break;
+            controller.setActionSet(.menuControls)
 
         case .mainMenu:
             mainMenu.runFrame()
             // Make sure the Steam Controller is in the correct mode.
-            // XXX SteamInput m_pGameEngine->SetSteamControllerActionSet( eControllerActionSet_MenuControls );
-            break;
+            controller.setActionSet(.menuControls)
 
         case .menuItem(.startServer):
             switch gameClient.runFrame(escapePressed: escapePressed) {

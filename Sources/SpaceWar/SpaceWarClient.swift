@@ -14,6 +14,7 @@ import Foundation
 final class SpaceWarClient {
     private let steam: SteamAPI
     private let engine: Engine2D
+    private let controller: Controller
 
     /// Main game state
     enum State {
@@ -71,8 +72,9 @@ final class SpaceWarClient {
     private var gameState: GameState
     let sun: Sun
 
-    init(engine: Engine2D, steam: SteamAPI) {
+    init(engine: Engine2D, controller: Controller, steam: SteamAPI) {
         self.engine = engine
+        self.controller = controller
         self.steam = steam
         self.state = .init(tickSource: engine, initial: .idle, name: "Client")
         self.clientConnection = SpaceWarClientConnection(steam: steam, tickSource: engine)
@@ -82,7 +84,7 @@ final class SpaceWarClient {
         self.gameState = GameState()
         self.sun = Sun(engine: engine)
 
-        self.quitMenu = QuitMenu(engine: engine)
+        self.quitMenu = QuitMenu(engine: engine, controller: controller)
         //    m_nNumWorkshopItems = 0;
         //    for (uint32 i = 0; i < MAX_WORKSHOP_ITEMS; ++i)
         //    {
@@ -230,7 +232,7 @@ final class SpaceWarClient {
 
         case .active:
             // Make sure the Steam Controller is in the correct mode.
-            // XXX SteamInput m_pGameEngine->SetSteamControllerActionSet( eControllerActionSet_ShipControls );
+            controller.setActionSet(.shipControls)
 
             // SendHeartbeat is safe to call on every frame since the API is internally rate-limited.
             // Ideally you would only call this once per second though, to minimize unnecessary calls.
@@ -279,7 +281,8 @@ final class SpaceWarClient {
             quitMenu.runFrame()
 
             // Make sure the Steam Controller is in the correct mode.
-//  XXX SteamInput          m_pGameEngine->SetSteamControllerActionSet( eControllerActionSet_MenuControls );
+            controller.setActionSet(.menuControls)
+    
             if escapePressed {
                 state.set(.active) // hmm
             } else if let quitChoice = quitMenu.selectedMenuItem {

@@ -16,6 +16,13 @@
 				"path" "steam_controller.vdf"
 			}
 		}
+    "controller_ps5"
+    {
+      "0"
+      {
+        "path" "ps5_controller.vdf"
+      }
+    }
 	}
 	"actions"
 	{

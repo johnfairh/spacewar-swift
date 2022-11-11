@@ -25,7 +25,8 @@ let package = Package(
       resources: [
         .process("Resources/steam_controller.vdf"),
         .process("Resources/steam_input_manifest.vdf"),
-        .process("Resources/xbox_controller.vdf")
+        .process("Resources/xbox_controller.vdf"),
+        .process("Resources/ps5_controller.vdf")
       ]
     ),
     .systemLibrary(name: "CSpaceWar")
