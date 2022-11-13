@@ -11,6 +11,7 @@ typealias PlayerIndex = Int /* 0...3 */
 
 final class SpaceWarServer {
     let engine: Engine2D
+    let controller: Controller
     let steam: SteamGameServerAPI
 
     /// Network connection component
@@ -81,8 +82,9 @@ final class SpaceWarServer {
 
     // MARK: Initialization
 
-    init(engine: Engine2D, name: String) {
+    init(engine: Engine2D, controller: Controller, name: String) {
         self.engine = engine
+        self.controller = controller
         self.state = .init(tickSource: engine, initial: .waitingForPlayers, name: "Server")
 
         // Initialize the SteamGameServer interface, we tell it some info about us, and we request support
@@ -330,7 +332,7 @@ final class SpaceWarServer {
         default:
             preconditionFailure()
         }
-        let ship = Ship(engine: engine, isServerInstance: true, pos: pos, color: Misc.PlayerColors[shipPosition])
+        let ship = Ship(engine: engine, controller: controller, isServerInstance: true, pos: pos, color: Misc.PlayerColors[shipPosition])
         ship.setInitialRotation(rotation)
         return ship
     }

@@ -57,10 +57,9 @@ final class SpaceWarMain {
 
         gameState = MonitoredState(tickSource: engine, initial: .mainMenu, name: "Main")
         cancelInput = Debounced(debounce: 250) {
-            engine.isKeyDown(.escape)
-            /* XXX SteamInput ||
-             m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_PauseMenu ) ||
-             m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_MenuCancel ) ) */
+            engine.isKeyDown(.escape) ||
+                controller.isActionActive(.pauseMenu) ||
+                controller.isActionActive(.menuCancel)
         }
         // Gadget to fire every second
         infrequent = Debounced(debounce: 1000) { true }

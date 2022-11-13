@@ -7,6 +7,7 @@ import MetalEngine
 import simd
 
 final class Ship: SpaceWarEntity {
+    let controller: Controller
     let shipColor: Color2D
     /// Is this ship instance running inside the server (otherwise it's a client...)
     let isServerInstance: Bool
@@ -70,10 +71,11 @@ final class Ship: SpaceWarEntity {
     var vkReverseThrusters: VirtualKey?
     var vkFire: VirtualKey?
 
-    init(engine: Engine2D, isServerInstance: Bool, pos: SIMD2<Float>, color: Color2D) {
-
-        shipColor = color
+    init(engine: Engine2D, controller: Controller, isServerInstance: Bool, pos: SIMD2<Float>, color: Color2D) {
+        self.shipColor = color
         self.isServerInstance = isServerInstance
+        self.controller = controller
+
         shipDecoration = nil
         shieldStrength = 0
         isDisabled = false
@@ -105,16 +107,16 @@ final class Ship: SpaceWarEntity {
         self.pos = pos
 
         // Set Controller color to ship color
-        // XXX SteamInput m_pGameEngine->SetControllerColor( m_dwShipColor >> 16 & 255, m_dwShipColor >> 8 & 255, m_dwShipColor & 255, k_ESteamControllerLEDFlag_SetColor );
+        controller.setColor(shipColor, flags: .setColor)
     }
 
     deinit {
         // Restore Controller Color
-        // XXX SteamInput m_pGameEngine->SetControllerColor( 0, 0, 0, k_ESteamControllerLEDFlag_RestoreUserDefault );
+        controller.setColor(.rgb(0, 0, 0), flags: .restoreUserDefault)
 
         // Turn off trigger effect
         if isTriggerEffectEnabled {
-            // XXX SteamInput m_pGameEngine->SetTriggerEffect(false)
+            controller.setTriggerEffect(false)
         }
     }
 
@@ -183,27 +185,21 @@ final class Ship: SpaceWarEntity {
         if isLocalPlayer {
             // client side
             spaceWarClientUpdateData.turnLeftPressed =
-                engine.isKeyDown(vkLeft!) /* XXX SteamInput ||
-                engine.isControllerActionActive(eControllerDigitalAction_TurnLeft)*/
+                engine.isKeyDown(vkLeft!) || controller.isActionActive(.turnLeft)
 
             spaceWarClientUpdateData.turnRightPressed =
-                engine.isKeyDown(vkRight!) /* XXX SteamInput ||
-                engine.isControllerActionActive(eControllerDigitalAction_TurnRight)*/
+                engine.isKeyDown(vkRight!) || controller.isActionActive(.turnRight)
 
-    //          // The Steam Controller can also map an anlog axis to thrust and steer
-    //          float fTurnSpeed, fUnused;
-    //          m_pGameEngine->GetControllerAnalogAction( eControllerAnalogAction_AnalogControls, &fTurnSpeed, &fUnused );
-    //
-    //          if ( fTurnSpeed > 0.0f )
-    //          {
-    //            m_SpaceWarClientUpdateData.SetTurnRightPressed( true );
-    //            m_SpaceWarClientUpdateData.SetTurnSpeed( fTurnSpeed );
-    //          }
-    //          else if ( fTurnSpeed < 0.0f )
-    //          {
-    //            m_SpaceWarClientUpdateData.SetTurnLeftPressed( true );
-    //            m_SpaceWarClientUpdateData.SetTurnSpeed( fTurnSpeed );
-    //          }
+            // The Steam Controller can also map an anlog axis to thrust and steer
+            let turnSpeed = controller.getAnalogAction(.analogControls).x
+
+            if turnSpeed > 0 {
+                spaceWarClientUpdateData.turnRightPressed = true
+                spaceWarClientUpdateData.turnSpeed = turnSpeed
+            } else if turnSpeed < 0 {
+                spaceWarClientUpdateData.turnLeftPressed = true
+                spaceWarClientUpdateData.turnSpeed = turnSpeed
+            }
         } else if isServerInstance {
             // Server side
             let maxTurnSpeed = (Float.pi / 2) * (Float(engine.frameDelta) / 200.0)
@@ -226,41 +222,31 @@ final class Ship: SpaceWarEntity {
         if isLocalPlayer {
             // client side
             spaceWarClientUpdateData.forwardThrustersPressed =
-                engine.isKeyDown(vkForwardThrusters!) /* XXX SteamInput ||
-                m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_ForwardThrust ) */
+                engine.isKeyDown(vkForwardThrusters!) || controller.isActionActive(.forwardThrust)
 
             spaceWarClientUpdateData.reverseThrustersPressed =
-                engine.isKeyDown(vkReverseThrusters!) /* XXX SteamInput ||
-                m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_ReverseThrust ) */
+                engine.isKeyDown(vkReverseThrusters!) || controller.isActionActive(.reverseThrust)
 
-            let forwardThrustActive = spaceWarClientUpdateData.forwardThrustersPressed
+            // The Steam Controller can also map an analog axis to thrust and steer
+            let thrusterLevel = controller.getAnalogAction(.analogControls).y
 
-    //          // The Steam Controller can also map an analog axis to thrust and steer
-    //          float fThrusterLevel, fUnused;
-    //          m_pGameEngine->GetControllerAnalogAction( eControllerAnalogAction_AnalogControls, &fUnused, &fThrusterLevel );
-    //
-    //          if ( fThrusterLevel > 0.0f )
-    //          {
-    //            m_SpaceWarClientUpdateData.SetForwardThrustersPressed( true );
-    //            m_SpaceWarClientUpdateData.SetThrustersLevel( fThrusterLevel );
-    //            bForwardThrustActive = true;
-    //          }
-    //          else if ( fThrusterLevel < 0.0f )
-    //          {
-    //            m_SpaceWarClientUpdateData.SetReverseThrustersPressed( true );
-    //            m_SpaceWarClientUpdateData.SetThrustersLevel( fThrusterLevel );
-    //          }
-    //
-    //          // We can activate action set layers based upon our state.
-    //          // This allows action bindings or settings to be changed on an existing action set for contextual usage
-    //          if ( bForwardThrustActive )
-    //          {
-    //            m_pGameEngine->ActivateSteamControllerActionSetLayer( eControllerActionSet_Layer_Thrust );
-    //          }
-    //          else if ( m_pGameEngine->BIsActionSetLayerActive( eControllerActionSet_Layer_Thrust ) )
-    //          {
-    //            m_pGameEngine->DeactivateSteamControllerActionSetLayer( eControllerActionSet_Layer_Thrust );
-    //          }
+            let forwardThrustActive = spaceWarClientUpdateData.forwardThrustersPressed || thrusterLevel > 0
+
+            if thrusterLevel > 0 {
+                spaceWarClientUpdateData.forwardThrustersPressed = true
+                spaceWarClientUpdateData.thrusterLevel = thrusterLevel
+            } else if thrusterLevel < 0 {
+                spaceWarClientUpdateData.reverseThrustersPressed = true
+                spaceWarClientUpdateData.thrusterLevel = thrusterLevel
+            }
+
+            // We can activate action set layers based upon our state.
+            // This allows action bindings or settings to be changed on an existing action set for contextual usage
+            if forwardThrustActive {
+                controller.activateActionSetLayer(.layerThrust)
+            } else if controller.isActionSetLayerActive(.layerThrust) {
+                controller.deactivateActionSetLayer(.layerThrust)
+            }
     //            // Hardcoded keys to choose various outfits and weapon powerups which require inventory. Note that this is not
     //            // a "secure" multiplayer model - clients can lie about what they own. A more robust solution, if your items
     //            // matter enough to bother, would be to use SerializeResult / DeserializeResult to encode the fact that your
@@ -321,14 +307,13 @@ final class Ship: SpaceWarEntity {
                     areForwardThrustersActive = true
                 }
 
-                //            float fThrusterLevel = m_SpaceWarClientUpdateData.GetThrustersLevel();
-                //            if ( fThrusterLevel != 0.0f ) {
-                //              flSign = fThrusterLevel;
-                //            } XXX SteamInput
+                if spaceWarClientUpdateData.thrusterLevel != 0 {
+                    sign = spaceWarClientUpdateData.thrusterLevel
+                }
                 if lastThrustStartedTickCount == 0 {
                     lastThrustStartedTickCount = engine.currentTickCount
-                    // XXX SteamInput (wtf this is the server, makes no sense...)
-                    //              m_pGameEngine->TriggerControllerHaptics( k_ESteamControllerPad_Left, 2900, 1200, 4 );
+                    // XXX (wtf this is the server, makes no sense...)
+                    controller.triggerHaptics(pad: .left, onMicrosec: 2900, offMicrosec: 1200, repeats: 4)
                 }
 
                 // You have to hold the key for half a second to reach maximum thrust
@@ -352,8 +337,7 @@ final class Ship: SpaceWarEntity {
         if isLocalPlayer {
             // client side
             spaceWarClientUpdateData.firePressed =
-                engine.isKeyDown(vkFire!) /* XXX SteamInput ||
-                m_pGameEngine->BIsControllerActionActive( eControllerDigitalAction_FireLasers ) */
+                engine.isKeyDown(vkFire!) || controller.isActionActive(.fireLasers)
         } else if let nextAvailablePhotonBeamSlot,
                   isServerInstance,
                   !isExploding,
@@ -409,7 +393,8 @@ final class Ship: SpaceWarEntity {
                                     pos.y + cosValue * -12)
 
                 photonBeams[nextAvailablePhotonBeamSlot] = PhotonBeam(engine: engine, pos: beamPos, beamColor: shipColor, initialRotation: accumulatedRotation, initialVelocity: beamVelocity)
-                /* XXX SteamInput                     m_pGameEngine->TriggerControllerHaptics( k_ESteamControllerPad_Right, 1200, 2500, 3 ); */
+                // XXX again this is the server...
+                controller.triggerHaptics(pad: .right, onMicrosec: 1200, offMicrosec: 2500, repeats: 3)
             }
         }
 
@@ -619,8 +604,6 @@ final class Ship: SpaceWarEntity {
 //                             shipPower: <#T##Int#>,
                              shieldStrength: shieldStrength,
                              photonBeamData: buildServerPhotonBeamUpdate()
-//                             thrusterLevel: <#T##Float#>,
-//                             turnSpeed: <#T##Float#>
         )
         //      pUpdateData->SetDecoration( m_nShipDecoration );
         //      pUpdateData->SetWeapon( m_nShipWeapon );
@@ -675,17 +658,17 @@ final class Ship: SpaceWarEntity {
         if explosionTickCount > 0 {
             let vibration = min(Float(engine.gameTickCount - explosionTickCount) / 1000.0, 1.0)
             if vibration == 1.0 {
-                //  XXX steaminput        m_pGameEngine->TriggerControllerVibration( 0, 0 );
+                controller.triggerVibration(leftSpeed: 0, rightSpeed: 0)
                 explosionTickCount = 0
             } else {
-                // XXX steaminput
-                //          m_pGameEngine->TriggerControllerVibration( (unsigned short)( ( 1.0f - flVibration ) * 48000.0f), (unsigned short)( ( 1.0f - flVibration ) * 24000.0f) );
+                controller.triggerVibration(leftSpeed: UInt16((1.0 - vibration) * 48000.0),
+                                            rightSpeed: UInt16((1.0 - vibration) * 24000.0))
             }
         }
 
         let triggerEffectEnabled = !isDisabled && !isExploding
         if triggerEffectEnabled != isTriggerEffectEnabled {
-            // XXX SteamInput engine.SetTriggerEffect(triggerEffectEnabled)
+            controller.setTriggerEffect(triggerEffectEnabled)
             isTriggerEffectEnabled = triggerEffectEnabled
         }
     }
@@ -735,10 +718,6 @@ final class Ship: SpaceWarEntity {
     //  int m_nShipPower;
     //
     //    HGAMETEXTURE m_hTextureWhite;
-    //
-    //    // Thrust and rotation speed can be anlog when using a Steam Controller
-    //    float m_fThrusterLevel;
-    //    float m_fTurnSpeed;
 }
 
 // MARK: Forward Thrusters

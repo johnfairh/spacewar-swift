@@ -216,7 +216,7 @@ final class Controller {
     // MARK: Effects
 
     /// Set the LED color on the controller, if supported by controller
-    func setControllerColor(_ color: Color2D, flags: SteamControllerLEDFlag) {
+    func setColor(_ color: Color2D, flags: SteamControllerLEDFlag) {
         steam.input.setLEDColor(handle: activeControllerHandle,
                                 colorR: UInt8(color.r * 255),
                                 colorG: UInt8(color.g * 255),
@@ -236,7 +236,7 @@ final class Controller {
 
     /// Set the trigger effect on DualSense controllers
     func setTriggerEffect(_ enabled: Bool) {
-        // XXX DualSense stuff
+        // XXX DualSense
 //      ScePadTriggerEffectParam param;
 //
 //      memset( &param, 0, sizeof( param ) );

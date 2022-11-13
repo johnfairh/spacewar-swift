@@ -208,7 +208,7 @@ final class SpaceWarClient {
 
         case .startServer:
             if server == nil {
-                server = SpaceWarServer(engine: engine, name: steam.localServerName)
+                server = SpaceWarServer(engine: engine, controller: controller, name: steam.localServerName)
             }
 
             if let server, server.isConnectedToSteam {
@@ -480,6 +480,7 @@ final class SpaceWarClient {
             if gameState.ships[i] == nil {
                 let shipData = msg.shipData[i]
                 let ship = Ship(engine: engine,
+                                controller: controller,
                                 isServerInstance: false,
                                 pos: shipData.position * engine.viewportSize,
                                 color: Misc.PlayerColors[i])

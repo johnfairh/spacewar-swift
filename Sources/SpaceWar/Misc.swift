@@ -34,7 +34,7 @@ enum Misc {
     static let MAX_PHOTON_BEAMS_PER_SHIP = Int(PHOTON_BEAM_LIFETIME_IN_TICKS / PHOTON_BEAM_FIRE_INTERVAL_TICKS)
 
     /// Time to timeout a connection attempt in
-    static let MILLISECONDS_CONNECTION_TIMEOUT = UInt(8000) /* XXX yawn UInt(30000) */
+    static let MILLISECONDS_CONNECTION_TIMEOUT = UInt(30000)
 
     /// How many times a second does the server send world updates to clients
     static let SERVER_UPDATE_SEND_RATE = UInt(60)

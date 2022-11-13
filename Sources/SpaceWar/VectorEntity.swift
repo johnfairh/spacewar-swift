@@ -9,7 +9,7 @@ import simd
 typealias Radians = Float
 
 /// An entity with fixed geometry that has position and acceleration in space, updating itself by frame
-/// Subclasses expected to tweak parameters -- XXX figure out a better way given there's no 'protected'
+/// Subclasses expected to tweak parameters
 class VectorEntity {
     let engine: Engine2D
     let collisionRadius: Float
@@ -94,8 +94,7 @@ class VectorEntity {
         rotationDeltaNextFrame = 0
 
         // Update our acceleration, velocity, and finally position
-        // Note: The min here is so we don't get massive acceleration if frames for some reason don't run for a bit
-        // JF: SURELY IT SHOULD BE MAX NOT MIN??? WTF. XXX
+        // Note: The max here is so we don't get massive acceleration if frames for some reason don't run for a bit
         let elapsedSeconds = max(Float(engine.frameDelta) / 1000.0, 0.1)
         velocity += acceleration * elapsedSeconds
 
