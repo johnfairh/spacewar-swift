@@ -79,7 +79,7 @@ struct SpaceWarApp: App {
         Steamworks_SelfCheck();
 
         // Steam Input
-        if !steam.input.initialize(explicitlyCallRunFrame: false)
+        if !steam.input.initialize(explicitlyCallRunFrame: false) {
             alert("Fatal Error", "SteamInput()->Init failed.");
             preconditionFailure("SteamInput()->Init failed.");
         }

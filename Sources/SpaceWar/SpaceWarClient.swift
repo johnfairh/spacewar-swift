@@ -78,7 +78,7 @@ final class SpaceWarClient {
         self.steam = steam
         self.state = .init(tickSource: engine, initial: .idle, name: "Client")
         self.clientConnection = SpaceWarClientConnection(steam: steam, tickSource: engine)
-        self.clientLayout = SpaceWarClientLayout(steam: steam, engine: engine)
+        self.clientLayout = SpaceWarClientLayout(steam: steam, controller: controller, engine: engine)
         self.p2pAuthedGame = P2PAuthedGame(steam: steam, tickSource: engine, connection: clientConnection)
         self.server = nil
         self.gameState = GameState()
@@ -264,7 +264,7 @@ final class SpaceWarClient {
             gameState.ships.forEach { $0?.runFrame() }
 //
 //            DrawHUDText();
-//            DrawWinnerDrawOrWaitingText();
+            clientLayout.drawWinnerDrawOrWaitingText(state: state, winner: gameState.playerSteamIDs[gameState.playerWhoWonGame])
 //
 //            m_pVoiceChat->RunFrame();
 

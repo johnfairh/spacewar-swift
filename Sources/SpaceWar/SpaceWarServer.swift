@@ -416,7 +416,7 @@ final class SpaceWarServer {
         let exploded = couldBeWinners.filter { $0.ship.isExploding }
 
         if exploded.count == couldBeWinners.count {
-            OutputDebugString("SpaceWarServer All exploded, declaring draw")
+            OutputDebugString("SpaceWarServer All \(exploded.count) players exploded, declaring draw")
             return .draw
         }
 
