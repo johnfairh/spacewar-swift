@@ -52,7 +52,7 @@ final class P2PAuthedGame {
         //    }
     }
 
-    func onReceive(serverUpdate: Int /* XXX ServerSpaceWarUpdateData*/, isOwner: Bool, gameState: SpaceWarClient.GameState) {
+    func onReceive(msg: MsgServerUpdateWorld, isOwner: Bool, gameState: SpaceWarClient.GameState) {
         //    if ( m_pP2PAuthedGame )
         //    {
         //        // has the player list changed?

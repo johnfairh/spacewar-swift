@@ -392,12 +392,11 @@ final class SpaceWarServer {
                     explodingShips.insert(i)
                 }
                 if otherShip.checkForPhotons(collidingWith: ship) {
-                    if ship.shieldStrength > 200 {
-                        // Shield protects from the hit
-                        ship.shieldStrength = 0
-                        otherShip.destroyPhotons(collidingWith: ship)
-                    } else {
+                    if ship.isPhotonBeamFatal() {
                         explodingShips.insert(i)
+                    } else {
+                        // Shield protects from the hit
+                        otherShip.destroyPhotons(collidingWith: ship)
                     }
                 }
             }

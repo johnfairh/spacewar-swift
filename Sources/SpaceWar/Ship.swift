@@ -14,8 +14,12 @@ final class Ship: SpaceWarEntity {
 
     /// Decoration for this ship
     private var shipDecoration: Int32
-    /// Shield strength XXX API
-    var shieldStrength: Int
+    /// Shield strength
+    private var shieldStrength: Int32
+    /// Cloak fade out
+    private var fade: Int
+    /// Ship power
+    private var shipPower: Int32
     /// Ship weapon
     private var shipWeapon: Int32
 
@@ -74,6 +78,8 @@ final class Ship: SpaceWarEntity {
         shipDecoration = 0
         shieldStrength = 0
         shipWeapon = 0
+        shipPower = 0
+        fade = 255
         isDisabled = false
         isLocalPlayer = false
         isExploding = false
@@ -86,8 +92,6 @@ final class Ship: SpaceWarEntity {
         areReverseThrustersActive = false
         photonBeams = .init(repeating: nil, count: Misc.MAX_PHOTON_BEAMS_PER_SHIP)
         lastPhotonTickCount = 0
-        //      m_nFade = 255;
-        //      m_nShipPower = 0;
         //      m_hTextureWhite = 0;
         explosionTickCount = 0
         isTriggerEffectEnabled = false
@@ -173,8 +177,6 @@ final class Ship: SpaceWarEntity {
                 photonBeams[i] = nil
             }
         }
-//        // Track next available slot for use spawning new beams below
-//        let nextAvailablePhotonBeamSlot = photonBeams.firstIndex(where: { $0 == nil })
 
         // run all the photon beams we have outstanding
         photonBeams.forEach { $0?.runFrame() }
@@ -374,9 +376,9 @@ final class Ship: SpaceWarEntity {
         } else if engine.isKeyDown(.printable("6")) { /* XXX Inventory && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipWeapon2 ) */
             shipWeapon = 2
         } else if engine.isKeyDown(.printable("7")) { /* XXX Inventory && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipSpecial1 ) */
-            // XXX shipPower = 1
+            shipPower = 1
         } else if engine.isKeyDown(.printable("8")) { /* XXX Inventory && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipSpecial2 ) */
-            // XXX shipPower = 2
+            shipPower = 2
         }
     }
 
@@ -410,68 +412,52 @@ final class Ship: SpaceWarEntity {
             }
         }
 
-    //      DWORD actualColor = m_dwShipColor;
-    //
-    //        if ( m_nShipPower == 1 ) // Item#103 but need to check if the other guy has it sometimes?
-    //        {
-//        let beamCount = photonBeams.compactMap { $0 }.count
-    //          if ( beamCount > 0 )
-    //          {
-    //            m_nFade = 255;
-    //          }
-    //          else if ( m_nFade > 0 )
-    //          {
-    //            m_nFade -= 5;
-    //            if ( m_nFade < 0 )
-    //              m_nFade = 0;
-    //            if ( m_bIsLocalPlayer && m_nFade < 50 )
-    //            {
-    //              m_nFade = 128;
-    //            }
-    //          }
-    //          actualColor = (actualColor & 0xffffff) | (m_nFade<<24);
-    //        }
-    //
-    //        DWORD shieldColor = 0x00af8f00;
-    //
-    //        if ( m_nShipPower == 2 )
-    //        {
-    //          shieldColor = shieldColor | ((m_nShipShieldStrength / 4)<<24);
-    //          if ( m_nShipShieldStrength < 256 )
-    //            m_nShipShieldStrength++;
-    //
-    //          if ( !m_hTextureWhite )
-    //          {
-    //            byte *pRGBAData = new byte[1 * 1 * 4];
-    //            memset( pRGBAData, 255, 1 * 1 * 4 );
-    //            m_hTextureWhite = m_pGameEngine->HCreateTexture( pRGBAData, 1, 1 );
-    //            delete[] pRGBAData;
-    //          }
-    //
-    //          float rotationClockwise = (m_pGameEngine->GetGameTickCount() / 500.0f);
-    //          float rotationCounter = -(m_pGameEngine->GetGameTickCount() / 500.0f);
-    //
-    //          float x1 = 28.0f * (float)cos( rotationClockwise );
-    //          float y1 = 28.0f * (float)sin( rotationClockwise );
-    //          float x2 = 28.0f * (float)cos( rotationCounter );
-    //          float y2 = 28.0f * (float)sin( rotationCounter );
-    //
-    //          m_pGameEngine->BDrawTexturedQuad(
-    //            this->GetXPos() - x1, this->GetYPos() - y1, this->GetXPos() + y1, this->GetYPos() - x1,
-    //            this->GetXPos() - y1, this->GetYPos() + x1, this->GetXPos() + x1, this->GetYPos() + y1,
-    //            0, 0, 1, 1, shieldColor, m_hTextureWhite );
-    //
-    //          m_pGameEngine->BDrawTexturedQuad(
-    //            this->GetXPos() - x2, this->GetYPos() - y2, this->GetXPos() + y2, this->GetYPos() - x2,
-    //            this->GetXPos() - y2, this->GetYPos() + x2, this->GetXPos() + x2, this->GetYPos() + y2,
-    //            0, 0, 1, 1, shieldColor, m_hTextureWhite );
-    //        }
-    //        else
-    //        {
-    //          m_nShipShieldStrength = 0;
-    //        }
-    //
-        super.render(overrideColor: nil /* actualColor XXX */)
+        var actualColor = shipColor
+
+        if shipPower == 1 { // Item#103 but need to check if the other guy has it sometimes?
+            let beamCount = photonBeams.compactMap { $0 }.count
+            if beamCount > 0 {
+                fade = 255
+            } else if fade > 0 {
+                fade = max(0, fade - 5)
+                if isLocalPlayer && fade < 50 {
+                    fade = 128
+                }
+            }
+            actualColor = .rgba(actualColor.r, actualColor.g, actualColor.b, Float(fade)/255)
+        }
+
+        if shipPower == 2 {
+            let shieldColor: Color2D = .rgba_i(0xaf, 0x8f, 0x00, Float(shieldStrength / 4))
+
+            if shieldStrength < 256 {
+                shieldStrength += 1
+            }
+
+            let rotationClockwise = Float(engine.gameTickCount) / 500
+            let rotationCounter = -Float(engine.gameTickCount) / 500
+
+            let x1 = 28.0 * cos(rotationClockwise)
+            let y1 = 28.0 * sin(rotationClockwise)
+            let x2 = 28.0 * cos(rotationCounter)
+            let y2 = 28.0 * sin(rotationCounter)
+
+            engine.drawQuad(x0: pos.x - x1, y0: pos.y - y1,
+                            x1: pos.x + y1, y1: pos.y - x1,
+                            x2: pos.x + x1, y2: pos.y + y1,
+                            x3: pos.x - y1, y3: pos.y + x1,
+                            color: shieldColor)
+
+            engine.drawQuad(x0: pos.x - x2, y0: pos.y - y2,
+                            x1: pos.x + y2, y1: pos.y - x2,
+                            x2: pos.x + x2, y2: pos.y + y2,
+                            x3: pos.x - y2, y3: pos.y + x2,
+                            color: shieldColor)
+        } else {
+            shieldStrength = 0
+        }
+
+        super.render(overrideColor: actualColor)
     }
 
     // MARK: Client/Server data exchange
@@ -496,7 +482,7 @@ final class Ship: SpaceWarEntity {
         velocity = data.velocity
         accumulatedRotation = data.currentRotation
 
-    //        m_nShipPower = pUpdateData->GetPower();
+        shipPower = data.shipPower
         shipWeapon = data.weapon
         if shipDecoration != data.decoration {
             shipDecoration = data.decoration
@@ -534,7 +520,7 @@ final class Ship: SpaceWarEntity {
         }
 
         shipDecoration = data.shipDecoration
-        // XXX     m_nShipPower = pUpdateData->GetPower();
+        shipPower = data.shipPower
         shipWeapon = data.shipWeapon
         shieldStrength = data.shieldStrength
 
@@ -553,7 +539,7 @@ final class Ship: SpaceWarEntity {
             spaceWarClientUpdateData.playerName = "Walaspi" // XXX steam.friends.getPersonaName()
             spaceWarClientUpdateData.shipDecoration = shipDecoration
             spaceWarClientUpdateData.shipWeapon = shipWeapon
-//            spaceWarClientUpdateData.shipPower = shipPower
+            spaceWarClientUpdateData.shipPower = shipPower
             spaceWarClientUpdateData.shieldStrength = shieldStrength
         }
 
@@ -575,11 +561,10 @@ final class Ship: SpaceWarEntity {
                              areReverseThrustersActive: areReverseThrustersActive,
                              decoration: shipDecoration,
                              weapon: shipWeapon,
-//                             shipPower: <#T##Int#>,
+                             shipPower: shipPower,
                              shieldStrength: shieldStrength,
                              photonBeamData: buildServerPhotonBeamUpdate()
         )
-        //      pUpdateData->SetPower( m_nShipPower );
     }
 
         /// Build the photon beam update data to send from the server to clients
@@ -667,26 +652,20 @@ final class Ship: SpaceWarEntity {
         return false
     }
 
-    //    // Accumulate stats for this ship
-    //    void AccumulateStats( CStatsAndAchievements *pStats );
-    //    //-----------------------------------------------------------------------------
-    //    // Purpose: Accumulate stats for this ship
-    //    //-----------------------------------------------------------------------------
-    //    void CShip::AccumulateStats( CStatsAndAchievements *pStats )
-    //    {
-    //      if ( m_bIsLocalPlayer )
-    //      {
-    //        pStats->AddDistanceTraveled( GetDistanceTraveledLastFrame() );
-    //      }
-    //    }
-    //
-    //  // cloak fade out
-    //  int m_nFade;
-    //
-    //  // Power for this ship
-    //  int m_nShipPower;
-    //
-    //    HGAMETEXTURE m_hTextureWhite;
+    func isPhotonBeamFatal() -> Bool {
+        guard shieldStrength > 200 else {
+            return true
+        }
+        shieldStrength = 0
+        return false
+    }
+
+    /// Accumulate stats for this ship
+    func accumulateStats(_ stats: Int /* XXX StatsAndAchievements */) {
+        if isLocalPlayer {
+/* XXX            stats.addDistanceTraveled(distanceTraveledLastFrame) */
+        }
+    }
 }
 
 // MARK: Forward Thrusters

@@ -316,7 +316,7 @@ final class SpaceWarClient {
         server?.runFrame()
 
         // Accumulate stats
-        //   XXX gameState.ships.forEach { $0?.accumulateStats(to: statsAndAchievements) }
+        gameState.ships.forEach { $0?.accumulateStats(2 /*XXX statsAndAchievements*/) }
 
         // Finally Render everything that might have been updated by the server
         switch state.state {
@@ -460,7 +460,7 @@ final class SpaceWarClient {
         gameState.playerWhoWonGame = msg.playerWhoWonGame
 
         // Update p2p authentication as we learn about the peers
-        //      XXX p2pAuthedGame.onReceive(serverUpdate: updateData, isOwner: server != nil, gameState: gameState)
+        p2pAuthedGame.onReceive(msg: msg, isOwner: server != nil, gameState: gameState)
 
         // update all players that are active
         //        XXX m_pVoiceChat->MarkAllPlayersInactive();

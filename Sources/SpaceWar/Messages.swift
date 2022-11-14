@@ -282,8 +282,8 @@ struct ServerShipUpdateData {
     let areReverseThrustersActive: Bool
     let decoration: Int32
     let weapon: Int32
-    let shipPower: Int
-    let shieldStrength: Int
+    let shipPower: Int32
+    let shieldStrength: Int32
     let photonBeamData: [ServerPhotonBeamUpdateData]
     let thrusterLevel: Float
     let turnSpeed: Float
@@ -299,8 +299,8 @@ struct ServerShipUpdateData {
          areReverseThrustersActive: Bool = false,
          decoration: Int32 = 0,
          weapon: Int32 = 0,
-         shipPower: Int = 0,
-         shieldStrength: Int = 0,
+         shipPower: Int32 = 0,
+         shieldStrength: Int32 = 0,
          photonBeamData: [ServerPhotonBeamUpdateData] = .init(repeating: .init(), count: Misc.MAX_PHOTON_BEAMS_PER_SHIP),
          thrusterLevel: Float = 0,
          turnSpeed: Float = 0) {
@@ -334,8 +334,8 @@ struct ServerShipUpdateData {
         areReverseThrustersActive = .init(bigEndian: from.reverseThrustersActive)
         decoration = Int32(bigEndian: from.shipDecoration)
         weapon = Int32(bigEndian: from.shipWeapon)
-        shipPower = Int(Int32(bigEndian: from.shipPower))
-        shieldStrength = Int(Int32(bigEndian: from.shieldStrength))
+        shipPower = Int32(bigEndian: from.shipPower)
+        shieldStrength = Int32(bigEndian: from.shieldStrength)
         photonBeamData = .seven(from.photonBeamData_ptr) { ServerPhotonBeamUpdateData($0) }
         thrusterLevel = Float(bigEndian: from.thrusterLevel)
         turnSpeed = Float(bigEndian: from.turnSpeed)
@@ -483,8 +483,8 @@ struct ClientSpaceWarUpdateData {
     var reverseThrustersPressed: Bool
     var shipDecoration: Int32
     var shipWeapon: Int32
-    var shipPower: Int
-    var shieldStrength: Int
+    var shipPower: Int32
+    var shieldStrength: Int32
     var playerName: String
     var thrusterLevel: Float
     var turnSpeed: Float
@@ -496,8 +496,8 @@ struct ClientSpaceWarUpdateData {
          reverseThrustersPressed: Bool = false,
          shipDecoration: Int32 = 0,
          shipWeapon: Int32 = 0,
-         shipPower: Int = 0,
-         shieldStrength: Int = 0,
+         shipPower: Int32 = 0,
+         shieldStrength: Int32 = 0,
          playerName: String = "",
          thrusterLevel: Float = 0,
          turnSpeed: Float = 0) {
@@ -523,8 +523,8 @@ struct ClientSpaceWarUpdateData {
         reverseThrustersPressed = Bool(bigEndian: from.reverseThrustersPressed)
         shipDecoration = Int32(bigEndian: from.shipDecoration)
         shipWeapon = Int32(bigEndian: from.shipWeapon)
-        shipPower = Int(Int32(bigEndian: from.shipPower))
-        shieldStrength = Int(Int32(bigEndian: from.shieldStrength))
+        shipPower = Int32(bigEndian: from.shipPower)
+        shieldStrength = Int32(bigEndian: from.shieldStrength)
         playerName = String(cString: from.playerName_ptr)
         thrusterLevel = Float(bigEndian: from.thrusterLevel)
         turnSpeed = Float(bigEndian: from.turnSpeed)
