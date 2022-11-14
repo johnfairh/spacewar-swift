@@ -12,15 +12,8 @@ final class Ship: SpaceWarEntity {
     /// Is this ship instance running inside the server (otherwise it's a client...)
     let isServerInstance: Bool
 
-    /// Decorations from inventory - better names very possible...
-    enum Decoration: Int {
-        case one = 1
-        case two = 2
-        case three = 3
-        case four = 4
-    }
     /// Decoration for this ship
-    private var shipDecoration: Decoration?
+    private var shipDecoration: Int32
     /// Shield strength XXX API
     var shieldStrength: Int
     /// Ship weapon
@@ -78,7 +71,7 @@ final class Ship: SpaceWarEntity {
         self.isServerInstance = isServerInstance
         self.controller = controller
 
-        shipDecoration = nil
+        shipDecoration = 0
         shieldStrength = 0
         shipWeapon = 0
         isDisabled = false
@@ -94,7 +87,6 @@ final class Ship: SpaceWarEntity {
         photonBeams = .init(repeating: nil, count: Misc.MAX_PHOTON_BEAMS_PER_SHIP)
         lastPhotonTickCount = 0
         //      m_nFade = 255;
-        //      m_nShipDecoration = 0;
         //      m_nShipPower = 0;
         //      m_hTextureWhite = 0;
         explosionTickCount = 0
@@ -136,27 +128,29 @@ final class Ship: SpaceWarEntity {
         addLine(xPos0: 0.0, yPos0: -12.0, xPos1: 9.0, yPos1: 12.0, color: shipColor)
         addLine(xPos0: 9.0, yPos0: 12.0, xPos1: -9.0, yPos1: 12.0, color: shipColor)
 
-        guard let shipDecoration else {
-            return
-        }
         switch shipDecoration {
-        case .one:
+        case 0:
+            break;
+        case 1:
             addLine(xPos0: 0.0, yPos0: -12.0, xPos1: -0.0, yPos1: 12.0, color: shipColor)
             addLine(xPos0: 4.5, yPos0: 0.0, xPos1: -4.5, yPos1: 0.0, color: shipColor)
-        case .two:
+        case 2:
             addLine(xPos0: 0.0, yPos0: -12.0, xPos1: -0.0, yPos1: 12.0, color: shipColor)
             addLine(xPos0: 4.5, yPos0: 0.0, xPos1: -4.5, yPos1: 0.0, color: shipColor)
             addLine(xPos0: 2.5, yPos0: -6.0, xPos1: -9.0, yPos1: 12.0, color: shipColor)
             addLine(xPos0: 9.0, yPos0: 12.0, xPos1: -2.5, yPos1: -6.0, color: shipColor)
-        case .three:
+        case 3:
             addLine(xPos0: 0.0, yPos0: -12.0, xPos1: 0.0, yPos1: 12.0, color: shipColor)
             addLine(xPos0: 2.0, yPos0: -8.0, xPos1: 2.0, yPos1: 12.0, color: shipColor)
             addLine(xPos0: -2.0, yPos0: -8.0, xPos1: -2.0, yPos1: 12.0, color: shipColor)
-        case .four:
+        case 4:
             addLine(xPos0: -12.0, yPos0: 12.0, xPos1: -3.0,yPos1: -12.0, color: shipColor)
             addLine(xPos0: -17.0,  yPos0: 4.0,xPos1: -11.0,yPos1: -10.0, color: shipColor)
             addLine(xPos0: -17.0,  yPos0: 4.0,xPos1: -10.0, yPos1: 7.0, color: shipColor)
             addLine(xPos0: -11.0,yPos0: -10.0, xPos1: -3.0,yPos1: -7.0, color: shipColor)
+        default:
+            OutputDebugString("Unknown ship decoration \(shipDecoration), resetting")
+            shipDecoration = 0
         }
     }
 
@@ -361,19 +355,19 @@ final class Ship: SpaceWarEntity {
         // matter enough to bother, would be to use SerializeResult / DeserializeResult to encode the fact that your
         // steamid owns certain items, and then send that encoded result to the server which decodes and verifies it.
         if engine.isKeyDown(.printable("0")) {
-            shipDecoration = .none
+            shipDecoration = 0
             buildGeometry()
         } else if engine.isKeyDown(.printable("1")) { /* XXX Inventory && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipDecoration1 ) */
-            shipDecoration = .one
+            shipDecoration = 1
             buildGeometry()
         } else if engine.isKeyDown(.printable("2")) { /* XXX Inventory && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipDecoration2 ) */
-            shipDecoration = .two
+            shipDecoration = 2
             buildGeometry()
         } else if engine.isKeyDown(.printable("3")) { /* XXX Inventory && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipDecoration3 ) */
-            shipDecoration = .three
+            shipDecoration = 3
             buildGeometry()
         } else if engine.isKeyDown(.printable("4")) { /* XXX Inventory && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipDecoration4 ) */
-            shipDecoration = .four
+            shipDecoration = 4
             buildGeometry()
         } else if engine.isKeyDown(.printable("5")) { /* XXX Inventory && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipWeapon1 ) */
             shipWeapon = 1
@@ -504,11 +498,10 @@ final class Ship: SpaceWarEntity {
 
     //        m_nShipPower = pUpdateData->GetPower();
         shipWeapon = data.weapon
-    //        if ( m_nShipDecoration != pUpdateData->GetDecoration() )
-    //        {
-    //            m_nShipDecoration = pUpdateData->GetDecoration();
-    //            BuildGeometry();
-    //        }
+        if shipDecoration != data.decoration {
+            shipDecoration = data.decoration
+            buildGeometry()
+        }
         if !isLocalPlayer || data.shieldStrength == 0 {
             shieldStrength = data.shieldStrength
         }
@@ -540,7 +533,7 @@ final class Ship: SpaceWarEntity {
             return
         }
 
-        shipDecoration = Decoration(rawValue: data.shipDecoration)
+        shipDecoration = data.shipDecoration
         // XXX     m_nShipPower = pUpdateData->GetPower();
         shipWeapon = data.shipWeapon
         shieldStrength = data.shieldStrength
@@ -558,7 +551,7 @@ final class Ship: SpaceWarEntity {
         // Update playername before sending
         if isLocalPlayer {
             spaceWarClientUpdateData.playerName = "Walaspi" // XXX steam.friends.getPersonaName()
-            spaceWarClientUpdateData.shipDecoration = shipDecoration?.rawValue ?? 0
+            spaceWarClientUpdateData.shipDecoration = shipDecoration
             spaceWarClientUpdateData.shipWeapon = shipWeapon
 //            spaceWarClientUpdateData.shipPower = shipPower
             spaceWarClientUpdateData.shieldStrength = shieldStrength
@@ -580,13 +573,12 @@ final class Ship: SpaceWarEntity {
                              isDisabled: isDisabled,
                              areForwardThrustersActive: areForwardThrustersActive,
                              areReverseThrustersActive: areReverseThrustersActive,
-//                             decoration: <#T##Int#>,
+                             decoration: shipDecoration,
                              weapon: shipWeapon,
 //                             shipPower: <#T##Int#>,
                              shieldStrength: shieldStrength,
                              photonBeamData: buildServerPhotonBeamUpdate()
         )
-        //      pUpdateData->SetDecoration( m_nShipDecoration );
         //      pUpdateData->SetPower( m_nShipPower );
     }
 
