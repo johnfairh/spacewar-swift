@@ -21,8 +21,10 @@ final class Ship: SpaceWarEntity {
     }
     /// Decoration for this ship
     private var shipDecoration: Decoration?
-    /// Shield strength
+    /// Shield strength XXX API
     var shieldStrength: Int
+    /// Ship weapon
+    private var shipWeapon: Int32
 
     /// If server then not local; if !server then can be local OR another client's model
     var isLocalPlayer: Bool
@@ -78,6 +80,7 @@ final class Ship: SpaceWarEntity {
 
         shipDecoration = nil
         shieldStrength = 0
+        shipWeapon = 0
         isDisabled = false
         isLocalPlayer = false
         isExploding = false
@@ -93,7 +96,6 @@ final class Ship: SpaceWarEntity {
         //      m_nFade = 255;
         //      m_nShipDecoration = 0;
         //      m_nShipPower = 0;
-        //      m_nShipWeapon = 0;
         //      m_hTextureWhite = 0;
         explosionTickCount = 0
         isTriggerEffectEnabled = false
@@ -160,6 +162,11 @@ final class Ship: SpaceWarEntity {
 
     // MARK: RunFrame
 
+    /// Next available slot for use spawning new beams
+    var nextAvailablePhotonBeamSlot: Array<PhotonBeam?>.Index? {
+        photonBeams.firstIndex(where: { $0 == nil })
+    }
+
     /// Run a frame for the ship
     override func runFrame() {
         guard !isDisabled else {
@@ -172,8 +179,8 @@ final class Ship: SpaceWarEntity {
                 photonBeams[i] = nil
             }
         }
-        // Track next available slot for use spawning new beams below
-        let nextAvailablePhotonBeamSlot = photonBeams.firstIndex(where: { $0 == nil })
+//        // Track next available slot for use spawning new beams below
+//        let nextAvailablePhotonBeamSlot = photonBeams.firstIndex(where: { $0 == nil })
 
         // run all the photon beams we have outstanding
         photonBeams.forEach { $0?.runFrame() }
@@ -247,51 +254,8 @@ final class Ship: SpaceWarEntity {
             } else if controller.isActionSetLayerActive(.layerThrust) {
                 controller.deactivateActionSetLayer(.layerThrust)
             }
-    //            // Hardcoded keys to choose various outfits and weapon powerups which require inventory. Note that this is not
-    //            // a "secure" multiplayer model - clients can lie about what they own. A more robust solution, if your items
-    //            // matter enough to bother, would be to use SerializeResult / DeserializeResult to encode the fact that your
-    //            // steamid owns certain items, and then send that encoded result to the server which decodes and verifies it.
-    //            if ( m_pGameEngine->BIsKeyDown( 0x30 ) )
-    //            {
-    //              m_nShipDecoration = 0;
-    //              BuildGeometry();
-    //            }
-    //            else if ( m_pGameEngine->BIsKeyDown( 0x31 ) && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipDecoration1 ) )
-    //            {
-    //              m_nShipDecoration = 1;
-    //              BuildGeometry();
-    //            }
-    //            else if ( m_pGameEngine->BIsKeyDown( 0x32 ) && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipDecoration2 ) )
-    //            {
-    //              m_nShipDecoration = 2;
-    //              BuildGeometry();
-    //            }
-    //            else if ( m_pGameEngine->BIsKeyDown( 0x33 ) && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipDecoration3 ) )
-    //            {
-    //              m_nShipDecoration = 3;
-    //              BuildGeometry();
-    //            }
-    //            else if ( m_pGameEngine->BIsKeyDown( 0x34 ) && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipDecoration4 ) )
-    //            {
-    //              m_nShipDecoration = 4;
-    //              BuildGeometry();
-    //            }
-    //            else if ( m_pGameEngine->BIsKeyDown( 0x35 ) && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipWeapon1 ) )
-    //            {
-    //              m_nShipWeapon = 1;
-    //            }
-    //            else if ( m_pGameEngine->BIsKeyDown( 0x36 ) && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipWeapon2 ) )
-    //            {
-    //              m_nShipWeapon = 2;
-    //            }
-    //            else if ( m_pGameEngine->BIsKeyDown( 0x37 ) && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipSpecial1 ) )
-    //            {
-    //              m_nShipPower = 1;
-    //            }
-    //            else if ( m_pGameEngine->BIsKeyDown( 0x38 ) && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipSpecial2 ) )
-    //            {
-    //              m_nShipPower = 2;
-    //            }
+
+            handleSpecialKeys()
         } else if isServerInstance {
             // Server side
             var thrust: SIMD2<Float> = [0, 0]
@@ -346,45 +310,30 @@ final class Ship: SpaceWarEntity {
 
             lastPhotonTickCount = engine.gameTickCount
 
-            //            if ( m_nShipWeapon == 1 ) // Item#101
-            //            {
-            //              float sinvalue1 = (float)sin( GetAccumulatedRotation() - .1f );
-            //              float cosvalue1 = (float)cos( GetAccumulatedRotation() - .1f );
-            //              float sinvalue2 = (float)sin( GetAccumulatedRotation() + .1f );
-            //              float cosvalue2 = (float)cos( GetAccumulatedRotation() + .1f );
-            //
-            //              float xVelocity = GetXVelocity() + ( sinvalue1 * 275 );
-            //              float yVelocity = GetYVelocity() - ( cosvalue1 * 275 );
-            //
-            //              // Offset 12 points up from the center of the ship, compensating for rotation
-            //              float xPos = GetXPos() - sinvalue1*-12.0f;
-            //              float yPos = GetYPos() + cosvalue1*-12.0f;
-            //
-            //              m_rgPhotonBeams[nNextAvailablePhotonBeamSlot] = new CPhotonBeam( m_pGameEngine, xPos, yPos, m_dwShipColor, GetAccumulatedRotation(), xVelocity, yVelocity );
-            //
-            //              nNextAvailablePhotonBeamSlot = -1;  // Track next available slot for use spawning new beams below
-            //              for( int i=0; i < MAX_PHOTON_BEAMS_PER_SHIP; ++i )
-            //              {
-            //                if ( !m_rgPhotonBeams[i] && nNextAvailablePhotonBeamSlot == -1 )
-            //                  nNextAvailablePhotonBeamSlot = i;
-            //              }
-            //
-            //              if ( nNextAvailablePhotonBeamSlot != -1 )
-            //              {
-            //                xVelocity = GetXVelocity() + ( sinvalue2 * 275 );
-            //                yVelocity = GetYVelocity() - ( cosvalue2 * 275 );
-            //
-            //                // Offset 12 points up from the center of the ship, compensating for rotation
-            //                xPos = GetXPos() - sinvalue2*-12.0f;
-            //                yPos = GetYPos() + cosvalue2*-12.0f;
-            //
-            //                m_rgPhotonBeams[nNextAvailablePhotonBeamSlot] = new CPhotonBeam( m_pGameEngine, xPos, yPos, m_dwShipColor, GetAccumulatedRotation(), xVelocity, yVelocity );
-            //                m_pGameEngine->TriggerControllerHaptics( k_ESteamControllerPad_Right, 1000, 1500, 2 );
-            //              }
-            //            }
-            //              else
-            do {
-                let speed = Float(275) /* XXX (shipWeapon == 2) ? 500 : 275 */
+            if shipWeapon == 1 {
+                let sinValue1 = sin(accumulatedRotation - 0.1)
+                let cosValue1 = cos(accumulatedRotation - 0.1)
+                let sinValue2 = sin(accumulatedRotation + 0.1)
+                let cosValue2 = cos(accumulatedRotation + 0.1)
+
+                photonBeams[nextAvailablePhotonBeamSlot] =
+                    PhotonBeam(engine: engine,
+                               // Offset 12 points up from the center of the ship, compensating for rotation
+                               pos: pos + [-sinValue1 * -12.0, cosValue1 * -12.0],
+                               beamColor: shipColor,
+                               initialRotation: accumulatedRotation,
+                               initialVelocity: velocity + [sinValue1 * 275, -cosValue1 * 275])
+
+                if let beam2Slot = self.nextAvailablePhotonBeamSlot {
+                    photonBeams[beam2Slot] =
+                        PhotonBeam(engine: engine,
+                                   pos: self.pos + [-sinValue2 * -12, cosValue2 * 12],
+                                   beamColor: shipColor,
+                                   initialRotation: accumulatedRotation,
+                                   initialVelocity: self.velocity + [sinValue2 * 275, -cosValue2 * 275])
+                }
+            } else {
+                let speed = Float(shipWeapon == 2 ? 500 : 275)
                 let beamVelocity = SIMD2(velocity.x + sinValue * speed,
                                          velocity.y - cosValue * speed)
 
@@ -403,6 +352,38 @@ final class Ship: SpaceWarEntity {
         // Finally, update the thrusters ( we do this after the base class call as they rely on our data being fully up-to-date)
         forwardThrusters.runFrame(ship: self)
         reverseThrusters.runFrame(ship: self)
+    }
+
+    /// Turn on special abilities client-side -- toy inventory demo
+    func handleSpecialKeys() {
+        // Hardcoded keys to choose various outfits and weapon powerups which require inventory. Note that this is not
+        // a "secure" multiplayer model - clients can lie about what they own. A more robust solution, if your items
+        // matter enough to bother, would be to use SerializeResult / DeserializeResult to encode the fact that your
+        // steamid owns certain items, and then send that encoded result to the server which decodes and verifies it.
+        if engine.isKeyDown(.printable("0")) {
+            shipDecoration = .none
+            buildGeometry()
+        } else if engine.isKeyDown(.printable("1")) { /* XXX Inventory && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipDecoration1 ) */
+            shipDecoration = .one
+            buildGeometry()
+        } else if engine.isKeyDown(.printable("2")) { /* XXX Inventory && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipDecoration2 ) */
+            shipDecoration = .two
+            buildGeometry()
+        } else if engine.isKeyDown(.printable("3")) { /* XXX Inventory && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipDecoration3 ) */
+            shipDecoration = .three
+            buildGeometry()
+        } else if engine.isKeyDown(.printable("4")) { /* XXX Inventory && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipDecoration4 ) */
+            shipDecoration = .four
+            buildGeometry()
+        } else if engine.isKeyDown(.printable("5")) { /* XXX Inventory && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipWeapon1 ) */
+            shipWeapon = 1
+        } else if engine.isKeyDown(.printable("6")) { /* XXX Inventory && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipWeapon2 ) */
+            shipWeapon = 2
+        } else if engine.isKeyDown(.printable("7")) { /* XXX Inventory && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipSpecial1 ) */
+            // XXX shipPower = 1
+        } else if engine.isKeyDown(.printable("8")) { /* XXX Inventory && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipSpecial2 ) */
+            // XXX shipPower = 2
+        }
     }
 
     // MARK: Render
@@ -522,7 +503,7 @@ final class Ship: SpaceWarEntity {
         accumulatedRotation = data.currentRotation
 
     //        m_nShipPower = pUpdateData->GetPower();
-    //        m_nShipWeapon = pUpdateData->GetWeapon();
+        shipWeapon = data.weapon
     //        if ( m_nShipDecoration != pUpdateData->GetDecoration() )
     //        {
     //            m_nShipDecoration = pUpdateData->GetDecoration();
@@ -561,7 +542,7 @@ final class Ship: SpaceWarEntity {
 
         shipDecoration = Decoration(rawValue: data.shipDecoration)
         // XXX     m_nShipPower = pUpdateData->GetPower();
-        //      m_nShipWeapon = pUpdateData->GetWeapon();
+        shipWeapon = data.shipWeapon
         shieldStrength = data.shieldStrength
 
         spaceWarClientUpdateData = data
@@ -578,7 +559,7 @@ final class Ship: SpaceWarEntity {
         if isLocalPlayer {
             spaceWarClientUpdateData.playerName = "Walaspi" // XXX steam.friends.getPersonaName()
             spaceWarClientUpdateData.shipDecoration = shipDecoration?.rawValue ?? 0
-//  XXX          spaceWarClientUpdateData.shipWeapon = shipWeapon
+            spaceWarClientUpdateData.shipWeapon = shipWeapon
 //            spaceWarClientUpdateData.shipPower = shipPower
             spaceWarClientUpdateData.shieldStrength = shieldStrength
         }
@@ -600,13 +581,12 @@ final class Ship: SpaceWarEntity {
                              areForwardThrustersActive: areForwardThrustersActive,
                              areReverseThrustersActive: areReverseThrustersActive,
 //                             decoration: <#T##Int#>,
-//                             weapon: <#T##Int#>,
+                             weapon: shipWeapon,
 //                             shipPower: <#T##Int#>,
                              shieldStrength: shieldStrength,
                              photonBeamData: buildServerPhotonBeamUpdate()
         )
         //      pUpdateData->SetDecoration( m_nShipDecoration );
-        //      pUpdateData->SetWeapon( m_nShipWeapon );
         //      pUpdateData->SetPower( m_nShipPower );
     }
 
@@ -710,9 +690,6 @@ final class Ship: SpaceWarEntity {
     //
     //  // cloak fade out
     //  int m_nFade;
-    //
-    //  // Weapon for this ship
-    //  int m_nShipWeapon;
     //
     //  // Power for this ship
     //  int m_nShipPower;

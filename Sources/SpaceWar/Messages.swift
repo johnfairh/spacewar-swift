@@ -281,7 +281,7 @@ struct ServerShipUpdateData {
     let areForwardThrustersActive: Bool
     let areReverseThrustersActive: Bool
     let decoration: Int
-    let weapon: Int
+    let weapon: Int32
     let shipPower: Int
     let shieldStrength: Int
     let photonBeamData: [ServerPhotonBeamUpdateData]
@@ -298,7 +298,7 @@ struct ServerShipUpdateData {
          areForwardThrustersActive: Bool = false,
          areReverseThrustersActive: Bool = false,
          decoration: Int = 0,
-         weapon: Int = 0,
+         weapon: Int32 = 0,
          shipPower: Int = 0,
          shieldStrength: Int = 0,
          photonBeamData: [ServerPhotonBeamUpdateData] = .init(repeating: .init(), count: Misc.MAX_PHOTON_BEAMS_PER_SHIP),
@@ -333,7 +333,7 @@ struct ServerShipUpdateData {
         areForwardThrustersActive = .init(bigEndian: from.forwardThrustersActive)
         areReverseThrustersActive = .init(bigEndian: from.reverseThrustersActive)
         decoration = Int(Int32(bigEndian: from.shipDecoration))
-        weapon = Int(Int32(bigEndian: from.shipWeapon))
+        weapon = Int32(bigEndian: from.shipWeapon)
         shipPower = Int(Int32(bigEndian: from.shipPower))
         shieldStrength = Int(Int32(bigEndian: from.shieldStrength))
         photonBeamData = .seven(from.photonBeamData_ptr) { ServerPhotonBeamUpdateData($0) }
@@ -482,7 +482,7 @@ struct ClientSpaceWarUpdateData {
     var forwardThrustersPressed: Bool
     var reverseThrustersPressed: Bool
     var shipDecoration: Int
-    var shipWeapon: Int
+    var shipWeapon: Int32
     var shipPower: Int
     var shieldStrength: Int
     var playerName: String
@@ -495,7 +495,7 @@ struct ClientSpaceWarUpdateData {
          forwardThrustersPressed: Bool = false,
          reverseThrustersPressed: Bool = false,
          shipDecoration: Int = 0,
-         shipWeapon: Int = 0,
+         shipWeapon: Int32 = 0,
          shipPower: Int = 0,
          shieldStrength: Int = 0,
          playerName: String = "",
@@ -522,7 +522,7 @@ struct ClientSpaceWarUpdateData {
         forwardThrustersPressed = Bool(bigEndian: from.forwardThrustersPressed)
         reverseThrustersPressed = Bool(bigEndian: from.reverseThrustersPressed)
         shipDecoration = Int(Int32(bigEndian: from.shipDecoration))
-        shipWeapon = Int(Int32(bigEndian: from.shipWeapon))
+        shipWeapon = Int32(bigEndian: from.shipWeapon)
         shipPower = Int(Int32(bigEndian: from.shipPower))
         shieldStrength = Int(Int32(bigEndian: from.shieldStrength))
         playerName = String(cString: from.playerName_ptr)
