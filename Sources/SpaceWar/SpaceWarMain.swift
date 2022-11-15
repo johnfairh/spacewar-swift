@@ -133,14 +133,14 @@ final class SpaceWarMain {
             guard let self else {
                 return
             }
-            self.setGameState(.connectingToSteam)
+            self.gameState.set(.connectingToSteam)
             OutputDebugString("Got SteamServersDisconnected_t")
         }
 
         steam.onSteamServersConnected { [weak self] _ in
             // Notification that we are reconnected to Steam
             if let self, self.steam.user.loggedOn() {
-                self.setGameState(.mainMenu)
+                self.gameState.set(.mainMenu)
             } else {
                 OutputDebugString("Got SteamServersConnected, but not logged on?")
             }
@@ -184,7 +184,7 @@ final class SpaceWarMain {
         OutputDebugString("Duration control termination: \(exitMsg) (remaining time: \(msg.csecsRemaining))")
 
         // perform a clean exit
-        setGameState(.menuItem(.gameExiting))
+        gameState.set(.menuItem(.gameExiting))
     }
 
     /// Command-line server-connect instructions, from various places
@@ -272,13 +272,6 @@ final class SpaceWarMain {
     }
 
     // MARK: State machine
-
-    /// Transition game state
-    func setGameState(_ state: State) {
-        gameState.set(state) {
-            // XXX is this all really gone?
-        }
-    }
 
     /// Called in the first `RunFrame()` after the state is changed.  Old state is NOT available.
     func onGameStateChanged() {
@@ -391,15 +384,15 @@ final class SpaceWarMain {
             mainMenu.runFrame()
             if let newState = mainMenu.selectedMenuItem {
                 OutputDebugString("Main menu selection: \(newState)")
-                setGameState(.menuItem(newState))
+                gameState.set(.menuItem(newState))
             }
 
         case .menuItem(.startServer):
             switch gameClient.runFrame(escapePressed: escapePressed) {
             case .mainMenu:
-                setGameState(.mainMenu)
+                gameState.set(.mainMenu)
             case .quit:
-                setGameState(.menuItem(.gameExiting))
+                gameState.set(.menuItem(.gameExiting))
             case .game:
                 break
             }
@@ -407,15 +400,15 @@ final class SpaceWarMain {
         case .menuItem(.findLobby), .menuItem(.createLobby):
             switch lobbies.runFrame() {
             case .mainMenu:
-                setGameState(.mainMenu)
+                gameState.set(.mainMenu)
             case .lobby:
                 break
             case .remoteGame(let steamID):
                 gameClient.connectTo(gameServerSteamID: steamID)
-                setGameState(.menuItem(.startServer))
+                gameState.set(.menuItem(.startServer))
             case .localGame(let server):
                 gameClient.connectToLocalServer(server)
-                setGameState(.menuItem(.startServer))
+                gameState.set(.menuItem(.startServer))
             }
 
     //    case k_EClientFindInternetServers:
@@ -442,7 +435,7 @@ final class SpaceWarMain {
             statsAndAchievements.render()
 
             if escapePressed {
-                setGameState(.mainMenu)
+                gameState.set(.mainMenu)
             }
             if engine.isKeyDown(.printable("1")) {
                 inventory.doExchange()
@@ -535,7 +528,7 @@ final class SpaceWarMain {
         default:
             // OutputDebugString("Unhandled game client state \(gameState.state)")
             if escapePressed {
-                setGameState(.mainMenu)
+                gameState.set(.mainMenu)
             }
         }
     }

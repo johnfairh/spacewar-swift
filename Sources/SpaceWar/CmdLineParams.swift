@@ -7,7 +7,6 @@ import Foundation
 import Steamworks
 
 /// Type and utils to wrap up dealing with parsing command line parameters
-/// XXX xref RichPresence.Connect stuff
 struct CmdLineParams: CustomStringConvertible {
     let serverAddress: String?
     let lobbyID: String?

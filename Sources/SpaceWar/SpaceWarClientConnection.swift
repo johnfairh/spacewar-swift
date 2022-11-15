@@ -329,7 +329,7 @@ final class SpaceWarClientConnection {
         msg.inWireFormat() { ptr, size in
             guard let serverSteamID else {
                 preconditionFailure("No server steam ID in sendmsg")
-                // XXX might need to return false here, timing windows in disconnect vs. voice/p2pauth
+                // Might need to return false here, timing windows in disconnect vs. voice/p2pauth
             }
             let (res, _) = steam.networkingSockets.sendMessageToConnection(conn: netConnection, from: mySteamID, to: serverSteamID, data: ptr, dataSize: size, sendFlags: sendFlags)
 
