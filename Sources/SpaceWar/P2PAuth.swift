@@ -106,4 +106,7 @@ final class P2PAuthedGame {
 
     func endGame() {
     }
+
+    func handleP2PSendingTicket(msg: MsgP2PSendingTicket) {
+    }
 }

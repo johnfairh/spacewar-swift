@@ -40,6 +40,9 @@ final class SpaceWarClient {
     /// Component to manage peer-to-peer authentication
     private let p2pAuthedGame: P2PAuthedGame
 
+    /// Voice chat
+    private let voiceChat: VoiceChat
+
     /// A local server we may be running
     private var server: SpaceWarServer?
 
@@ -92,10 +95,10 @@ final class SpaceWarClient {
         //    {
         //        m_rgpWorkshopItems[i] = NULL;
         //    }
-        //
-        //    // Voice chat
-        //    m_pVoiceChat = new CVoiceChat( pGameEngine );
         //    LoadWorkshopItems();
+
+        // Voice chat
+        voiceChat = VoiceChat(steam: steam)
     }
 
     deinit {
@@ -142,9 +145,8 @@ final class SpaceWarClient {
         case .active:
             // Load Inventory
             SpaceWarLocalInventory.instance.refreshFromServer()
-            //        // start voice chat
-            //        m_pVoiceChat->StartVoiceChat();
-            //        m_pVoiceChat->m_hConnServer = m_hConnServer;
+            // start voice chat
+            voiceChat.startVoiceChat(connection: clientConnection)
             setInGameRichPresence()
 
         case .connectionFailure:
@@ -169,7 +171,7 @@ final class SpaceWarClient {
     /// happen at weird times like object deletion.
     func disconnect() {
         p2pAuthedGame.endGame()
-        // XXX voiceChat.endGame()
+        voiceChat.endGame()
         // tell steam china duration control system that we are no longer in a match
         _ = steam.user.setDurationControlOnlineState(newState: .offline)
     }
@@ -251,8 +253,8 @@ final class SpaceWarClient {
 //            DrawHUDText();
 //
             statsAndAchievements.runFrame()
-//
-//            m_pVoiceChat->RunFrame();
+
+            voiceChat.runFrame()
 
             if escapePressed {
                 state.set(.quitMenu)
@@ -265,8 +267,8 @@ final class SpaceWarClient {
 //
 //            DrawHUDText();
             clientLayout.drawWinnerDrawOrWaitingText(state: state, winner: gameState.playerSteamIDs[gameState.playerWhoWonGame])
-//
-//            m_pVoiceChat->RunFrame();
+
+            voiceChat.runFrame()
 
             if escapePressed {
                 state.set(.quitMenu)
@@ -365,20 +367,17 @@ final class SpaceWarClient {
                     OutputDebugString("SpaceWarClient bad message size MsgServerUpdateWorld \(size)")
                     return
                 }
-
                 onReceiveServerUpdate(msg: MsgServerUpdateWorld(data: data))
 
-            //        case k_EMsgVoiceChatData:
-            //            // This is really bad exmaple code that just assumes the message is the right size
-            //            // Don't ship code like this.
-            //            m_pVoiceChat->HandleVoiceChatData( message->GetData() );
-            //            break;
-            //
-            //        case k_EMsgP2PSendingTicket:
-            //            // This is really bad exmaple code that just assumes the message is the right size
-            //            // Don't ship code like this.
-            //            m_pP2PAuthedGame->HandleP2PSendingTicket( message->GetData() );
-            //            break;
+            case .voiceChatData:
+                // This is really bad exmaple code that just assumes the message is the right size
+                // Don't ship code like this.
+                voiceChat.handleVoiceChatData(msg: MsgVoiceChatData(data: data))
+
+            case .P2PSendingTicket:
+                // This is really bad exmaple code that just assumes the message is the right size
+                // Don't ship code like this.
+                p2pAuthedGame.handleP2PSendingTicket(msg: MsgP2PSendingTicket(data: data))
 
             default:
                 OutputDebugString("Unhandled message from server \(msg)")
@@ -463,7 +462,7 @@ final class SpaceWarClient {
         p2pAuthedGame.onReceive(msg: msg, isOwner: server != nil, gameState: gameState)
 
         // update all players that are active
-        //        XXX m_pVoiceChat->MarkAllPlayersInactive();
+        voiceChat.markAllPlayersInactive()
 
         // Update steamid array with data from server
         gameState.playerSteamIDs = msg.playerSteamIDs
@@ -500,7 +499,7 @@ final class SpaceWarClient {
             gameState.ships[i]!.isLocalPlayer = (i == gameState.playerShipIndex)
             gameState.ships[i]!.onReceiveServerUpdate(data: msg.shipData[i])
 
-            //  XXX        m_pVoiceChat->MarkPlayerAsActive(steamID: playerSteamIDs[i])
+            voiceChat.markPlayerAsActive(steamID: gameState.playerSteamIDs[i])
         }
     }
 }
