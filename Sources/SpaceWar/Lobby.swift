@@ -90,15 +90,6 @@ class Lobbies {
     func runFrame() -> FrameRc {
         precondition(state.state != .idle, "SpaceWarMain thinks we're busy but we're idle :-(")
 
-        // XXX does this really belong here? surely nothing lobbyish?
-        //
-        //    if ( m_eConnectedStatus != k_EClientNotConnected && m_pGameEngine->GetGameTickCount() - m_ulLastNetworkDataReceivedTime > MILLISECONDS_CONNECTION_TIMEOUT )
-        //    {
-        //        SetConnectionFailureText( "Game server connection failure." );
-        //        DisconnectFromServer(); // cleanup on our side, even though server won't get our disconnect msg
-        //        SetGameState( k_EClientGameConnectionFailure );
-        //    }
-
         // if we just transitioned state, perform on change handlers
         state.onTransition {
             onStateChanged()

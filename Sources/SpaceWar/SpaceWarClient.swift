@@ -133,18 +133,16 @@ final class SpaceWarClient {
             //        // game over.. update the leaderboard
             //        m_pLeaderboards->UpdateLeaderboards( m_pStatsAndAchievements );
             //
-            //        // Check if the user is due for an item drop
-            //        SpaceWarLocalInventory()->CheckForItemDrops();
+            // Check if the user is due for an item drop
+            SpaceWarLocalInventory.instance.checkForItemDrops()
             setInGameRichPresence()
 
         case .active:
-            //        // Load Inventory
-            //        SpaceWarLocalInventory()->RefreshFromServer();
-            //
+            // Load Inventory
+            SpaceWarLocalInventory.instance.refreshFromServer()
             //        // start voice chat
             //        m_pVoiceChat->StartVoiceChat();
             //        m_pVoiceChat->m_hConnServer = m_hConnServer;
-            //
             setInGameRichPresence()
 
         case .connectionFailure:
@@ -236,7 +234,7 @@ final class SpaceWarClient {
 
             // SendHeartbeat is safe to call on every frame since the API is internally rate-limited.
             // Ideally you would only call this once per second though, to minimize unnecessary calls.
-            // XXX inventory SteamInventory()->SendItemDropHeartbeat();
+            steam.inventory.sendItemDropHeartbeat()
 
             // Update all the entities...
             sun.runFrame()
@@ -445,7 +443,7 @@ final class SpaceWarClient {
     func onReceiveServerUpdate(msg: MsgServerUpdateWorld) {
         // Update our client state based on what the server tells us
 
-        if state.state != .quitMenu /* XXX && state.state != .exiting */ {
+        if state.state != .quitMenu {
             switch msg.currentGameState {
             case .waitingForPlayers: state.set(.waitingForPlayers)
             case .active: state.set(.active)

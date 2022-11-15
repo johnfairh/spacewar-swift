@@ -352,6 +352,7 @@ final class Ship: SpaceWarEntity {
 
     /// Turn on special abilities client-side -- toy inventory demo
     func handleSpecialKeys() {
+        let inv = SpaceWarLocalInventory.instance
         // Hardcoded keys to choose various outfits and weapon powerups which require inventory. Note that this is not
         // a "secure" multiplayer model - clients can lie about what they own. A more robust solution, if your items
         // matter enough to bother, would be to use SerializeResult / DeserializeResult to encode the fact that your
@@ -359,25 +360,25 @@ final class Ship: SpaceWarEntity {
         if engine.isKeyDown(.printable("0")) {
             shipDecoration = 0
             buildGeometry()
-        } else if engine.isKeyDown(.printable("1")) { /* XXX Inventory && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipDecoration1 ) */
+        } else if engine.isKeyDown(.printable("1")) && inv.hasInstanceOf(.shipDecoration1) {
             shipDecoration = 1
             buildGeometry()
-        } else if engine.isKeyDown(.printable("2")) { /* XXX Inventory && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipDecoration2 ) */
+        } else if engine.isKeyDown(.printable("2")) && inv.hasInstanceOf(.shipDecoration2) {
             shipDecoration = 2
             buildGeometry()
-        } else if engine.isKeyDown(.printable("3")) { /* XXX Inventory && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipDecoration3 ) */
+        } else if engine.isKeyDown(.printable("3")) && inv.hasInstanceOf(.shipDecoration3) {
             shipDecoration = 3
             buildGeometry()
-        } else if engine.isKeyDown(.printable("4")) { /* XXX Inventory && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipDecoration4 ) */
+        } else if engine.isKeyDown(.printable("4")) && inv.hasInstanceOf(.shipDecoration4) {
             shipDecoration = 4
             buildGeometry()
-        } else if engine.isKeyDown(.printable("5")) { /* XXX Inventory && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipWeapon1 ) */
+        } else if engine.isKeyDown(.printable("5")) && inv.hasInstanceOf(.shipWeapon1) {
             shipWeapon = 1
-        } else if engine.isKeyDown(.printable("6")) { /* XXX Inventory && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipWeapon2 ) */
+        } else if engine.isKeyDown(.printable("6")) && inv.hasInstanceOf(.shipWeapon2) {
             shipWeapon = 2
-        } else if engine.isKeyDown(.printable("7")) { /* XXX Inventory && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipSpecial1 ) */
+        } else if engine.isKeyDown(.printable("7")) && inv.hasInstanceOf(.shipSpecial1) {
             shipPower = 1
-        } else if engine.isKeyDown(.printable("8")) { /* XXX Inventory && SpaceWarLocalInventory()->HasInstanceOf( k_SpaceWarItem_ShipSpecial2 ) */
+        } else if engine.isKeyDown(.printable("8")) && inv.hasInstanceOf(.shipSpecial2) {
             shipPower = 2
         }
     }

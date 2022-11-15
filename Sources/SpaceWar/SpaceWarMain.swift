@@ -34,7 +34,8 @@ final class SpaceWarMain {
     private let gameClient: SpaceWarClient
     private let lobbies: Lobbies
     private let starField: StarField
-    private var mainMenu: MainMenu!
+    private let mainMenu: MainMenu
+    let inventory: SpaceWarLocalInventory
 
     /// Overall game state
     enum State: Equatable {
@@ -73,11 +74,10 @@ final class SpaceWarMain {
         starField = StarField(engine: engine)
 
         // Initialize main menu
-        mainMenu = MainMenu(engine: engine, controller: controller, onSelection: { [weak self] in
-            OutputDebugString("Main menu selection: \($0)")
-            self?.setGameState(.menuItem($0))
-        })
+        mainMenu = MainMenu(engine: engine, controller: controller)
 
+        inventory = SpaceWarLocalInventory(steam: steam)
+        
         //    // All the non-game screens
         //    m_pServerBrowser = new CServerBrowser( m_pGameEngine );
         //    m_pLobbyBrowser = new CLobbyBrowser( m_pGameEngine );
@@ -280,9 +280,9 @@ final class SpaceWarMain {
     func onGameStateChanged() {
         switch gameState.state {
         case .mainMenu:
+            mainMenu.resetSelection()
             // Refresh inventory
-            // XXX   SpaceWarLocalInventory()->RefreshFromServer();
-            break
+            inventory.refreshFromServer()
         case .menuItem(.startServer):
             gameClient.connectToLocalServer()
             // SpaceWarClient takes over now
@@ -382,9 +382,13 @@ final class SpaceWarMain {
             controller.setActionSet(.menuControls)
 
         case .mainMenu:
-            mainMenu.runFrame()
             // Make sure the Steam Controller is in the correct mode.
             controller.setActionSet(.menuControls)
+            mainMenu.runFrame()
+            if let newState = mainMenu.selectedMenuItem {
+                OutputDebugString("Main menu selection: \(newState)")
+                setGameState(.menuItem(newState))
+            }
 
         case .menuItem(.startServer):
             switch gameClient.runFrame(escapePressed: escapePressed) {
@@ -435,14 +439,11 @@ final class SpaceWarMain {
             //
             //        if ( bEscapePressed )
             //            SetGameState( k_EClientGameMenu );
-            //        if (m_pGameEngine->BIsKeyDown( 0x31 ) )
-            //        {
-            //            SpaceWarLocalInventory()->DoExchange();
-            //        }
-            //        else if ( m_pGameEngine->BIsKeyDown( 0x32 ) )
-            //        {
-            //            SpaceWarLocalInventory()->ModifyItemProperties();
-            //        }
+            //            if engine.isKeyDown(.printable("1")) {
+            //                inventory.doExchange()
+            //            } else if engine.isKeyDown(.printable("2")) {
+            //                inventory.modifyItemProperties()
+            //            }
             //        break;
 
             //    case k_EClientLeaderboards:

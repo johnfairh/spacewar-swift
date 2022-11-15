@@ -326,13 +326,12 @@ final class SpaceWarClientLayout {
 
         // Note: GetLastDroppedItem is the result of an async function, this will not render the reward right away.
         // Could wait for it.
-        // XXX Inventory
-//        if let item = SpaceWarLocalInventory().lastDroppedItem {
-//            // (We're not really bothering to localize everything else, this is just an example.)
-//            engine.drawText("You won a brand new \(item.localizedName)!",
-//                            font: instructionsFont, color: .rgb_i(25, 200, 25),
-//                            x: 0, y: 0, width: engine.viewportSize.x, height: engine.viewportSize.y * 0.4,
-//                            align: .center, valign: .center)
-//        }
+        if let item = SpaceWarLocalInventory.instance.lastDroppedItem {
+            // (We're not really bothering to localize everything else, this is just an example.)
+            engine.drawText("You won a brand new \(item.localizedName)!",
+                            font: instructionsFont, color: .rgb_i(25, 200, 25),
+                            x: 0, y: 0, width: engine.viewportSize.x, height: engine.viewportSize.y * 0.4,
+                            align: .center, valign: .center)
+        }
     }
 }
