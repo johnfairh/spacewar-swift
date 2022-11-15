@@ -23,7 +23,7 @@ class BaseMenu<ItemData: Equatable & MenuItemNamed> {
     private let controller: Controller
     private let onSelection: (ItemData) -> Void
 
-    private var items: [(String, ItemData)] // XXX tbd whether this text does need storing separately
+    private var items: [(String, ItemData)]
     private var selectedItem: Int
     private(set) var selectedMenuItem: ItemData?
     private var pushedSelection: ItemData?

@@ -15,6 +15,7 @@ final class SpaceWarClient {
     private let steam: SteamAPI
     private let engine: Engine2D
     private let controller: Controller
+    private let statsAndAchievements: StatsAndAchievements
 
     /// Main game state
     enum State {
@@ -72,10 +73,11 @@ final class SpaceWarClient {
     private var gameState: GameState
     let sun: Sun
 
-    init(engine: Engine2D, controller: Controller, steam: SteamAPI) {
+    init(engine: Engine2D, controller: Controller, steam: SteamAPI, stats: StatsAndAchievements) {
         self.engine = engine
         self.controller = controller
         self.steam = steam
+        self.statsAndAchievements = stats
         self.state = .init(tickSource: engine, initial: .idle, name: "Client")
         self.clientConnection = SpaceWarClientConnection(steam: steam, tickSource: engine)
         self.clientLayout = SpaceWarClientLayout(steam: steam, controller: controller, engine: engine)
@@ -131,7 +133,7 @@ final class SpaceWarClient {
         switch state.state {
         case .winner, .draw:
             //        // game over.. update the leaderboard
-            //        m_pLeaderboards->UpdateLeaderboards( m_pStatsAndAchievements );
+            //        m_pLeaderboards->UpdateLeaderboards(statsAndAchievements)
             //
             // Check if the user is due for an item drop
             SpaceWarLocalInventory.instance.checkForItemDrops()
@@ -159,8 +161,8 @@ final class SpaceWarClient {
         steam.friends.setRichPresence(status: state.state.richPresenceStatus)
         clientConnection.updateRichPresence()
 
-        //    // Let the stats handler check the state (so it can detect wins, losses, etc...)
-        //    XXX m_pStatsAndAchievements->OnGameStateChange( eState );
+        // Let the stats handler check the state (so it can detect wins, losses, etc...)
+        statsAndAchievements.onGameStateChanged(state.state)
     }
 
     /// Cilent tasks to be done on disconnecting from a server - not in a state-change because can
@@ -248,7 +250,7 @@ final class SpaceWarClient {
 
 //            DrawHUDText();
 //
-//            m_pStatsAndAchievements->RunFrame();
+            statsAndAchievements.runFrame()
 //
 //            m_pVoiceChat->RunFrame();
 
@@ -314,7 +316,7 @@ final class SpaceWarClient {
         server?.runFrame()
 
         // Accumulate stats
-        gameState.ships.forEach { $0?.accumulateStats(2 /*XXX statsAndAchievements*/) }
+        gameState.ships.forEach { $0?.accumulateStats(statsAndAchievements) }
 
         // Finally Render everything that might have been updated by the server
         switch state.state {

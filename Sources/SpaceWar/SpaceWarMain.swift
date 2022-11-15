@@ -36,6 +36,7 @@ final class SpaceWarMain {
     private let starField: StarField
     private let mainMenu: MainMenu
     let inventory: SpaceWarLocalInventory
+    private let statsAndAchievements: StatsAndAchievements
 
     /// Overall game state
     enum State: Equatable {
@@ -65,8 +66,10 @@ final class SpaceWarMain {
         // Gadget to fire every second
         infrequent = Debounced(debounce: 1000) { true }
 
+        let stats = StatsAndAchievements(steam: steam, engine: engine, controller: controller)
+
         // The game part of spacewarclient
-        gameClient = SpaceWarClient(engine: engine, controller: controller, steam: steam)
+        gameClient = SpaceWarClient(engine: engine, controller: controller, steam: steam, stats: stats)
         // The lobby part of spacewarclient
         lobbies = Lobbies(engine: engine, steam: steam)
 
@@ -82,7 +85,7 @@ final class SpaceWarMain {
         //    m_pServerBrowser = new CServerBrowser( m_pGameEngine );
         //    m_pLobbyBrowser = new CLobbyBrowser( m_pGameEngine );
         //    m_pLobby = new CLobby( m_pGameEngine );
-        //    m_pStatsAndAchievements = new CStatsAndAchievements( pGameEngine );
+        statsAndAchievements = stats
         //    m_pLeaderboards = new CLeaderboards( pGameEngine );
         //    m_pFriendsList = new CFriendsList( pGameEngine );
         //    m_pMusicPlayer = new CMusicPlayer( pGameEngine );
@@ -263,8 +266,9 @@ final class SpaceWarMain {
             }
         }
 
-        //    XXX stats // Service stats and achievements - infrequently except during game when it ALSO gets called in the per-frame GameActive bit
-        //    m_pStatsAndAchievements->RunFrame();
+        // Service stats and achievements - infrequently except during game when it
+        // ALSO gets called in the per-frame GameActive bit
+        statsAndAchievements.runFrame()
     }
 
     // MARK: State machine
@@ -434,17 +438,18 @@ final class SpaceWarMain {
             //            SetGameState(k_EClientGameMenu);
             //        break;
 
-            //    case k_EClientStatsAchievements:
-            //        m_pStatsAndAchievements->Render();
-            //
-            //        if ( bEscapePressed )
-            //            SetGameState( k_EClientGameMenu );
-            //            if engine.isKeyDown(.printable("1")) {
-            //                inventory.doExchange()
-            //            } else if engine.isKeyDown(.printable("2")) {
-            //                inventory.modifyItemProperties()
-            //            }
-            //        break;
+        case .menuItem(.statsAchievements):
+            statsAndAchievements.render()
+
+            if escapePressed {
+                setGameState(.mainMenu)
+            }
+            if engine.isKeyDown(.printable("1")) {
+                inventory.doExchange()
+            } else if engine.isKeyDown(.printable("2")) {
+                inventory.modifyItemProperties()
+            }
+            break
 
             //    case k_EClientLeaderboards:
             //        m_pLeaderboards->RunFrame();

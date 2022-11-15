@@ -662,9 +662,9 @@ final class Ship: SpaceWarEntity {
     }
 
     /// Accumulate stats for this ship
-    func accumulateStats(_ stats: Int /* XXX StatsAndAchievements */) {
+    func accumulateStats(_ stats: StatsAndAchievements) {
         if isLocalPlayer {
-/* XXX            stats.addDistanceTraveled(distanceTraveledLastFrame) */
+            stats.addDistanceTravelled(distanceTraveledLastFrame)
         }
     }
 }
