@@ -107,7 +107,7 @@ final class SpaceWarServerConnection {
             let rc = steam.networkingSockets.acceptConnection(conn: msg.conn)
             if rc != .ok {
                 OutputDebugString("ServerConnection AcceptConnection failed: \(rc)")
-                steam.networkingSockets.closeConnection(peer: msg.conn, reason: 0 /*XXX*/, debug: "Failed to accept connection", enableLinger: false)
+                steam.networkingSockets.closeConnection(peer: msg.conn, reason: .appExceptionGeneric, debug: "Failed to accept connection", enableLinger: false)
                 return
             }
             steam.networkingSockets.setConnectionPollGroup(conn: msg.conn, pollGroup: pollGroup!)
@@ -153,7 +153,7 @@ final class SpaceWarServerConnection {
         }
 
         if case let .netConnection(conn) = token {
-            steam.networkingSockets.closeConnection(peer: conn, reason: 0 /*ClientDisconnect*/, debug: "", enableLinger: false)
+            steam.networkingSockets.closeConnection(peer: conn, reason: DisconnectReason.clientDisconnect, debug: nil, enableLinger: false)
         }
 
         if let steamID = client.steamID {

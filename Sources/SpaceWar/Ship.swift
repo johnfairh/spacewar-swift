@@ -64,11 +64,11 @@ final class Ship: SpaceWarEntity {
     }
 
     /// Key bindings - set by client...
-    var vkLeft: VirtualKey?
-    var vkRight: VirtualKey?
-    var vkForwardThrusters: VirtualKey?
-    var vkReverseThrusters: VirtualKey?
-    var vkFire: VirtualKey?
+    var vkLeft: VirtualKey = .none
+    var vkRight: VirtualKey = .none
+    var vkForwardThrusters: VirtualKey = .none
+    var vkReverseThrusters: VirtualKey = .none
+    var vkFire: VirtualKey = .none
 
     init(engine: Engine2D, controller: Controller, isServerInstance: Bool, pos: SIMD2<Float>, color: Color2D) {
         self.shipColor = color
@@ -92,7 +92,6 @@ final class Ship: SpaceWarEntity {
         areReverseThrustersActive = false
         photonBeams = .init(repeating: nil, count: Misc.MAX_PHOTON_BEAMS_PER_SHIP)
         lastPhotonTickCount = 0
-        //      m_hTextureWhite = 0;
         explosionTickCount = 0
         isTriggerEffectEnabled = false
 
@@ -188,10 +187,10 @@ final class Ship: SpaceWarEntity {
         if isLocalPlayer {
             // client side
             spaceWarClientUpdateData.turnLeftPressed =
-                engine.isKeyDown(vkLeft!) || controller.isActionActive(.turnLeft)
+                engine.isKeyDown(vkLeft) || controller.isActionActive(.turnLeft)
 
             spaceWarClientUpdateData.turnRightPressed =
-                engine.isKeyDown(vkRight!) || controller.isActionActive(.turnRight)
+                engine.isKeyDown(vkRight) || controller.isActionActive(.turnRight)
 
             // The Steam Controller can also map an anlog axis to thrust and steer
             let turnSpeed = controller.getAnalogAction(.analogControls).x
@@ -225,10 +224,10 @@ final class Ship: SpaceWarEntity {
         if isLocalPlayer {
             // client side
             spaceWarClientUpdateData.forwardThrustersPressed =
-                engine.isKeyDown(vkForwardThrusters!) || controller.isActionActive(.forwardThrust)
+                engine.isKeyDown(vkForwardThrusters) || controller.isActionActive(.forwardThrust)
 
             spaceWarClientUpdateData.reverseThrustersPressed =
-                engine.isKeyDown(vkReverseThrusters!) || controller.isActionActive(.reverseThrust)
+                engine.isKeyDown(vkReverseThrusters) || controller.isActionActive(.reverseThrust)
 
             // The Steam Controller can also map an analog axis to thrust and steer
             let thrusterLevel = controller.getAnalogAction(.analogControls).y
@@ -297,7 +296,7 @@ final class Ship: SpaceWarEntity {
         if isLocalPlayer {
             // client side
             spaceWarClientUpdateData.firePressed =
-                engine.isKeyDown(vkFire!) || controller.isActionActive(.fireLasers)
+                engine.isKeyDown(vkFire) || controller.isActionActive(.fireLasers)
         } else if let nextAvailablePhotonBeamSlot,
                   isServerInstance,
                   !isExploding,
@@ -429,7 +428,7 @@ final class Ship: SpaceWarEntity {
         }
 
         if shipPower == 2 {
-            let shieldColor: Color2D = .rgba_i(0xaf, 0x8f, 0x00, Float(shieldStrength / 4))
+            let shieldColor: Color2D = .rgba_i(0xaf, 0x8f, 0x00, Int(shieldStrength / 4))
 
             if shieldStrength < 256 {
                 shieldStrength += 1

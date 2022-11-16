@@ -191,7 +191,7 @@ final class SpaceWarClientConnection {
             if let netConnection {
                 steam.networkingSockets.closeConnection(peer: netConnection,
                                                         reason: DisconnectReason.clientDisconnect,
-                                                        debug: "", enableLinger: false)
+                                                        debug: nil, enableLinger: false)
                 self.netConnection = nil
             }
         } else if let serverSteamID {

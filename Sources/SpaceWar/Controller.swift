@@ -8,11 +8,6 @@ import struct MetalEngine.Color2D
 
 // The platform-independent part of 'engine' to do with wrangling SteamInput
 
-// XXX todo
-extension InputHandle {
-    static var invalid: InputHandle = InputHandle(0)
-}
-
 final class Controller {
     let steam: SteamAPI
 
@@ -217,10 +212,11 @@ final class Controller {
 
     /// Set the LED color on the controller, if supported by controller
     func setColor(_ color: Color2D, flags: SteamControllerLEDFlag) {
+        let channels = color.integerChannels
         steam.input.setLEDColor(handle: activeControllerHandle,
-                                colorR: UInt8(color.r * 255),
-                                colorG: UInt8(color.g * 255),
-                                colorB: UInt8(color.b * 255),
+                                colorR: UInt8(channels.r),
+                                colorG: UInt8(channels.g),
+                                colorB: UInt8(channels.b),
                                 flags: flags)
     }
 

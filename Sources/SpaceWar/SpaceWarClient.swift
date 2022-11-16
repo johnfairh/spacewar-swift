@@ -173,7 +173,7 @@ final class SpaceWarClient {
         p2pAuthedGame.endGame()
         voiceChat.endGame()
         // tell steam china duration control system that we are no longer in a match
-        _ = steam.user.setDurationControlOnlineState(newState: .offline)
+        steam.user.setDurationControlOnlineState(newState: .offline)
     }
 
     /// Frame poll function.
@@ -360,7 +360,7 @@ final class SpaceWarClient {
                 let authMsg = MsgServerPassAuthentication(data: data)
                 gameState.playerShipIndex = Int(authMsg.playerPosition)
                 // tell steam china duration control system that we are in a match and not to be interrupted
-                _ = steam.user.setDurationControlOnlineState(newState: .onlineHighPri)
+                steam.user.setDurationControlOnlineState(newState: .onlineHighPri)
 
             case .serverUpdateWorld:
                 guard size == MsgServerUpdateWorld.networkSize else {
