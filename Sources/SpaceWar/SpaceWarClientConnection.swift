@@ -190,7 +190,7 @@ final class SpaceWarClientConnection {
         if !FAKE_NET_USE {
             if let netConnection {
                 steam.networkingSockets.closeConnection(peer: netConnection,
-                                                        reason: DisconnectReason.clientDisconnect,
+                                                        reason: DisconnectReason.clientDisconnect.steamReason,
                                                         debug: nil, enableLinger: false)
                 self.netConnection = nil
             }
@@ -232,13 +232,12 @@ final class SpaceWarClientConnection {
         if (oldState == .connecting || oldState == .connected) && info.state == .closedByPeer {
             // Triggered when a server rejects our connection
             switch info.endReason {
-            case DisconnectReason.serverReject:
+            case DisconnectReason.serverReject.steamReason:
                 disconnectReason = "Connection failure: server reports authentication failure"
-            case DisconnectReason.serverFull:
+            case DisconnectReason.serverFull.steamReason:
                 disconnectReason = "Connection failure: server is full"
             default:
                 disconnectReason = "Connection failure: server closed connection \(info.endReason)"
-                break
             }
         } else if (oldState == .connecting || oldState == .connected) && info.state == .problemDetectedLocally {
             // Triggered if our connection to the server fails

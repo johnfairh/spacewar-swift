@@ -21,12 +21,21 @@ import Foundation
 import CSpaceWar
 
 /// Disconnect reason - bit of a disaster with the types, raw enum values a bit broken
-enum DisconnectReason {
-    static let clientDisconnect = Int(SteamNetConnectionEnd.appMin.rawValue + 1)
-    static let serverClosed = Int(SteamNetConnectionEnd.appMin.rawValue + 2)
-    static let serverReject = Int(SteamNetConnectionEnd.appMin.rawValue + 3)
-    static let serverFull = Int(SteamNetConnectionEnd.appMin.rawValue + 4)
-    static let clientKicked = Int(SteamNetConnectionEnd.appMin.rawValue + 5)
+enum DisconnectReason: Int {
+    /// System notified us that the client socket/connection failed
+    case clientDisconnect = 1
+    /// Server shutdown
+    case serverClosed = 2
+    /// Initial Steam server authentication faileda
+    case serverReject = 3
+    /// Server is full with players
+    case serverFull = 4
+    /// P2P authentication failed
+    case clientKicked = 5
+
+    var steamReason: Int {
+        Int(SteamNetConnectionEnd.appMin.rawValue) + self.rawValue
+    }
 }
 
 /// Network message types

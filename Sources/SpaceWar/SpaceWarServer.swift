@@ -149,12 +149,8 @@ final class SpaceWarServer {
     /// Destructor
     deinit {
         OutputDebugString("SpaceWarServer deinit")
-        activePlayers.forEach {
-            // Tell this client we are exiting
-            self.serverConnection.send(msg: MsgServerExiting(), to: $0.client, sendFlags: .unreliable)
-            // XXX            self.serverConnection.disconnect(client)
-        }
-
+        // Tell clients we are exiting
+        serverConnection.shutdownAllClients()
         // Disconnect from the steam servers
         steam.gameServer.logOff()
     }
@@ -247,10 +243,10 @@ final class SpaceWarServer {
     // MARK: Game and player database
 
     private func initConnectionCallbacks() {
-        serverConnection.callbackPermitAuth = { [unowned self] in self.connectPermitAuth(client: $0) }
-        serverConnection.callbackAuthSuccess = { [unowned self] in self.connectAuthSuccess(client: $0, steamID: $1) }
-        serverConnection.callbackAuthFailed = { [unowned self] in self.connectAuthFailed(client: $0) }
-        serverConnection.callbackDisconnected = { [unowned self] in self.connectDisconnected(client: $0) }
+        serverConnection.callbackPermitAuth = { [weak self] in self?.connectPermitAuth(client: $0) ?? false }
+        serverConnection.callbackAuthSuccess = { [weak self] in self?.connectAuthSuccess(client: $0, steamID: $1) ?? 0 }
+        serverConnection.callbackAuthFailed = { [weak self] in self?.connectAuthFailed(client: $0) }
+        serverConnection.callbackDisconnected = { [weak self] in self?.connectDisconnected(client: $0) }
     }
 
     /// New client attempting to connect: do we have space?
@@ -509,10 +505,7 @@ final class SpaceWarServer {
             OutputDebugString("SpaceWarServer KickPlayerOffServer Don't know player \(steamID)")
             return
         }
-
-        OutputDebugString("SpaceWarServer Kicking player \(steamID)")
-        serverConnection.send(msg: MsgServerFailAuthentication(), to: player.client, sendFlags: .reliable)
-        // XXX serverConnection.kickPlayer(client: player.client)
+        serverConnection.kick(client: player.client)
     }
 
     /// Called every frame to tell Steam about the game & players
@@ -529,9 +522,9 @@ final class SpaceWarServer {
         steam.gameServer.setMapName(mapName: "MilkyWay")
 
         // Update all the players names/scores
-//        activePlayers.forEach { player in
-//            steam.gameServer.updateUserData(user: player.steamID, playerName: player.ship.playerName, score: player.score)
-// XXX  }
+        activePlayers.forEach { player in
+            _ = steam.gameServer.updateUserData(user: player.steamID, playerName: player.ship.playerName, score: Int(player.score))
+        }
         // game type is a special string you can use for your game to differentiate different game play
         // types occurring on the same maps
         // When users search for this parameter they do a sub-string search of this string

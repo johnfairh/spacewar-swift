@@ -115,7 +115,7 @@ final class SpaceWarServerConnection {
             connect(client: .netConnection(msg.conn))
         } else if (msg.oldState == .connecting || msg.oldState == .connected) &&
                     msg.info.state == .closedByPeer {
-            disconnect(client: .netConnection(msg.conn))
+            disconnect(client: .netConnection(msg.conn), reason: .clientDisconnect)
         }
     }
 
@@ -133,12 +133,12 @@ final class SpaceWarServerConnection {
     }
 
     /// Handle disconnecting a client
-    private func disconnect(client token: ClientToken) {
+    func disconnect(client token: ClientToken, reason: DisconnectReason) {
         guard let client = clients.removeValue(forKey: token) else {
             OutputDebugString("ServerConnection odd disconnect for unknown \(token)")
             return
         }
-        OutputDebugString("ServerConnection disconnect \(token) from \(client.state)")
+        OutputDebugString("ServerConnection disconnect \(token) from \(client.state) because \(reason)")
 
         switch client.state {
         case .pending:
@@ -153,7 +153,7 @@ final class SpaceWarServerConnection {
         }
 
         if case let .netConnection(conn) = token {
-            steam.networkingSockets.closeConnection(peer: conn, reason: DisconnectReason.clientDisconnect, debug: nil, enableLinger: false)
+            steam.networkingSockets.closeConnection(peer: conn, reason: reason.steamReason, debug: nil, enableLinger: false)
         }
 
         if let steamID = client.steamID {
@@ -162,13 +162,29 @@ final class SpaceWarServerConnection {
         }
     }
 
+    /// Frame loop tick, check all clients are still talking to us
     func testClientLivenessTimeouts() {
         clients.forEach { kv in
             if tickSource.currentTickCount.isLongerThan(Misc.SERVER_TIMEOUT_MILLISECONDS, since: kv.value.lastDataTime) {
                 OutputDebugString("ServerConnection client timeout \(kv.key)")
-                disconnect(client: kv.key) /* XXX reason k_EDRClientKicked*/
+                disconnect(client: kv.key, reason: .clientKicked)
             }
         }
+    }
+
+    /// Server shutdown - try to gracefully shut down all the clients
+    func shutdownAllClients() {
+        sendToAll(msg: MsgServerExiting(), sendFlags: .unreliable)
+        clients.keys.forEach {
+            disconnect(client: $0, reason: .serverClosed)
+        }
+    }
+
+    /// P2P authentication failure reported by the local client (?)
+    func kick(client: ClientToken) {
+        OutputDebugString("ServerConnection Kicking player \(steamID)")
+        send(msg: MsgServerFailAuthentication(), to: client, sendFlags: .reliable)
+        disconnect(client: client, reason: .clientKicked)
     }
 
     // MARK: Authentication
@@ -196,7 +212,7 @@ final class SpaceWarServerConnection {
         // We are full (or will be if the pending players auth), deny new login
         guard callbackPermitAuth(message.token) else {
             OutputDebugString("ServerConnection client auth rejected (full)")
-            disconnect(client: message.token) /* XXX reason */
+            disconnect(client: message.token, reason: .serverFull)
             return
         }
 
@@ -209,7 +225,7 @@ final class SpaceWarServerConnection {
         let res = steam.gameServer.beginAuthSession(authTicket: beginAuthMsg.token, steamID: message.sender)
         if res != .ok {
             OutputDebugString("ServerConnection BeginAuthSession failed \(res) \(message.sender)")
-            disconnect(client: message.token) /* XXX reason */
+            disconnect(client: message.token, reason: .serverReject)
         }
     }
 
@@ -228,7 +244,7 @@ final class SpaceWarServerConnection {
             OutputDebugString( "ServerConnection AuthSessionFail(\(msg.authSessionResponse)) for \(token)")
             // Send a deny for the client
             send(msg: MsgServerFailAuthentication(), to: token, sendFlags: .reliable)
-            disconnect(client: token)
+            disconnect(client: token, reason: .serverReject)
             return
         }
 
@@ -293,7 +309,7 @@ final class SpaceWarServerConnection {
                 if connectMsg.connectNotDisconnect {
                     connect(client: .steamID(connectMsg.from))
                 } else {
-                    disconnect(client: .steamID(connectMsg.from))
+                    disconnect(client: .steamID(connectMsg.from), reason: .clientDisconnect)
                 }
             }
         }
