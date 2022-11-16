@@ -40,12 +40,12 @@ final class SpaceWarServer {
 
     /// Active players
     final class Player {
-        var ship: Ship
+        var ship: ServerShip
         var score: UInt32
         let client: ClientToken
         let steamID: SteamID
         let index: PlayerIndex
-        init(ship: Ship, client: ClientToken, steamID: SteamID, index: PlayerIndex) {
+        init(ship: ServerShip, client: ClientToken, steamID: SteamID, index: PlayerIndex) {
             self.ship = ship
             self.score = 0
             self.client = client
@@ -302,7 +302,7 @@ final class SpaceWarServer {
     }
 
     /// Adds/initializes a new player ship at the given position
-    private func addPlayerShip(shipPosition: PlayerIndex) -> Ship {
+    private func addPlayerShip(shipPosition: PlayerIndex) -> ServerShip {
         precondition(shipPosition < Misc.MAX_PLAYERS_PER_SERVER)
 
         let size = engine.viewportSize
@@ -328,7 +328,7 @@ final class SpaceWarServer {
         default:
             preconditionFailure()
         }
-        let ship = Ship(engine: engine, controller: controller, isServerInstance: true, pos: pos, color: Misc.PlayerColors[shipPosition])
+        let ship = ServerShip(engine: engine, controller: controller, pos: pos, color: Misc.PlayerColors[shipPosition])
         ship.setInitialRotation(rotation)
         return ship
     }

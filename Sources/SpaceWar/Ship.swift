@@ -6,7 +6,25 @@
 import MetalEngine
 import simd
 
-final class Ship: SpaceWarEntity {
+
+// This is all very refactorable to simplify the massive class doing two things,
+// but it is all very tangled and the dataflow is a little bit chaotic.  In particular
+// shield strength is written to on both client (recharge) and server (collision).
+// So I ran out of enthusiasm fairly quickly :O
+
+final class ClientShip: Ship {
+    init(engine: Engine2D, controller: Controller, pos: SIMD2<Float>, color: Color2D) {
+        super.init(engine: engine, controller: controller, isServerInstance: false, pos: pos, color: color)
+    }
+}
+
+final class ServerShip: Ship {
+    init(engine: Engine2D, controller: Controller, pos: SIMD2<Float>, color: Color2D) {
+        super.init(engine: engine, controller: controller, isServerInstance: true, pos: pos, color: color)
+    }
+}
+
+class Ship: SpaceWarEntity {
     let controller: Controller
     let shipColor: Color2D
     /// Is this ship instance running inside the server (otherwise it's a client...)
@@ -70,7 +88,7 @@ final class Ship: SpaceWarEntity {
     var vkReverseThrusters: VirtualKey = .none
     var vkFire: VirtualKey = .none
 
-    init(engine: Engine2D, controller: Controller, isServerInstance: Bool, pos: SIMD2<Float>, color: Color2D) {
+    fileprivate init(engine: Engine2D, controller: Controller, isServerInstance: Bool, pos: SIMD2<Float>, color: Color2D) {
         self.shipColor = color
         self.isServerInstance = isServerInstance
         self.controller = controller
@@ -245,8 +263,13 @@ final class Ship: SpaceWarEntity {
             // We can activate action set layers based upon our state.
             // This allows action bindings or settings to be changed on an existing action set for contextual usage
             if forwardThrustActive {
+                if lastThrustStartedTickCount == 0 {
+                    lastThrustStartedTickCount = engine.gameTickCount
+                    controller.triggerHaptics(pad: .left, onMicrosec: 2900, offMicrosec: 1200, repeats: 4)
+                }
                 controller.activateActionSetLayer(.layerThrust)
             } else if controller.isActionSetLayerActive(.layerThrust) {
+                lastThrustStartedTickCount = 0
                 controller.deactivateActionSetLayer(.layerThrust)
             }
 
@@ -269,13 +292,11 @@ final class Ship: SpaceWarEntity {
                 if spaceWarClientUpdateData.thrusterLevel != 0 {
                     sign = spaceWarClientUpdateData.thrusterLevel
                 }
-                if lastThrustStartedTickCount == 0 {
-                    lastThrustStartedTickCount = engine.currentTickCount
-                    // XXX (wtf this is the server, makes no sense...)
-                    controller.triggerHaptics(pad: .left, onMicrosec: 2900, offMicrosec: 1200, repeats: 4)
-                }
 
                 // You have to hold the key for half a second to reach maximum thrust
+                if lastThrustStartedTickCount == 0 {
+                    lastThrustStartedTickCount = engine.currentTickCount
+                }
                 let factor = min(Float(engine.currentTickCount - lastThrustStartedTickCount) / 500.0 + 0.2, 1.0)
 
                 thrust.x = sign * Self.MAXIMUM_SHIP_THRUST * factor * sin(accumulatedRotation)
@@ -288,15 +309,11 @@ final class Ship: SpaceWarEntity {
         }
 
         // Compute fire
-        // We'll use these values in a few places below to compute positions of child objects
-        // appropriately given our rotation
-        let sinValue = sin(accumulatedRotation)
-        let cosValue = cos(accumulatedRotation)
-
         if isLocalPlayer {
             // client side
             spaceWarClientUpdateData.firePressed =
                 engine.isKeyDown(vkFire) || controller.isActionActive(.fireLasers)
+            controller.triggerHaptics(pad: .right, onMicrosec: 1200, offMicrosec: 2500, repeats: 3)
         } else if let nextAvailablePhotonBeamSlot,
                   isServerInstance,
                   !isExploding,
@@ -329,6 +346,10 @@ final class Ship: SpaceWarEntity {
                 }
             } else {
                 let speed = Float(shipWeapon == 2 ? 500 : 275)
+
+                let sinValue = sin(accumulatedRotation)
+                let cosValue = cos(accumulatedRotation)
+
                 let beamVelocity = SIMD2(velocity.x + sinValue * speed,
                                          velocity.y - cosValue * speed)
 
@@ -337,8 +358,6 @@ final class Ship: SpaceWarEntity {
                                     pos.y + cosValue * -12)
 
                 photonBeams[nextAvailablePhotonBeamSlot] = PhotonBeam(engine: engine, pos: beamPos, beamColor: shipColor, initialRotation: accumulatedRotation, initialVelocity: beamVelocity)
-                // XXX again this is the server...
-                controller.triggerHaptics(pad: .right, onMicrosec: 1200, offMicrosec: 2500, repeats: 3)
             }
         }
 
@@ -501,7 +520,7 @@ final class Ship: SpaceWarEntity {
                 if let beam = photonBeams[i] {
                     beam.onReceiveServerUpdate(data: pdata)
                 } else {
-                    photonBeams[i] = PhotonBeam(engine: engine, pos: pdata.position,
+                    photonBeams[i] = PhotonBeam(engine: engine, pos: pdata.position * engine.viewportSize,
                                                 beamColor: shipColor,
                                                 initialRotation: pdata.currentRotation,
                                                 initialVelocity: pdata.velocity)
@@ -536,7 +555,7 @@ final class Ship: SpaceWarEntity {
 
         // Update playername before sending
         if isLocalPlayer {
-            spaceWarClientUpdateData.playerName = "Walaspi" // XXX steam.friends.getPersonaName()
+            // spaceWarClientUpdateData.playerName done by caller
             spaceWarClientUpdateData.shipDecoration = shipDecoration
             spaceWarClientUpdateData.shipWeapon = shipWeapon
             spaceWarClientUpdateData.shipPower = shipPower
@@ -612,7 +631,7 @@ final class Ship: SpaceWarEntity {
 
     /// Update the vibration effects for the ship
     func updateVibrationEffects() {
-        if explosionTickCount > 0 {
+        if !isServerInstance && explosionTickCount > 0 {
             let vibration = min(Float(engine.gameTickCount - explosionTickCount) / 1000.0, 1.0)
             if vibration == 1.0 {
                 controller.triggerVibration(leftSpeed: 0, rightSpeed: 0)
@@ -772,8 +791,8 @@ final class PhotonBeam: SpaceWarEntity {
         // Set a really high max velocity for photon beams
         super.init(engine: engine, collisionRadius: 3, affectedByGravity: true, maximumVelocity: 50)
 
-        addLine( xPos0: -2.0, yPos0: -3.0, xPos1: -2.0, yPos1: 3.0, color: beamColor)
-        addLine( xPos0: 2.0, yPos0: -3.0, xPos1: 2.0, yPos1: 3.0, color: beamColor)
+        addLine(xPos0: -2.0, yPos0: -3.0, xPos1: -2.0, yPos1: 3.0, color: beamColor)
+        addLine(xPos0: 2.0, yPos0: -3.0, xPos1: 2.0, yPos1: 3.0, color: beamColor)
         self.pos = pos
         self.rotationDeltaNextFrame = initialRotation
         self.velocity = initialVelocity

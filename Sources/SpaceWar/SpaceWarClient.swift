@@ -61,7 +61,7 @@ final class SpaceWarClient {
         /// Current scores,
         var playerScores: [UInt32]
         /// Current ship objects
-        var ships: [Ship?]
+        var ships: [ClientShip?]
 
         init() {
             playerShipIndex = 0
@@ -300,6 +300,7 @@ final class SpaceWarClient {
         if clientConnection.isFullyConnected,
            let ship = gameState.ships[gameState.playerShipIndex],
            let update = ship.getClientUpdateData() {
+            update.playerName = steam.friends.getPersonaName()
             let msg = MsgClientSendLocalUpdate(shipPosition: gameState.playerShipIndex, update: update)
 
             // Send update as unreliable message.  This means that if network packets drop,
@@ -478,11 +479,10 @@ final class SpaceWarClient {
             // Check if we have a ship created locally for this player slot, if not create it
             if gameState.ships[i] == nil {
                 let shipData = msg.shipData[i]
-                let ship = Ship(engine: engine,
-                                controller: controller,
-                                isServerInstance: false,
-                                pos: shipData.position * engine.viewportSize,
-                                color: Misc.PlayerColors[i])
+                let ship = ClientShip(engine: engine,
+                                      controller: controller,
+                                      pos: shipData.position * engine.viewportSize,
+                                      color: Misc.PlayerColors[i])
                 gameState.ships[i] = ship
 
                 if i == gameState.playerShipIndex {
