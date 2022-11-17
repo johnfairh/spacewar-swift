@@ -203,6 +203,7 @@ final class SpaceWarClient {
         clientConnection.serverName.map { quitMenu.heading = $0 }
 
         var frameRc = FrameRc.game
+        var renderHUD = false
 
         switch state.state {
         case .idle:
@@ -250,8 +251,8 @@ final class SpaceWarClient {
 //                    m_rgpWorkshopItems[i]->RunFrame();
 //            }
 
-//            DrawHUDText();
-//
+            renderHUD = true
+
             statsAndAchievements.runFrame()
 
             voiceChat.runFrame()
@@ -264,8 +265,8 @@ final class SpaceWarClient {
             // Update all the entities (this is client side interpolation)...
             sun.runFrame()
             gameState.ships.forEach { $0?.runFrame() }
-//
-//            DrawHUDText();
+
+            renderHUD = true
             clientLayout.drawWinnerDrawOrWaitingText(state: state, winner: gameState.playerSteamIDs[gameState.playerWhoWonGame])
 
             voiceChat.runFrame()
@@ -299,7 +300,7 @@ final class SpaceWarClient {
         // Send an update on our local ship to the server
         if clientConnection.isFullyConnected,
            let ship = gameState.ships[gameState.playerShipIndex],
-           let update = ship.getClientUpdateData() {
+           var update = ship.getClientUpdateData() {
             update.playerName = steam.friends.getPersonaName()
             let msg = MsgClientSendLocalUpdate(shipPosition: gameState.playerShipIndex, update: update)
 
@@ -335,8 +336,11 @@ final class SpaceWarClient {
             break
 
         default:
-            // Any needed drawing was already done above before server updates
             break
+        }
+
+        if renderHUD {
+            clientLayout.drawHUDText(info: hudInfo)
         }
 
         if frameRc != .game {
@@ -437,6 +441,18 @@ final class SpaceWarClient {
             return false
         }
         return ship.isLocalPlayer
+    }
+
+    /// Info massaged for drawing the HUD
+    private var hudInfo: [SpaceWarClientLayout.HUDInfo?] {
+        gameState.ships.enumerated().map { i, ship -> SpaceWarClientLayout.HUDInfo? in
+            guard ship != nil else {
+                return nil
+            }
+            return .init(steamID: gameState.playerSteamIDs[i],
+                         isTalking: voiceChat.isPlayerTalking(gameState.playerSteamIDs[i]),
+                         score: gameState.playerScores[i])
+        }
     }
 
     // MARK: Server/Client data update

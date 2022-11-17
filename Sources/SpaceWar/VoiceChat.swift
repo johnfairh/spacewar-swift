@@ -31,4 +31,8 @@ final class VoiceChat {
 
     func markPlayerAsActive(steamID: SteamID) {
     }
+
+    func isPlayerTalking(_ steamID: SteamID) -> Bool {
+        true
+    }
 }
