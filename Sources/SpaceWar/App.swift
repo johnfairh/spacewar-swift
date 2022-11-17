@@ -57,6 +57,10 @@ struct SpaceWarApp: App {
 
     /// Steam API initialization dance
     private func initSteam() -> (SteamAPI, Controller) {
+        // Set our log handler before SteamAPI creates a logger
+        SWLogHandler.setup()
+        LoggingSystem.bootstrap(SWLogHandler.init)
+
         guard let steam = SteamAPI(appID: .spaceWar, fakeAppIdTxtFile: true) else {
             alert("Fatal Error", "Steam must be running to play this game (SteamAPI_Init() failed).");
             preconditionFailure("SteamInit failed")
@@ -127,3 +131,77 @@ func Steamworks_InitCEGLibrary() -> Bool { true }
 func Steamworks_TermCEGLibrary() {}
 func Steamworks_TestSecret() {}
 func Steamworks_SelfCheck() {}
+
+import Logging
+
+/// A `LogHandler` which logs to stdout and a file -- big hack yikes need to find a proper logger
+struct SWLogHandler: LogHandler {
+
+    static func setup() {
+        unlink(Self.LOGFILE)
+    }
+
+    static let LOGFILE = "/Users/johnf/project/swift-spacewar/latest-log"
+
+    /// Create a `SyslogLogHandler`.
+    public init(label: String) {
+        self.label = label
+    }
+
+    public let label: String
+
+    public var logLevel: Logger.Level = .info
+
+    public func log(level: Logger.Level,
+                    message: Logger.Message,
+                    metadata: Logger.Metadata?,
+                    source: String,
+                    file: String,
+                    function: String,
+                    line: UInt) {
+        let prettyMetadata = metadata?.isEmpty ?? true
+            ? prettyMetadata
+            : prettify(self.metadata.merging(metadata!, uniquingKeysWith: { _, new in new }))
+
+        let msg = "\(self.timestamp()) \(level) \(label) :\(prettyMetadata.map { " \($0)" } ?? "") [\(source)] \(message)"
+
+        print(msg)
+        let f = fopen(Self.LOGFILE, "a")
+        fputs("\(msg)\n", f)
+        fclose(f)
+    }
+
+    private var prettyMetadata: String?
+    public var metadata = Logger.Metadata() {
+        didSet {
+            prettyMetadata = prettify(metadata)
+        }
+    }
+
+    public subscript(metadataKey metadataKey: String) -> Logger.Metadata.Value? {
+        get {
+            metadata[metadataKey]
+        }
+        set {
+            metadata[metadataKey] = newValue
+        }
+    }
+
+    private func prettify(_ metadata: Logger.Metadata) -> String? {
+        !metadata.isEmpty
+            ? metadata.lazy.sorted(by: { $0.key < $1.key }).map { "\($0)=\($1)" }.joined(separator: " ")
+            : nil
+    }
+
+    private func timestamp() -> String {
+        var buffer = [Int8](repeating: 0, count: 255)
+        var timestamp = time(nil)
+        let localTime = localtime(&timestamp)
+        strftime(&buffer, buffer.count, "%H:%M:%S%z", localTime)
+        return buffer.withUnsafeBufferPointer {
+            $0.withMemoryRebound(to: CChar.self) {
+                String(cString: $0.baseAddress!)
+            }
+        }
+    }
+}
