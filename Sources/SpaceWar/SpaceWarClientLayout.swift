@@ -186,55 +186,30 @@ final class SpaceWarClientLayout {
         }
     }
 
-    ////-----------------------------------------------------------------------------
-    //// Purpose: Draws some instructions on how to play the game
-    ////-----------------------------------------------------------------------------
-    //void CSpaceWarClient::DrawInstructions()
-    //{
-    //    const int32 width = m_pGameEngine->GetViewportWidth();
-    //
-    //    RECT rect;
-    //    rect.top = 0;
-    //    rect.bottom = m_pGameEngine->GetViewportHeight();
-    //    rect.left = 0;
-    //    rect.right = width;
-    //
-    //    char rgchBuffer[256];
-    //#ifdef _PS3
-    //    sprintf_safe( rgchBuffer, "Turn Ship Left: 'Left'\nTurn Ship Right: 'Right'\nForward Thrusters: 'R2'\nReverse Thrusters: 'L2'\nFire Photon Beams: 'Cross'" );
-    //#else
-    //    sprintf_safe( rgchBuffer, "Turn Ship Left: 'A'\nTurn Ship Right: 'D'\nForward Thrusters: 'W'\nReverse Thrusters: 'S'\nFire Photon Beams: 'Space'" );
-    //#endif
-    //
-    //    m_pGameEngine->BDrawString( m_hInstructionsFont, rect, D3DCOLOR_ARGB( 255, 25, 200, 25 ), TEXTPOS_CENTER|TEXTPOS_VCENTER, rgchBuffer );
-    //
-    //
-    //    rect.left = 0;
-    //    rect.right = width;
-    //    rect.top = LONG(m_pGameEngine->GetViewportHeight() * 0.7);
-    //    rect.bottom = m_pGameEngine->GetViewportHeight();
-    //
-    //    if ( m_pGameEngine->BIsSteamInputDeviceActive() )
-    //    {
-    //        const char *rgchActionOrigin = m_pGameEngine->GetTextStringForControllerOriginDigital( eControllerActionSet_MenuControls, eControllerDigitalAction_MenuCancel );
-    //
-    //        if ( strcmp( rgchActionOrigin, "None" ) == 0 )
-    //        {
-    //            sprintf_safe( rgchBuffer, "Press ESC to return to the Main Menu. No controller button bound\n Build ID:%d", SteamApps()->GetAppBuildId() );
-    //        }
-    //        else
-    //        {
-    //            sprintf_safe( rgchBuffer, "Press ESC or '%s' to return the Main Menu\n Build ID:%d", rgchActionOrigin, SteamApps()->GetAppBuildId() );
-    //        }
-    //    }
-    //    else
-    //    {
-    //        sprintf_safe( rgchBuffer, "Press ESC to return to the Main Menu\n Build ID:%d", SteamApps()->GetAppBuildId() );
-    //    }
-    //
-    //    m_pGameEngine->BDrawString( m_hInstructionsFont, rect, D3DCOLOR_ARGB( 255, 25, 200, 25 ), TEXTPOS_CENTER|TEXTPOS_TOP, rgchBuffer );
-    //
-    //}
+    /// Draws some instructions on how to play the game
+    func drawInstructions() {
+        engine.drawText("Turn Ship Left: 'A'\nTurn Ship Right: 'D'\nForward Thrusters: 'W'\nReverse Thrusters: 'S'\nFire Photon Beams: 'Space'",
+                        font: instructionsFont, color: .rgb_i(25, 200, 25),
+                        x: 0, y: 0, width: engine.viewportSize.x, height: engine.viewportSize.y,
+                        align: .center, valign: .center)
+
+        let exitStr: String
+        let buildID = steam.apps.getAppBuildId()
+        if controller.isSteamInputDeviceActive {
+            let origin = controller.getText(set: .menuControls, action: .menuCancel)
+            if origin == "None" {
+                exitStr = "Press ESC to return to the Main Menu. No controller button bound\n Build ID: \(buildID)"
+            } else {
+                exitStr = "Press ESC or '\(origin)' to return to the Main Menu\n Build ID: \(buildID)"
+            }
+        } else {
+            exitStr = "Press ESC to return to the Main Menu\n Build ID:\(buildID)"
+        }
+
+        engine.drawText(exitStr, font: instructionsFont, color: .rgb_i(25, 200, 25),
+                        x: 0, y: engine.viewportSize.y * 0.7, width: engine.viewportSize.x, height: engine.viewportSize.y * 0.3,
+                        align: .center, valign: .top)
+    }
 
     /// Draws some text about who just won (or that there was a draw)
     func drawWinnerDrawOrWaitingText(state: MonitoredState<SpaceWarClient.State>, winner: SteamID) {

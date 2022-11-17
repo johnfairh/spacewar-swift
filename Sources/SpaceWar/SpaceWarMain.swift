@@ -417,12 +417,11 @@ final class SpaceWarMain {
     //        break;
 
 
-            //    case k_EClientGameInstructions:
-            //        DrawInstructions();
-            //
-            //        if ( bEscapePressed )
-            //            SetGameState( k_EClientGameMenu );
-            //        break;
+        case .menuItem(.gameInstructions):
+            gameClient.drawInstructions()
+            if escapePressed {
+                gameState.set(.mainMenu)
+            }
 
             //    case k_EClientWorkshop:
             //        DrawWorkshopItems();

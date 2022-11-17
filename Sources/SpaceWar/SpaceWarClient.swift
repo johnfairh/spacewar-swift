@@ -130,6 +130,10 @@ final class SpaceWarClient {
         clientConnection.connect(ip: serverAddress, port: port)
     }
 
+    func drawInstructions() {
+        clientLayout.drawInstructions()
+    }
+
     // MARK: State machine
 
     func onStateChanged() {
@@ -375,12 +379,12 @@ final class SpaceWarClient {
                 onReceiveServerUpdate(msg: MsgServerUpdateWorld(data: data))
 
             case .voiceChatData:
-                // This is really bad exmaple code that just assumes the message is the right size
+                // This is really bad example code that just assumes the message is the right size
                 // Don't ship code like this.
                 voiceChat.handleVoiceChatData(msg: MsgVoiceChatData(data: data))
 
             case .P2PSendingTicket:
-                // This is really bad exmaple code that just assumes the message is the right size
+                // This is really bad example code that just assumes the message is the right size
                 // Don't ship code like this.
                 p2pAuthedGame.handleP2PSendingTicket(msg: MsgP2PSendingTicket(data: data))
 
