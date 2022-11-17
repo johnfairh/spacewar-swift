@@ -222,12 +222,12 @@ final class Controller {
 
     /// Trigger vibration on the controller, if supported by controller
     func triggerVibration(leftSpeed: UInt16, rightSpeed: UInt16) {
-        steam.input.triggerVibration(handle: activeControllerHandle, leftSpeed: Int(leftSpeed), rightSpeed: Int(rightSpeed))
+        steam.input.triggerVibration(handle: activeControllerHandle, leftSpeed: leftSpeed, rightSpeed: rightSpeed)
     }
 
     /// Trigger haptics on the controller, if supported by controller
-    func triggerHaptics(pad: SteamControllerPad, onMicrosec: Int, offMicrosec: Int, repeats: Int) {
-        steam.input.legacyTriggerRepeatedHapticPulse(handle: activeControllerHandle, targetPad: pad, durationMicroSec: onMicrosec, offMicroSec: offMicrosec, repeat: repeats, flags: 0)
+    func triggerHaptics(pad: SteamControllerPad, onMicrosec: UInt16, offMicrosec: UInt16, repeats: UInt16) {
+        steam.input.legacyTriggerRepeatedHapticPulse(handle: activeControllerHandle, targetPad: pad, durationMicroSec: onMicrosec, offMicroSec: offMicrosec, repeat: repeats)
     }
 
     /// Set the trigger effect on DualSense controllers

@@ -523,7 +523,7 @@ final class SpaceWarServer {
 
         // Update all the players names/scores
         activePlayers.forEach { player in
-            _ = steam.gameServer.updateUserData(user: player.steamID, playerName: player.ship.playerName, score: Int(player.score))
+            steam.gameServer.updateUserData(user: player.steamID, playerName: player.ship.playerName, score: Int(player.score))
         }
         // game type is a special string you can use for your game to differentiate different game play
         // types occurring on the same maps
