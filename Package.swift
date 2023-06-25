@@ -1,15 +1,15 @@
-// swift-tools-version: 5.7
+// swift-tools-version: 5.9
 
 import PackageDescription
 
 let package = Package(
   name: "spacewar-swift",
   platforms: [
-    .macOS("12.0"),
+    .macOS("13.0"),
   ],
   dependencies: [
     .package(url: "https://github.com/johnfairh/steamworks-swift",
-             branch: "main"),
+             from: "0.3.0"),
     .package(url: "https://github.com/johnfairh/TMLEngines",
              from: "1.2.0")
   ],
@@ -27,7 +27,8 @@ let package = Package(
         .process("Resources/steam_input_manifest.vdf"),
         .process("Resources/xbox_controller.vdf"),
         .process("Resources/ps5_controller.vdf")
-      ]
+      ],
+      swiftSettings: [.interoperabilityMode(.Cxx)]
     ),
     .systemLibrary(name: "CSpaceWar")
   ]

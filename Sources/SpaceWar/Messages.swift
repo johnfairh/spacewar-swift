@@ -138,13 +138,13 @@ extension Bool {
 
 /// Fixed-size array tuple bullshit. holy fuck.
 extension Array {
-    static func four<X>(_ p: UnsafeMutablePointer<X>, map: (X) -> Element) -> Array<Element>{
-        let bp = UnsafeMutableBufferPointer(start: p, count: 4)
+    static func four<X>(_ p: UnsafePointer<X>, map: (X) -> Element) -> Array<Element>{
+        let bp = UnsafeBufferPointer(start: p, count: 4)
         return bp.map(map)
     }
 
-    static func seven<X>(_ p: UnsafeMutablePointer<X>, map: (X) -> Element) -> Array<Element>{
-        let bp = UnsafeMutableBufferPointer(start: p, count: 7)
+    static func seven<X>(_ p: UnsafePointer<X>, map: (X) -> Element) -> Array<Element>{
+        let bp = UnsafeBufferPointer(start: p, count: 7)
         return bp.map(map)
     }
 
@@ -623,10 +623,10 @@ extension MsgP2PSendingTicket_t: ConstructableFrom {
         if let buf = from.buffer {
             precondition(buf.count <= 1024)
             self.tokenLen = UInt32(buf.count).bigEndian
-            self.token_ptr.assign(from: buf.baseAddress!, count: buf.count)
+            self.token_ptr.update(from: buf.baseAddress!, count: buf.count)
         } else {
             self.tokenLen = UInt32(from.token.count).bigEndian
-            self.token_ptr.assign(from: from.token, count: from.token.count)
+            self.token_ptr.update(from: from.token, count: from.token.count)
         }
     }
 }
@@ -665,11 +665,11 @@ extension MsgVoiceChatData_t: ConstructableFrom {
             // got msg from a client, forwarding it...
             precondition(buf.count <= 1024) /* ahem */
             self.dataLength = UInt32(buf.count).bigEndian
-            self.data_ptr.assign(from: buf.baseAddress!, count: buf.count)
+            self.data_ptr.update(from: buf.baseAddress!, count: buf.count)
         } else {
             // created msg here, converting from swift
             self.dataLength = UInt32(from.data.count).bigEndian
-            self.data_ptr.assign(from: from.data, count: from.data.count)
+            self.data_ptr.update(from: from.data, count: from.data.count)
         }
     }
 }

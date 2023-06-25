@@ -31,7 +31,7 @@ class VectorEntity {
 
     /// The distance travelled since the last frame
     var distanceTraveledLastFrame: Float {
-        simd_distance(pos, posLastFrame)
+        my_distance(pos, posLastFrame) // XXX CxxInterop simd_distance(pos, posLastFrame)
     }
 
     /// Current velocity - normally computed from acceleration
@@ -100,7 +100,7 @@ class VectorEntity {
 
         // Make sure velocity does not exceed maximum allowed - this scales it while
         // keeping the aspect ratio consistent
-        let linearVelocity = simd_length(velocity)
+        let linearVelocity = my_length(velocity) // XXX CxxInterop simd_length(velocity)
         if linearVelocity > maximumVelocity {
             let ratio = maximumVelocity / linearVelocity
             velocity *= ratio
@@ -143,7 +143,8 @@ class VectorEntity {
             return false
         }
 
-        return simd_distance(pos, target.pos) < collisionRadius + target.collisionRadius
+//        return simd_distance(pos, target.pos) < collisionRadius + target.collisionRadius XXX CxxInterop
+        return my_distance(pos, target.pos) < collisionRadius + target.collisionRadius
     }
 }
 

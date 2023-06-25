@@ -1,5 +1,7 @@
 #ifndef CSPACEWAR_H
 
+extern "C" {
+
 #include <string.h>
 
 typedef short int16;
@@ -8,7 +10,7 @@ typedef int int32;
 typedef unsigned int uint32;
 typedef long long int64;
 typedef unsigned long long uint64;
-typedef unsigned char bool;
+typedef unsigned char netbool;
 typedef unsigned char uint8;
 typedef uint32 netfloat; // network rep of single-prec floating-point
 
@@ -20,7 +22,7 @@ typedef uint32 netfloat; // network rep of single-prec floating-point
 typedef struct {
     uint32 messageType;
     uint64 steamIDServer;
-    bool isVACSecure;
+    netbool isVACSecure;
     char serverName[128];
 } MsgServerSendInfo_t;
 
@@ -60,8 +62,14 @@ typedef struct {
 
 #define ARRAY_GETTER(TYPE,FIELD,FIELDTYPE) \
 __attribute__((swift_name("getter:" #TYPE "." #FIELD "_ptr(self:)"))) \
+static inline const FIELDTYPE * _Nonnull TYPE ## _Get ## FIELD (const TYPE * _Nonnull t) { \
+    return &t->FIELD[0]; \
+}
+
+#define ARRAY_MUTABLE_GETTER(TYPE,FIELD,FIELDTYPE) \
+__attribute__((swift_name("getter:" #TYPE "." #FIELD "_ptr(self:)"))) \
 static inline FIELDTYPE * _Nonnull TYPE ## _Get ## FIELD (const TYPE * _Nonnull t) { \
-    return t->FIELD; \
+    return const_cast<FIELDTYPE *>(&t->FIELD[0]); \
 }
 
 ARRAY_GETTER(MsgClientBeginAuthentication_t, token, uint8)
@@ -76,11 +84,11 @@ static inline void MsgClientBeginAuthentication_SetToken(MsgClientBeginAuthentic
 typedef struct {
   uint32 messageType;
   uint32 tokenLen;
-  char   token[1024];
+  uint8  token[1024];
   uint64 steamID;
 } MsgP2PSendingTicket_t;
 
-ARRAY_GETTER(MsgP2PSendingTicket_t, token, uint8)
+ARRAY_MUTABLE_GETTER(MsgP2PSendingTicket_t, token, uint8)
 
 typedef struct {
     uint32 messageType;
@@ -89,13 +97,13 @@ typedef struct {
     uint8  data[1024];
 } MsgVoiceChatData_t;
 
-ARRAY_GETTER(MsgVoiceChatData_t, data, uint8)
+ARRAY_MUTABLE_GETTER(MsgVoiceChatData_t, data, uint8)
 
 // MARK: Game, Server -> Client
 
 typedef struct {
     // Does the photon beam exist right now?
-    bool isActive;
+    netbool isActive;
 
     // The current rotation
     netfloat currentRotation;
@@ -132,14 +140,14 @@ typedef struct {
     netfloat yPosition;
 
     // Is the ship exploding?
-    bool exploding;
+    netbool exploding;
 
     // Is the ship disabled?
-    bool disabled;
+    netbool disabled;
 
     // Are the thrusters to be drawn?
-    bool forwardThrustersActive;
-    bool reverseThrustersActive;
+    netbool forwardThrustersActive;
+    netbool reverseThrustersActive;
 
     // Decoration for this ship
     int32 shipDecoration;
@@ -173,7 +181,7 @@ typedef struct {
   uint32 playerWhoWonGame;
 
   // which player slots are in use
-  bool playersActive[MAX_PLAYERS_PER_SERVER];
+  netbool playersActive[MAX_PLAYERS_PER_SERVER];
 
   // what are the scores for each player?
   uint32 playerScores[MAX_PLAYERS_PER_SERVER];
@@ -185,7 +193,7 @@ typedef struct {
   uint64 playerSteamIDs[MAX_PLAYERS_PER_SERVER];
 } ServerSpaceWarUpdateData_t;
 
-ARRAY_GETTER(ServerSpaceWarUpdateData_t, playersActive, bool)
+ARRAY_GETTER(ServerSpaceWarUpdateData_t, playersActive, netbool)
 ARRAY_GETTER(ServerSpaceWarUpdateData_t, playerScores, uint32)
 ARRAY_GETTER(ServerSpaceWarUpdateData_t, shipData, ServerShipUpdateData_t)
 ARRAY_GETTER(ServerSpaceWarUpdateData_t, playerSteamIDs, uint64)
@@ -199,11 +207,11 @@ typedef struct {
 
 typedef struct {
     // Key's which are done
-    bool firePressed;
-    bool turnLeftPressed;
-    bool turnRightPressed;
-    bool forwardThrustersPressed;
-    bool reverseThrustersPressed;
+    netbool firePressed;
+    netbool turnLeftPressed;
+    netbool turnRightPressed;
+    netbool forwardThrustersPressed;
+    netbool reverseThrustersPressed;
 
     // Decoration for this ship
     int32 shipDecoration;
@@ -239,5 +247,7 @@ typedef struct {
 } MsgClientSendLocalUpdate_t;
 
 #pragma pack( pop )
+
+}
 
 #endif
