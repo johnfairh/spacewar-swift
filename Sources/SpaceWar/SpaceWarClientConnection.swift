@@ -84,7 +84,9 @@ final class SpaceWarClientConnection {
     private(set) var connectionError: String?
     /// The net connection for the current connection/attempted connection, or nil if none
     private(set) var netConnection: HSteamNetConnection?
-    /// The Steam ID of the game server, or nil if not connected/don't know yet
+    /// The server steam ID we've been asked to connect to
+    private(set) var serverSteamIDFromBrowser: SteamID?
+    /// The actual Steam ID of the game server, or nil if not connected/don't know yet
     private(set) var serverSteamID: SteamID?
     /// The name of the server, if known
     private(set) var serverName: String?
@@ -102,8 +104,9 @@ final class SpaceWarClientConnection {
         precondition(state == .notConnected || state == .pingingServer, "Server connection already busy: \(state)")
         OutputDebugString("ClientConnection \(state) -> connectingP2P")
         state = .connectingP2P
-        serverSteamID = steamID
-        
+        serverSteamIDFromBrowser = steamID // save this, what we connected to
+        serverSteamID = steamID // for now, may overwrite in a response
+
         if !FAKE_NET_USE {
             let identity = SteamNetworkingIdentity(steamID)
             netConnection = steam.networkingSockets.connectP2P(identityRemote: identity, remoteVirtualPort: 0, options: [])
@@ -308,7 +311,16 @@ final class SpaceWarClientConnection {
         // this lets our friends connect to this game via their friends list
         updateRichPresence()
 
-        let authStatus = steam.user.getAuthSessionTicket()
+        // if the server Steam ID was aquired from another source ( m_steamIDGameServerFromBrowser )
+        // then use it as the identity
+        // if it only came from the server itself, then use the IP address
+        let identity: SteamNetworkingIdentity
+        if serverSteamID == serverSteamIDFromBrowser {
+            identity = .init(serverSteamID!)
+        } else {
+            identity = .init(SteamNetworkingIPAddr(ipv4: serverIP!, port: serverPort!))
+        }
+        let authStatus = steam.user.getAuthSessionTicket(steamNetworkingIdentity: identity)
         if authStatus.ticketSize < 1 {
             OutputDebugString("Warning: Looks like GetAuthSessionTicket didn't give us a good ticket")
         }

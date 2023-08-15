@@ -211,7 +211,7 @@ final class Controller {
     // MARK: Effects
 
     /// Set the LED color on the controller, if supported by controller
-    func setColor(_ color: Color2D, flags: SteamControllerLEDFlag) {
+    func setColor(_ color: Color2D, flags: SteamInputLEDFlag) {
         let channels = color.integerChannels
         steam.input.setLEDColor(handle: activeControllerHandle,
                                 colorR: UInt8(channels.r),

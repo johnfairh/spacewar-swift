@@ -17,7 +17,7 @@ import Dispatch
 struct SpaceWarApp: App {
     init() {
         // Some nonsense to simulate a library that probably doesn't exist
-        Steamworks_InstallCEGHooks(initCEG: Steamworks_InitCEGLibrary, termCEG: Steamworks_TermCEGLibrary)
+        SteamAPI.installCEGHooks(initCEG: Steamworks_InitCEGLibrary, termCEG: Steamworks_TermCEGLibrary)
 
 #if SWIFT_PACKAGE
         // Some nonsense to make the app work properly when built outside of Xcode.
