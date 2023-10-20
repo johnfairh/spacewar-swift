@@ -5,8 +5,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/johnfairh/steamworks-swift",
       "state" : {
-        "revision" : "a127c38e25b1222d945c77a358638c4eea882e0e",
-        "version" : "0.4.0"
+        "branch" : "main-xcode",
+        "revision" : "50ac174c7fe1c29e23b66362dcb363ed20243504"
       }
     },
     {

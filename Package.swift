@@ -9,7 +9,7 @@ let package = Package(
   ],
   dependencies: [
     .package(url: "https://github.com/johnfairh/steamworks-swift",
-             from: "0.4.0"),
+             branch: "main-xcode"),
     .package(url: "https://github.com/johnfairh/TMLEngines",
              from: "1.2.0")
   ],
