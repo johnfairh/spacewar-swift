@@ -9,16 +9,16 @@ on:
 jobs:
   macos:
     name: build
-    runs-on: macos-13
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_15.0.app/Contents/Developer
-
+    runs-on: macos-14
     steps:
       - name: Checkout steamworks SDK
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: johnfairh/steamworks-swift-sdk
           path: steamworks-sdk
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: 15.3
 
       - name: Checkout spacewar
         uses: actions/checkout@v3
@@ -27,5 +27,5 @@ jobs:
 
       - name: Build
         run: |
-          cd steamworks-sdk && make install && cd ..
+          cd steamworks-sdk && sudo make install && cd ..
           cd spacewar && swift build
