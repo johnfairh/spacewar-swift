@@ -11,6 +11,7 @@ import MetalEngine
 /// Get a specific Steam image RGBA as a game texture
 ///
 /// `SpaceWarClient::GetSteamImageAsTexture()`
+@MainActor
 struct TextureCache {
     private let steam: SteamAPI
     private let engine: Engine2D

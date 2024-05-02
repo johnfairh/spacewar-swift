@@ -14,6 +14,7 @@ import MetalEngine
 /// 1) Create Lobby -> start server locally and join it
 /// 2) Browse for existing lobby -> join it -> join server remotely
 ///
+@MainActor
 class Lobbies {
     private let steam: SteamAPI
     private let engine: Engine2D

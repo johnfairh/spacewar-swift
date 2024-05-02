@@ -10,6 +10,7 @@ typealias Radians = Float
 
 /// An entity with fixed geometry that has position and acceleration in space, updating itself by frame
 /// Subclasses expected to tweak parameters
+@MainActor
 class VectorEntity {
     let engine: Engine2D
     let collisionRadius: Float
@@ -31,7 +32,7 @@ class VectorEntity {
 
     /// The distance travelled since the last frame
     var distanceTraveledLastFrame: Float {
-        my_distance(pos, posLastFrame) // XXX CxxInterop simd_distance(pos, posLastFrame)
+        simd_distance(pos, posLastFrame)
     }
 
     /// Current velocity - normally computed from acceleration
@@ -49,7 +50,7 @@ class VectorEntity {
     private(set) var rotationDeltaLastFrame: Radians
 
     /// Max velocity in pixels per second
-    static let DEFAULT_MAXIMUM_VELOCITY: Float = 450
+    static nonisolated let DEFAULT_MAXIMUM_VELOCITY: Float = 450
 
     init(engine: Engine2D, collisionRadius: Float, maximumVelocity: Float = VectorEntity.DEFAULT_MAXIMUM_VELOCITY) {
         self.engine = engine
@@ -100,7 +101,7 @@ class VectorEntity {
 
         // Make sure velocity does not exceed maximum allowed - this scales it while
         // keeping the aspect ratio consistent
-        let linearVelocity = my_length(velocity) // XXX CxxInterop simd_length(velocity)
+        let linearVelocity = simd_length(velocity)
         if linearVelocity > maximumVelocity {
             let ratio = maximumVelocity / linearVelocity
             velocity *= ratio
@@ -143,8 +144,7 @@ class VectorEntity {
             return false
         }
 
-//        return simd_distance(pos, target.pos) < collisionRadius + target.collisionRadius XXX CxxInterop
-        return my_distance(pos, target.pos) < collisionRadius + target.collisionRadius
+        return simd_distance(pos, target.pos) < collisionRadius + target.collisionRadius
     }
 }
 

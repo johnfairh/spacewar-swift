@@ -419,6 +419,7 @@ final class SpaceWarLocalInventory {
 
 /// This gets accessed from all over the place so we mimic the global getter
 extension SpaceWarLocalInventory {
+    @MainActor
     static var instance: SpaceWarLocalInventory {
         SpaceWarApp.instance!.inventory
     }

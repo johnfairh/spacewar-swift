@@ -6,6 +6,7 @@
 import MetalEngine
 
 /// Shared things and constants
+@MainActor
 private enum Menu {
     static var font: Font2D!
 
@@ -18,6 +19,7 @@ private enum Menu {
 }
 
 /// General menu class that can draw itself, scroll, and report selection to a callback
+@MainActor
 class BaseMenu<ItemData: Equatable & MenuItemNamed> {
     private let engine: Engine2D
     private let controller: Controller

@@ -6,6 +6,7 @@
 
 import MetalEngine
 
+@MainActor
 final class StarField {
     private static let STAR_COUNT = 600
 

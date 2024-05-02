@@ -28,6 +28,7 @@ import MetalEngine
 /// notice, its watchdog at the top of `runFrame()` will trigger.
 ///
 /// Factored out of SpaceWarClient to save my sanity.
+@MainActor
 final class SpaceWarClientConnection {
     let steam: SteamAPI
     let tickSource: TickSource
@@ -422,7 +423,7 @@ final class SpaceWarClientConnection {
 // MARK: ServerPing
 
 /// Helper to ping/query a server from an IP address
-private final class ServerPing: SteamMatchmakingPingResponse {
+private final class ServerPing: SteamMatchmakingPingResponse, @unchecked Sendable {
     private let steam: SteamAPI
     private weak var connection: SpaceWarClientConnection?
     private var serverQuery: HServerQuery?
@@ -441,7 +442,9 @@ private final class ServerPing: SteamMatchmakingPingResponse {
     func serverResponded(server: GameServerItem) {
         if let connection {
             OutputDebugString("ClientConnection ping response, connecting to Steam ID")
-            connection.connect(steamID: server.steamID)
+            MainActor.assumeIsolated {
+                connection.connect(steamID: server.steamID)
+            }
         }
     }
 

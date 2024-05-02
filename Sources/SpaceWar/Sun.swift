@@ -5,6 +5,7 @@
 
 import MetalEngine
 
+@MainActor
 final class Sun: SpaceWarEntity {
     static let VECTOR_SCALE_FACTOR: Float = 14
 

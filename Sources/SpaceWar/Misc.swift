@@ -86,6 +86,7 @@ struct Debounced {
 /// Record time of state change
 /// Provide call to execute code first time made in new state
 /// Provide setter to nop if already there and execute code if not
+@MainActor
 final class MonitoredState<ActualState: Equatable> {
     let tickSource: TickSource
     let name: String

@@ -7,6 +7,7 @@ import Steamworks
 import MetalEngine
 
 /// Routines from spacewarclient to do with drawing graphics on screen
+@MainActor
 final class SpaceWarClientLayout {
     let steam: SteamAPI
     let controller: Controller

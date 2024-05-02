@@ -14,6 +14,7 @@ import Dispatch
 /// Don't actually create the client or set up Steam until the engine starts up and gives
 /// us a context to create objects and hang stuff on.
 @main
+@MainActor
 struct SpaceWarApp: App {
     init() {
         // Some nonsense to simulate a library that probably doesn't exist
@@ -53,12 +54,13 @@ struct SpaceWarApp: App {
     }
 
     /// Might need to reach around here from random places, not sure
+    @MainActor
     static private(set) var instance: SpaceWarMain?
 
     /// Steam API initialization dance
     private func initSteam() -> (SteamAPI, Controller) {
         // Set our log handler before SteamAPI creates a logger
-        SWLogHandler.setup()
+        SWLogHandler.setup(level: .trace)
         LoggingSystem.bootstrap(SWLogHandler.init)
 
         guard let steam = SteamAPI(appID: .spaceWar, fakeAppIdTxtFile: true) else {
@@ -69,7 +71,6 @@ struct SpaceWarApp: App {
         // Debug handlers
         steam.useLoggerForSteamworksWarnings()
         steam.networkingUtils.useLoggerForDebug(detailLevel: .everything)
-        SteamAPI.logger.logLevel = .debug
 
         // Ensure that the user has logged into Steam. This will always return true if the game is launched
         // from Steam, but if Steam is at the login prompt when you run your game from the debugger, it
@@ -122,8 +123,9 @@ struct SpaceWarApp: App {
 }
 
 /// Top-level debug logging
+let logger = Logger(label: "SpaceWar")
 func OutputDebugString(_ msg: String) {
-    SteamAPI.logger.debug(.init(stringLiteral: msg))
+    logger.debug(.init(stringLiteral: msg))
 }
 
 /// CEG -- don't think this exists on macOS, we don't have it at any rate
@@ -137,20 +139,24 @@ import Logging
 /// A `LogHandler` which logs to stdout and a file -- big hack yikes need to find a proper logger
 struct SWLogHandler: LogHandler {
 
-    static func setup() {
+    static func setup(level: Logger.Level = .info) {
         unlink(Self.LOGFILE)
+        defaultLevel = level
     }
+
+    private nonisolated(unsafe) static var defaultLevel: Logger.Level = .info
 
     static let LOGFILE = "/Users/johnf/project/swift-spacewar/latest-log"
 
     /// Create a `SyslogLogHandler`.
     public init(label: String) {
         self.label = label
+        self.logLevel = SWLogHandler.defaultLevel
     }
 
     public let label: String
 
-    public var logLevel: Logger.Level = .info
+    public var logLevel: Logger.Level
 
     public func log(level: Logger.Level,
                     message: Logger.Message,

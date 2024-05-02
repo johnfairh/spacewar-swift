@@ -10,6 +10,7 @@ typealias ClientToken = FakeNetToken
 
 /// Component of SpaceWarServer to manage a set of connected clients, abstracting
 /// network access and `FAKE_NET` stuff.
+@MainActor
 final class SpaceWarServerConnection {
     let steam: SteamGameServerAPI
     let tickSource: TickSource
@@ -93,9 +94,12 @@ final class SpaceWarServerConnection {
         if let pollGroup {
             steam.networkingSockets.destroyPollGroup(pollGroup: pollGroup)
         }
-        if FAKE_NET_USE && steamID.isValid {
-            FakeNet.stopListening(at: steamID)
-            FakeNet.freeEndpoint(for: steamID)
+        let sID = steamID
+        if FAKE_NET_USE && sID.isValid {
+            MainActor.assumeIsolated {
+                FakeNet.stopListening(at: steamID)
+                FakeNet.freeEndpoint(for: steamID)
+            }
         }
     }
 

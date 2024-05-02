@@ -18,6 +18,7 @@ import Foundation
 /// Though I have modularized slightly rather than having one massive state enum.
 ///
 /// No PS3 accommodations.
+@MainActor
 final class SpaceWarMain {
     private let engine: Engine2D
     private let steam: SteamAPI
@@ -47,6 +48,7 @@ final class SpaceWarMain {
     private(set) var gameState: MonitoredState<State>
     private var cancelInput: Debounced
     private var infrequent: Debounced
+    private var networkRcvTask: Task<Void, Never>?
 
     init(engine: Engine2D, steam: SteamAPI, controller: Controller) {
         self.engine = engine
@@ -105,12 +107,21 @@ final class SpaceWarMain {
             steam.networkingUtils.initRelayNetworkAccess()
         }
 
-        Timer.scheduledTimer(withTimeInterval: 0.005, repeats: true) { [weak self] _ in
-            self?.receiveNetworkData()
+        networkRcvTask = Task { [weak self] in
+            MainActor.assertIsolated() // does isolation inheritance work?
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(5))
+                self?.receiveNetworkData()
+            }
+            OutputDebugString("NetworkRcvTask exitting")
         }
 
         initSteamNotifications()
         initCommandLine()
+    }
+
+    deinit {
+        networkRcvTask?.cancel()
     }
 
     // MARK: General Steam Infrastructure Interlocks

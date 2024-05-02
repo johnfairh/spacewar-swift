@@ -58,7 +58,9 @@ final class FakeMsgEndpoint: CustomStringConvertible {
     }
 }
 
+@MainActor
 class FakeNet {
+    @MainActor
     private static var endpoints: [SteamID : FakeMsgEndpoint] = [:]
 
     static var enableReporting = 0
@@ -171,6 +173,7 @@ extension SteamNetworkingMessage : SteamMsgProtocol {
 /// Versions of send/receive that are `FAKE_NET` aware
 extension SteamNetworkingSockets {
     /// `FAKE_NET_USE`-aware send-msg function
+    @MainActor
     func sendMessageToConnection(conn: HSteamNetConnection?, from: SteamID, to: SteamID, data: UnsafeRawPointer, dataSize: Int, sendFlags: SteamNetworkingSendFlags) -> (rc: Result, messageNumber: Int) {
         if FAKE_NET_USE {
             FakeNet.send(from: from, to: to, data: data, size: dataSize)
@@ -184,6 +187,7 @@ extension SteamNetworkingSockets {
     }
 
     /// `FAKE_NET_USE`-aware recv-msgs function
+    @MainActor
     func receiveMessagesOnConnection(conn: HSteamNetConnection?, steamID: SteamID, maxMessages: Int) -> (rc: Int, messages: [SteamMsgProtocol]) {
         if FAKE_NET_USE {
             var msgs = [FakeClientMsg]()

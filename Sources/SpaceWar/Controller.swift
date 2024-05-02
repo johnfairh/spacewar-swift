@@ -8,7 +8,7 @@ import struct MetalEngine.Color2D
 
 // The platform-independent part of 'engine' to do with wrangling SteamInput
 
-final class Controller {
+final class Controller: @unchecked Sendable {
     let steam: SteamAPI
 
     // MARK: Button bindings

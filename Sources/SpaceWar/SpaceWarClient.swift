@@ -11,6 +11,7 @@ import Foundation
 ///
 /// SpaceWarMain is in charge of this, initializes it and passes it the baton of
 /// running a game, with either a local server or connecting to one.
+@MainActor
 final class SpaceWarClient {
     private let steam: SteamAPI
     private let engine: Engine2D
@@ -102,8 +103,10 @@ final class SpaceWarClient {
     }
 
     deinit {
-        clientConnection.disconnect(reason: "Client object deletion")
-        disconnect()
+        MainActor.assumeIsolated { // sure...
+            clientConnection.disconnect(reason: "Client object deletion")
+            disconnect()
+        }
     }
 
     // MARK: Kick-off entrypoints

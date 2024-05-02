@@ -9,6 +9,7 @@ import simd
 
 typealias PlayerIndex = Int /* 0...3 */
 
+@MainActor
 final class SpaceWarServer {
     let engine: Engine2D
     let controller: Controller
@@ -150,7 +151,9 @@ final class SpaceWarServer {
     deinit {
         OutputDebugString("SpaceWarServer deinit")
         // Tell clients we are exiting
-        serverConnection.shutdownAllClients()
+        MainActor.assumeIsolated { // jeepers creepers...
+            serverConnection.shutdownAllClients()
+        }
         // Disconnect from the steam servers
         steam.gameServer.logOff()
     }
