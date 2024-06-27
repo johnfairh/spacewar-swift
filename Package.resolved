@@ -1,13 +1,13 @@
 {
-  "originHash" : "0e835b31f6c99de6fcc976f46a22a3f635ba60b860700b86b6104956fd572882",
+  "originHash" : "a33c95d3128da4c89d3ec83b75e5b1df79f39a5b510fbf752156fc487d86a2fb",
   "pins" : [
     {
       "identity" : "steamworks-swift",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/johnfairh/steamworks-swift",
       "state" : {
-        "revision" : "a55227dc4f155977147d7cb66c0d164c6139a870",
-        "version" : "0.5.2"
+        "branch" : "main",
+        "revision" : "b8555dc8e017f9c2f48a8de78fae0c8efc47d28f"
       }
     },
     {
@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-log.git",
       "state" : {
-        "revision" : "e97a6fcb1ab07462881ac165fdbb37f067e205d5",
-        "version" : "1.5.4"
+        "revision" : "9cb486020ebf03bfa5b5df985387a14a98744537",
+        "version" : "1.6.1"
       }
     },
     {
@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/johnfairh/TMLEngines",
       "state" : {
-        "revision" : "3a728fea123425746bea5ec0b07ee6c80eb6c53d",
-        "version" : "1.3.3"
+        "revision" : "de8ce9a42bd55394daf2d37b2c5767a0d0725e8c",
+        "version" : "1.3.4"
       }
     }
   ],

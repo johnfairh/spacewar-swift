@@ -1,4 +1,4 @@
-// swift-tools-version: 5.10
+// swift-tools-version: 6.0
 
 import PackageDescription
 
@@ -9,9 +9,9 @@ let package = Package(
   ],
   dependencies: [
     .package(url: "https://github.com/johnfairh/steamworks-swift",
-             from: "0.5.2"),
+             branch: "main"),
     .package(url: "https://github.com/johnfairh/TMLEngines",
-             from: "1.3.3")
+             from: "1.3.4")
   ],
   targets: [
     .executableTarget(
