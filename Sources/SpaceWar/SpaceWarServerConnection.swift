@@ -17,6 +17,8 @@ final class SpaceWarServerConnection {
     let serverName: String
     let listenSocket: HSteamListenSocket?
     let pollGroup: HSteamNetPollGroup?
+    private var netConnectionTask: Task<Void, Never>?
+    private var authResponseTask: Task<Void, Never>!
 
     /// Server callback to check it's OK to allow a client to start the auth process
     var callbackPermitAuth: (ClientToken) -> Bool = { _ in true }
@@ -61,16 +63,21 @@ final class SpaceWarServerConnection {
             listenSocket = steam.networkingSockets.createListenSocketP2P(localVirtualPort: 0, options: [])
             pollGroup = steam.networkingSockets.createPollGroup()
 
-            steam.onSteamNetConnectionStatusChangedCallback { [weak self] in
-                self?.onNetConnectionStatusChanged(msg: $0)
+            netConnectionTask = Task { [weak self] in
+                for await msg in steam.steamNetConnectionStatusChangedCallback {
+                    self?.onNetConnectionStatusChanged(msg: msg)
+                }
             }
         } else {
             listenSocket = nil
             pollGroup = nil
+            netConnectionTask = nil
         }
 
-        steam.onValidateAuthTicketResponse { [weak self] in
-            self?.onAuthSessionResponse(msg: $0)
+        authResponseTask = Task { [weak self] in
+            for await msg in steam.validateAuthTicketResponse {
+                self?.onAuthSessionResponse(msg: msg)
+            }
         }
     }
 
@@ -88,12 +95,16 @@ final class SpaceWarServerConnection {
 
     deinit {
         OutputDebugString("ServerConnection deinit")
+        authResponseTask.cancel()
+
         if let listenSocket {
             steam.networkingSockets.closeListenSocket(socket: listenSocket)
         }
         if let pollGroup {
             steam.networkingSockets.destroyPollGroup(pollGroup: pollGroup)
         }
+        netConnectionTask?.cancel()
+
         let sID = steamID
         if FAKE_NET_USE && sID.isValid {
             MainActor.assumeIsolated {

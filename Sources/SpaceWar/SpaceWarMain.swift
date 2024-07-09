@@ -128,38 +128,48 @@ final class SpaceWarMain {
 
     /// Connect to general Steam notifications, roughly all lifecycle-related
     private func initSteamNotifications() {
-        steam.onIPCFailure { [weak self] msg in
-            // Some awful O/S or library error
-            self?.forceQuit(reason: "Steam IPC Failure (\(msg.failureType))")
-        }
-
-        steam.onSteamShutdown { [weak self] _ in
-            // Steam shutdown request due to a user in a second concurrent session
-            // requesting to play this game
-            self?.forceQuit(reason: "Steam Shutdown")
-        }
-
-        steam.onSteamServersDisconnected { [weak self] _ in
-            // Notification that we've been disconnected from Steam
-            guard let self else {
-                return
-            }
-            self.gameState.set(.connectingToSteam)
-            OutputDebugString("Got SteamServersDisconnected_t")
-        }
-
-        steam.onSteamServersConnected { [weak self] _ in
-            // Notification that we are reconnected to Steam
-            if let self, self.steam.user.loggedOn() {
-                self.gameState.set(.mainMenu)
-            } else {
-                OutputDebugString("Got SteamServersConnected, but not logged on?")
+        Task { [weak self, steam] in
+            for await msg in steam.ipcFailure {
+                // Some awful O/S or library error
+                self?.forceQuit(reason: "Steam IPC Failure (\(msg.failureType))")
             }
         }
 
-        steam.onDurationControl { [weak self] msg in
-            // Notification that a Steam China duration control event has happened
-            self?.onDurationControl(msg: msg)
+        Task { [weak self, steam] in
+            for await _ in steam.steamShutdown {
+                // Steam shutdown request due to a user in a second concurrent session
+                // requesting to play this game
+                self?.forceQuit(reason: "Steam Shutdown")
+            }
+        }
+
+        Task { [weak self, steam] in
+            for await _ in steam.steamServersDisconnected {
+                // Notification that we've been disconnected from Steam
+                guard let self else {
+                    break
+                }
+                self.gameState.set(.connectingToSteam)
+                OutputDebugString("Got SteamServersDisconnected_t")
+            }
+        }
+
+        Task { [weak self, steam] in
+            for await _ in steam.steamServersConnected {
+                // Notification that we are reconnected to Steam
+                if let self, self.steam.user.loggedOn() {
+                    self.gameState.set(.mainMenu)
+                } else {
+                    OutputDebugString("Got SteamServersConnected, but not logged on?")
+                }
+            }
+        }
+
+        Task { [weak self, steam] in
+            for await msg in steam.durationControl {
+                // Notification that a Steam China duration control event has happened
+                self?.onDurationControl(msg: msg)
+            }
         }
     }
 
@@ -209,7 +219,7 @@ final class SpaceWarMain {
             // 'join game' on a friend in their friends list
             OutputDebugString("RichPresenceJoinRequested: \(msg.connect)")
             if let self, let params = CmdLineParams(launchString: msg.connect) {
-                self.execCommandLineConnect(params: params)
+                Task { await self.execCommandLineConnect(params: params) }
             }
         }
 
@@ -217,7 +227,7 @@ final class SpaceWarMain {
             // a Steam URL to launch this app was executed while the game is
             // already running, eg steam://run/480//+connect%20127.0.0.1
             if let self, let params = CmdLineParams(steam: self.steam) {
-                self.execCommandLineConnect(params: params)
+                Task { await self.execCommandLineConnect(params: params) }
             }
         }
     }
@@ -270,8 +280,8 @@ final class SpaceWarMain {
     func runOccasionally() {
         // Update duration control
         if steam.utils.isSteamChinaLauncher() {
-            steam.user.getDurationControl() { [weak self] msg in
-                if let msg, let self {
+            Task {
+                if let msg = await steam.user.getDurationControl() {
                     self.onDurationControl(msg: msg)
                 }
             }

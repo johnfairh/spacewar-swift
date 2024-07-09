@@ -162,23 +162,29 @@ final class SpaceWarServer {
         // Tells us when we have successfully connected to Steam
         steam.onSteamServersConnected { [weak self] msg in
             OutputDebugString("SpaceWarServer connected to Steam successfully")
-            if let self {
-                self.isConnectedToSteam = true
-                self.serverConnection.steamID = self.steam.gameServer.getSteamID()
-                // log on is not finished until OnPolicyResponse() is called
+            MainActor.assumeIsolated {
+                if let self {
+                    self.isConnectedToSteam = true
+                    self.serverConnection.steamID = self.steam.gameServer.getSteamID()
+                    // log on is not finished until OnPolicyResponse() is called
+                }
             }
         }
 
         // Tells us when there was a failure to connect to Steam
         steam.onSteamServerConnectFailure { [weak self] _ in
             OutputDebugString("SpaceWarServer failed to connect to Steam")
-            self?.isConnectedToSteam = false
+            MainActor.assumeIsolated {
+                self?.isConnectedToSteam = false
+            }
         }
 
         // Tells us when we have been logged out of Steam
         steam.onSteamServersDisconnected { [weak self] _ in
             OutputDebugString("SpaceWarServer got logged out of Steam")
-            self?.isConnectedToSteam = false
+            MainActor.assumeIsolated {
+                self?.isConnectedToSteam = false
+            }
         }
 
         // Tells us that Steam has set our security policy (VAC on or off)

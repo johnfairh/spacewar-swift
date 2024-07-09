@@ -74,8 +74,10 @@ final class SpaceWarClientConnection {
         self.connectionStartTime = 0
         self.lastNetworkDataReceivedTime = 0
 
-        steam.onSteamNetConnectionStatusChangedCallback { [weak self] in
-            self?.onSteamNetConnectionStatusChanged(msg: $0)
+        Task { [weak self] in
+            for await msg in steam.steamNetConnectionStatusChangedCallback {
+                self?.onSteamNetConnectionStatusChanged(msg: msg)
+            }
         }
     }
 
