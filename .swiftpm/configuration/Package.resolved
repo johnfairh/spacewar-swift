@@ -1,13 +1,13 @@
 {
-  "originHash" : "3cc2a485937c52ec78310cc6e35ad84d961e1806b86b6b80241d994f379c382f",
+  "originHash" : "a33c95d3128da4c89d3ec83b75e5b1df79f39a5b510fbf752156fc487d86a2fb",
   "pins" : [
     {
       "identity" : "steamworks-swift",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/johnfairh/steamworks-swift",
       "state" : {
-        "revision" : "411f4848da65afb1b267f9472d44ac9fca7fb208",
-        "version" : "0.5.4"
+        "branch" : "main",
+        "revision" : "411f4848da65afb1b267f9472d44ac9fca7fb208"
       }
     },
     {
