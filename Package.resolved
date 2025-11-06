@@ -7,7 +7,7 @@
       "location" : "https://github.com/johnfairh/steamworks-swift",
       "state" : {
         "branch" : "main",
-        "revision" : "411f4848da65afb1b267f9472d44ac9fca7fb208"
+        "revision" : "30cbe4c7775e4d97b22ede102152ba137a1c502f"
       }
     },
     {
@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-log.git",
       "state" : {
-        "revision" : "9cb486020ebf03bfa5b5df985387a14a98744537",
-        "version" : "1.6.1"
+        "revision" : "ce592ae52f982c847a4efc0dd881cc9eb32d29f2",
+        "version" : "1.6.4"
       }
     },
     {
@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/johnfairh/TMLEngines",
       "state" : {
-        "revision" : "de8ce9a42bd55394daf2d37b2c5767a0d0725e8c",
-        "version" : "1.3.4"
+        "revision" : "bb7abf404a37193e93a7715ae66d0b55eae4fa1c",
+        "version" : "1.3.5"
       }
     }
   ],
