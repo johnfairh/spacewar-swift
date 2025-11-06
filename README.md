@@ -3,7 +3,7 @@
 
 Educational port of Steamworks demo to Swift for macOS with Metal backend.
 
-Needs Xcode 15.3 / Swift 5.10
+Needs Xcode 26 / Swift 6.2
 
 Needs Steam up and logged in; best run from CLI `swift run` - see CI for
 pre-reqs.

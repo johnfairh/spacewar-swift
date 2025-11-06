@@ -1,11 +1,11 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
 
 import PackageDescription
 
 let package = Package(
   name: "spacewar-swift",
   platforms: [
-    .macOS("14.0"),
+    .macOS("15.0"),
   ],
   dependencies: [
     .package(url: "https://github.com/johnfairh/steamworks-swift",
