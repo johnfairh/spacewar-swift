@@ -265,7 +265,7 @@ class Ship: SpaceWarEntity {
             if forwardThrustActive {
                 if lastThrustStartedTickCount == 0 {
                     lastThrustStartedTickCount = engine.gameTickCount
-                    controller.triggerHaptics(pad: .left, onMicrosec: 2900, offMicrosec: 1200, repeats: 4)
+                    controller.triggerHaptics(pad: .padLeft, onMicrosec: 2900, offMicrosec: 1200, repeats: 4)
                 }
                 controller.activateActionSetLayer(.layerThrust)
             } else if controller.isActionSetLayerActive(.layerThrust) {
@@ -313,7 +313,7 @@ class Ship: SpaceWarEntity {
             // client side
             spaceWarClientUpdateData.firePressed =
                 engine.isKeyDown(vkFire) || controller.isActionActive(.fireLasers)
-            controller.triggerHaptics(pad: .right, onMicrosec: 1200, offMicrosec: 2500, repeats: 3)
+            controller.triggerHaptics(pad: .padRight, onMicrosec: 1200, offMicrosec: 2500, repeats: 3)
         } else if let nextAvailablePhotonBeamSlot,
                   isServerInstance,
                   !isExploding,

@@ -158,6 +158,18 @@ struct SWLogHandler: LogHandler {
 
     public var logLevel: Logger.Level
 
+    // Implement the new Logging API requirement to avoid using the deprecated default implementation.
+    public func log(event: Logging.LogEvent) {
+        // Forward to our existing log implementation to keep behavior consistent.
+        self.log(level: event.level,
+                 message: event.message,
+                 metadata: event.metadata,
+                 source: event.source,
+                 file: event.file,
+                 function: event.function,
+                 line: event.line)
+    }
+
     public func log(level: Logger.Level,
                     message: Logger.Message,
                     metadata: Logger.Metadata?,
